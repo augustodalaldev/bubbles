@@ -3,6 +3,9 @@
 ## Pillar 1 — Structural
 - [x] 1.1 Initial setup (backend only; frontend setup comes in the React block)
 - [ ] 1.2 Models (full class diagram + economy base)
+  - [x] Slice 1: User & Community models (`accounts`, `communities`)
+  - [x] Slice 2: Economy base (`EconomySettings`, `Wallet`, `SoapTransaction`, services, exceptions)
+  - [ ] Slice 3: Content & Social models (`content`, `social`)
 - [ ] 1.3 Users (CRUD)
 - [ ] 1.4 Communities (CRUD)
 

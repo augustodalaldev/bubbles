@@ -46,3 +46,12 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 | `deleted_` username prefix reserved | Anonymized accounts become `deleted_<id>` |
 | `UserConnection` with surrogate id + unique (Q9) | Simplest option |
 | `UploadTo` + Django `STORAGES` for uploads | Local now, S3 later with no model changes |
+
+## Step 1.2 — slice 2: Economy base (2026-11-04)
+| Decision | Reason |
+|---|---|
+| `DomainError` in `apps.core.exceptions`, `InsufficientSoap` in `apps.economy.exceptions` | Decouples domain rule violations from HTTP/DRF and allows rich context (`cost`, `balance`) |
+| `EconomySettings` singleton enforced by DB constraint (`chk_economy_settings_singleton`) and short cache | Avoids magic numbers, tunable via admin panel without redeployment |
+| `Wallet` with strict owner XOR constraint (`chk_wallet_exactly_one_owner`) | Wallets belong to either a User or a Community, never both or neither |
+| `SoapTransaction` append-only enforcement in DB + model | Ledger integrity: rows cannot be edited or deleted; amount signs match action types |
+| Row-locking with ascending PK order in `apply_movements` | Prevents deadlocks during concurrent multi-wallet movements inside `transaction.atomic()` |
