@@ -9,7 +9,7 @@ from apps.communities.tests.factories import CommunityFactory
 from apps.core.exceptions import DomainError
 from apps.economy.exceptions import InsufficientSoap
 from apps.economy.models import ActionType, SoapTransaction, Wallet
-from apps.economy.services import apply_movements, credit, debit
+from apps.economy.services import apply_movements, credit, debit, spend_customization
 from apps.economy.tests.factories import WalletFactory
 
 pytestmark = pytest.mark.django_db
@@ -92,6 +92,62 @@ class TestDebitService:
 
         with pytest.raises(DomainError, match="positive integer"):
             debit(wallet, -10, action_type=ActionType.DEBIT_INTERACTION)
+
+
+class TestSpendCustomizationService:
+    def test_user_wallet_can_spend_on_customization(self):
+        user = UserFactory()
+        wallet = WalletFactory(user=user, community=None, soap_balance=50)
+
+        tx = spend_customization(wallet, 15)
+
+        wallet.refresh_from_db()
+        assert wallet.soap_balance == 35
+        assert tx.pk is not None
+        assert tx.wallet == wallet
+        assert tx.amount == -15
+        assert tx.balance_after == 35
+        assert tx.action_type == ActionType.SPEND_CUSTOMIZATION
+
+    def test_community_wallet_can_spend_on_customization(self):
+        community = CommunityFactory()
+        wallet = WalletFactory(
+            user=None,
+            community=community,
+            soap_balance=100,
+            passive_earn_rate=None,
+        )
+
+        tx = spend_customization(wallet, 40)
+
+        wallet.refresh_from_db()
+        assert wallet.soap_balance == 60
+        assert tx.pk is not None
+        assert tx.wallet == wallet
+        assert tx.amount == -40
+        assert tx.balance_after == 60
+        assert tx.action_type == ActionType.SPEND_CUSTOMIZATION
+
+    def test_spend_customization_raises_when_insufficient_balance(self):
+        wallet = WalletFactory(soap_balance=5)
+
+        with pytest.raises(InsufficientSoap) as exc_info:
+            spend_customization(wallet, 10)
+
+        assert exc_info.value.cost == 10
+        assert exc_info.value.balance == 5
+        wallet.refresh_from_db()
+        assert wallet.soap_balance == 5
+        assert not SoapTransaction.objects.filter(wallet=wallet).exists()
+
+    def test_spend_customization_rejects_non_positive_cost(self):
+        wallet = WalletFactory(soap_balance=50)
+
+        with pytest.raises(DomainError, match="positive integer"):
+            spend_customization(wallet, 0)
+
+        with pytest.raises(DomainError, match="positive integer"):
+            spend_customization(wallet, -5)
 
 
 class TestApplyMovementsService:

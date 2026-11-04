@@ -21,8 +21,35 @@ def test_new_community_has_sensible_defaults():
     assert community.member_count == 0
     assert community.archived_at is None
     assert not community.is_archived
+    assert community.customization_json == {}
     assert community.created_at is not None
     assert str(community) == community.commname
+
+
+def test_community_customization_json_persists_settings():
+    customization = {
+        "theme_color": "#2c3e50",
+        "header_pattern": "bubbles_floating",
+        "badge_icon": "star",
+    }
+    community = CommunityFactory(customization_json=customization)
+    community.refresh_from_db()
+
+    assert community.customization_json == customization
+
+
+def test_community_field_limits_remain_60_and_500():
+    assert Community._meta.get_field("name").max_length == 60
+    assert Community._meta.get_field("description").max_length == 500
+
+    # 60 chars for name passes
+    valid_comm = CommunityFactory.build(name="a" * 60)
+    valid_comm.full_clean()
+
+    # 61 chars for name should fail
+    with pytest.raises(ValidationError) as exc:
+        CommunityFactory.build(name="a" * 61).full_clean()
+    assert "name" in exc.value.message_dict
 
 
 def test_archived_community_reports_is_archived():
@@ -70,6 +97,10 @@ class TestDatabaseConstraints:
     def test_commname_longer_than_21_characters_is_rejected_by_column_type(self):
         with pytest.raises(DataError), transaction.atomic():
             raw_community(commname="a" * 22).save()
+
+    def test_name_longer_than_60_characters_is_rejected_by_column_type(self):
+        with pytest.raises(DataError), transaction.atomic():
+            raw_community(name="a" * 61).save()
 
     @pytest.mark.parametrize("commname", ["abc", "a" * 21, "board_games"])
     def test_valid_commname_is_accepted_by_database(self, commname):

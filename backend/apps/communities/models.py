@@ -36,6 +36,7 @@ class Community(models.Model):
     guidelines = models.TextField(max_length=2000, blank=True)
     community_photo = models.ImageField(upload_to=UploadTo("community_photos"), blank=True)
     banner_photo = models.ImageField(upload_to=UploadTo("community_banners"), blank=True)
+    customization_json = models.JSONField(default=dict, blank=True)
     # Cached counter of non-banned members. Only changed with F() expressions in the
     # same transaction as the join/leave/ban that causes it.
     member_count = models.PositiveIntegerField(default=0)

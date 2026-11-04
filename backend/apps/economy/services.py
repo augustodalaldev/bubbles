@@ -192,3 +192,14 @@ def debit(
         )
     ]
     return apply_movements(movements, origin=origin)[0]
+
+
+def spend_customization(
+    wallet: Wallet,
+    cost: int,
+) -> SoapTransaction:
+    """Debit soap from a wallet to purchase profile or community visual customizations.
+
+    `cost` must be a positive integer.
+    """
+    return debit(wallet, cost, action_type=ActionType.SPEND_CUSTOMIZATION)

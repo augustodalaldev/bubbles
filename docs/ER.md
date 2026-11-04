@@ -39,9 +39,10 @@ erDiagram
         string username UK "lowercase, 3-30 chars, [a-z0-9_]"
         string email UK "case-insensitive unique"
         string password "hashed"
-        string name "max 100"
+        string name "max 50"
         date birth_date "min 14 years old"
-        text description "max 500"
+        text description "max 250"
+        json customization_json "profile customizations (colors, borders, etc.)"
         string profile_photo "upload_to profile_photos"
         datetime created_at
         datetime deleted_at "soft-delete anonymization"
@@ -62,6 +63,7 @@ erDiagram
         string name "max 60"
         text description "max 500"
         text guidelines "max 2000"
+        json customization_json "community customizations (colors, borders, etc.)"
         string community_photo "upload_to community_photos"
         string banner_photo "upload_to community_banners"
         integer member_count "cached counter"
@@ -91,7 +93,7 @@ erDiagram
         bigint id PK
         bigint wallet_id FK
         integer amount "negative for debits, positive for credits"
-        string action_type "DEBIT_INTERACTION | CREDIT_AUTHOR | etc."
+        string action_type "DEBIT_INTERACTION | CREDIT_AUTHOR | SPEND_CUSTOMIZATION | etc."
         integer balance_after "balance snapshot >= 0"
         string idempotency_key UK "nullable, unique when set"
         bigint bubblegram_support_id FK "nullable origin"

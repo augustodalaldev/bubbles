@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
+from django.core.validators import MaxLengthValidator
 from django.db import models
 from django.db.models import F, Q
 from django.db.models.functions import Lower
@@ -24,10 +25,15 @@ class User(AbstractBaseUser, PermissionsMixin):
         error_messages={"unique": "This username is not available."},
     )
     email = models.EmailField()
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=50)
     birth_date = models.DateField(validators=[validate_birth_date])
-    description = models.TextField(max_length=500, blank=True)
+    description = models.TextField(
+        max_length=250,
+        blank=True,
+        validators=[MaxLengthValidator(250)],
+    )
     profile_photo = models.ImageField(upload_to=UploadTo("profile_photos"), blank=True)
+    customization_json = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     deleted_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)

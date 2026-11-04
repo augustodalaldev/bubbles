@@ -67,3 +67,11 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 | `Letter.reply_to` unique constraint `uniq_one_reply_per_letter` | Enforces at most one direct reply letter per original letter |
 | `SoapTransaction` origin foreign keys with `chk_tx_single_origin` | Connects ledger rows to supports with `SET_NULL` cascade and at most one origin FK |
 
+## Pre-1.3 Adjustments: Profile Customizations & User Limits (2026-11-04)
+| Decision | Reason |
+|---|---|
+| User name max 50 chars, description max 250 chars | Tighter constraints for concise user profiles; community limits remain at 60 and 500 |
+| `customization_json` on `User` and `Community` (`JSONField`, default `dict`) | Flexible JSON configuration storing visual customizations (background colors, profile borders, etc.) |
+| `SPEND_CUSTOMIZATION` action type & `spend_customization` service helper | Explicit ledger tracking for soap spent on visual customizations by user or community wallets |
+
+

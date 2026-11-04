@@ -108,6 +108,40 @@ class TestFieldValidation:
 
         assert "__all__" in exc.value.message_dict or "email" in exc.value.message_dict
 
+    def test_name_up_to_50_chars_passes_full_clean(self):
+        user = UserFactory.build(name="a" * 50)
+        user.full_clean()
+
+    def test_name_longer_than_50_chars_fails_full_clean(self):
+        user = UserFactory.build(name="a" * 51)
+        with pytest.raises(ValidationError) as exc:
+            user.full_clean()
+        assert "name" in exc.value.message_dict
+
+    def test_description_up_to_250_chars_passes_full_clean(self):
+        user = UserFactory.build(description="d" * 250)
+        user.full_clean()
+
+    def test_description_longer_than_250_chars_fails_full_clean(self):
+        user = UserFactory.build(description="d" * 251)
+        with pytest.raises(ValidationError) as exc:
+            user.full_clean()
+        assert "description" in exc.value.message_dict
+
+    def test_customization_json_defaults_to_dict(self):
+        user = UserFactory()
+        assert user.customization_json == {}
+
+    def test_customization_json_persists_visual_choices(self):
+        customization = {
+            "background_color": "#1a1a2e",
+            "profile_border": "neon_blue",
+            "badges": ["early_adopter", "verified_soap"],
+        }
+        user = UserFactory(customization_json=customization)
+        user.refresh_from_db()
+        assert user.customization_json == customization
+
 
 class TestDatabaseConstraints:
     def test_username_must_be_unique(self):
@@ -134,6 +168,10 @@ class TestDatabaseConstraints:
     def test_username_longer_than_30_characters_is_rejected_by_column_type(self):
         with pytest.raises(DataError), transaction.atomic():
             raw_user(username="a" * 31).save()
+
+    def test_name_longer_than_50_characters_is_rejected_by_column_type(self):
+        with pytest.raises(DataError), transaction.atomic():
+            raw_user(name="a" * 51).save()
 
     @pytest.mark.parametrize("username", ["abc", "a" * 30, "user_01"])
     def test_valid_username_is_accepted_by_database(self, username):
