@@ -191,6 +191,20 @@ class SoapTransaction(models.Model):
     action_type = models.CharField(max_length=30, choices=ActionType.choices)
     balance_after = models.PositiveIntegerField()
     idempotency_key = models.CharField(max_length=100, null=True, blank=True, unique=True)
+    bubblegram_support = models.ForeignKey(
+        "content.BubblegramSupport",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transactions",
+    )
+    comment_support = models.ForeignKey(
+        "content.CommentSupport",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transactions",
+    )
     created_at = models.DateTimeField(default=timezone.now, editable=False)
 
     class Meta:
@@ -206,6 +220,10 @@ class SoapTransaction(models.Model):
                 ),
                 name="chk_tx_amount_sign",
             ),
+            models.CheckConstraint(
+                condition=~(Q(bubblegram_support__isnull=False) & Q(comment_support__isnull=False)),
+                name="chk_tx_single_origin",
+            ),
         ]
 
     def __str__(self):
@@ -218,3 +236,10 @@ class SoapTransaction(models.Model):
 
     def delete(self, *args, **kwargs):
         raise DomainError("SoapTransaction is append-only and cannot be deleted.")
+
+    def clean(self):
+        super().clean()
+        if self.bubblegram_support_id and self.comment_support_id:
+            raise ValidationError(
+                "A transaction cannot reference both a bubblegram support and a comment support."
+            )

@@ -55,3 +55,15 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 | `Wallet` with strict owner XOR constraint (`chk_wallet_exactly_one_owner`) | Wallets belong to either a User or a Community, never both or neither |
 | `SoapTransaction` append-only enforcement in DB + model | Ledger integrity: rows cannot be edited or deleted; amount signs match action types |
 | Row-locking with ascending PK order in `apply_movements` | Prevents deadlocks during concurrent multi-wallet movements inside `transaction.atomic()` |
+
+## Step 1.2 — slice 3: Content, Social & Ledger Origins (2026-11-04)
+| Decision | Reason |
+|---|---|
+| `Bubblegram` personal vs community via nullable `community` FK | Clean single model; personal bubblegrams have `community = NULL` |
+| `Bubblegram` text required if `type == TEXT` | Prevents empty text posts at both model validation and DB check constraint levels |
+| `Bubblepop` expiration constraint `chk_pop_expires_after_created` | Enforces `expires_at > created_at` in the database |
+| `Comment.parent` validated in `clean()` | Ensures reply belongs to the exact same bubblegram; self-parenting blocked by DB constraint |
+| `Letter` immutability in model `save()` | Letters are postal mail, not chat; content cannot be edited once sent, only `read_at` is settable |
+| `Letter.reply_to` unique constraint `uniq_one_reply_per_letter` | Enforces at most one direct reply letter per original letter |
+| `SoapTransaction` origin foreign keys with `chk_tx_single_origin` | Connects ledger rows to supports with `SET_NULL` cascade and at most one origin FK |
+

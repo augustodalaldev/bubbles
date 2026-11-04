@@ -1,6 +1,7 @@
 import pytest
 from django.db import IntegrityError, transaction
 
+from apps.content.tests.factories import BubblegramSupportFactory, CommentSupportFactory
 from apps.core.exceptions import DomainError
 from apps.economy.models import ActionType, SoapTransaction
 from apps.economy.tests.factories import SoapTransactionFactory, WalletFactory
@@ -107,4 +108,20 @@ class TestDatabaseConstraints:
                     action_type=ActionType.SIGNUP_GRANT,
                     balance_after=40,
                     idempotency_key="unique_signup_key_1",
+                )
+
+    def test_database_rejects_transaction_with_both_origins(self):
+        wallet = WalletFactory()
+        bg_support = BubblegramSupportFactory()
+        cm_support = CommentSupportFactory()
+
+        with pytest.raises(IntegrityError, match="chk_tx_single_origin"):
+            with transaction.atomic():
+                SoapTransaction.objects.create(
+                    wallet=wallet,
+                    amount=-1,
+                    action_type=ActionType.DEBIT_INTERACTION,
+                    balance_after=0,
+                    bubblegram_support=bg_support,
+                    comment_support=cm_support,
                 )

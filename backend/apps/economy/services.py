@@ -117,6 +117,12 @@ def apply_movements(
             balance_after=new_balance,
             idempotency_key=m.idempotency_key,
         )
+        if origin is not None:
+            origin_name = origin.__class__.__name__
+            if origin_name == "BubblegramSupport":
+                tx.bubblegram_support = origin
+            elif origin_name == "CommentSupport":
+                tx.comment_support = origin
         created_transactions.append(tx)
 
     # Persist updated balances and transactions
