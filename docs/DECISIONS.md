@@ -74,4 +74,16 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 | `customization_json` on `User` and `Community` (`JSONField`, default `dict`) | Flexible JSON configuration storing visual customizations (background colors, profile borders, etc.) |
 | `SPEND_CUSTOMIZATION` action type & `spend_customization` service helper | Explicit ledger tracking for soap spent on visual customizations by user or community wallets |
 
+## Step 1.3 — Users CRUD & Authentication (2026-11-04)
+| Decision | Reason |
+|---|---|
+| `UsernameOrEmailBackend` for login authentication | Supports unambiguous login via username or email; rejects inactive and deleted accounts |
+| Rotating refresh token with blacklist in `httpOnly` cookie (`Path=/api/v1/auth/`) | Secure against XSS; short-lived access token in body, rotating refresh with simplejwt blacklist |
+| Uniform error responses via `custom_exception_handler` (`{"error": {"code", "message", "fields"}}`) | Decouples HTTP representation and gives predictable structure for frontend consumption |
+| User registration inside `@transaction.atomic` with initial wallet & signup grant | Guarantees atomic integrity: if credit or wallet creation fails, user is rolled back |
+| Soft delete with anonymization (`delete_account`) | LGPD compliant; preserves economic ledger and post history while removing personal data; blocks deletion if user is leader of active communities |
+| Scoped rate throttling on auth endpoints (`20/minute`) | Prevents brute-force credential stuffing and registration spam |
+| `PublicUserSerializer` strictly excludes private data (`email`, `birth_date`, `wallet`) | Invariant: personal bubbles must never leak private user details |
+
+
 

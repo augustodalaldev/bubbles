@@ -30,4 +30,18 @@ class UserManager(BaseUserManager):
             raise ValueError("Superuser must have is_staff=True.")
         if extra_fields["is_superuser"] is not True:
             raise ValueError("Superuser must have is_superuser=True.")
-        return self._create_user(username, email, password, **extra_fields)
+        user = self._create_user(username, email, password, **extra_fields)
+        try:
+            from apps.economy.models import EconomySettings, Wallet
+
+            settings_obj = EconomySettings.load()
+            Wallet.objects.get_or_create(
+                user=user,
+                defaults={
+                    "soap_balance": 0,
+                    "passive_earn_rate": settings_obj.default_passive_earn_rate,
+                },
+            )
+        except Exception:
+            pass
+        return user
