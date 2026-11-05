@@ -8,7 +8,7 @@
   - [x] Slice 3: Content & Social models (`content`, `social`, origin links on `SoapTransaction`)
   - [x] ER diagram (`docs/ER.md`) generated
 - [x] 1.3 Users (CRUD)
-- [ ] 1.4 Communities (CRUD)
+- [x] 1.4 Communities (CRUD)
 
 ## Notes
 - Do NOT run `migrate` until the custom `User` exists and `AUTH_USER_MODEL` is set (first task of 1.2).

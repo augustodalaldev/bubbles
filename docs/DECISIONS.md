@@ -85,5 +85,16 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 | Scoped rate throttling on auth endpoints (`20/minute`) | Prevents brute-force credential stuffing and registration spam |
 | `PublicUserSerializer` strictly excludes private data (`email`, `birth_date`, `wallet`) | Invariant: personal bubbles must never leak private user details |
 
+## Step 1.4 — Communities CRUD, Membership & Moderation (2026-11-05)
+| Decision | Reason |
+|---|---|
+| Atomic founding with 300 soap transfer (`founding_cost`) | Creator wallet debited 300, community wallet credited 300; creator becomes LEADER with member_count=1; fails atomically with `insufficient_soap` |
+| Cached `member_count` synchronization | Increments on join/unban and decrements on leave/ban using `F()` expressions inside `@transaction.atomic` |
+| Moderation permissions hierarchy | `COMM_ADMIN` can only moderate regular members (`MEMBER`); only `LEADER` can manage admins, guidelines, transfer leadership, or archive |
+| Safe leadership transfer sequence | Demotes current leader to `COMM_ADMIN` before promoting target member to `LEADER` inside `@transaction.atomic` to prevent partial unique constraint violation (`uniq_one_leader_per_community`) |
+| Community detail capabilities payload | `GET /communities/{commname}/` returns `my_membership` and a boolean `permissions` map so the frontend does not re-implement access rules |
+| Community wallet read access restricted | `GET /communities/{commname}/wallet/` strictly requires active `LEADER` or `COMM_ADMIN` (or system admin) |
+
+
 
 
