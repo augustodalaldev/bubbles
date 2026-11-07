@@ -12,17 +12,24 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.core.exceptions import DomainError
 
-from .selectors import get_user_by_username, get_user_wallet_and_transactions
+from .selectors import (
+    get_user_by_username,
+    get_user_wallet_and_transactions,
+    list_user_followers,
+    list_user_following,
+)
 from .serializers import (
     AuthResponseSerializer,
     CurrentUserSerializer,
     DeleteAccountSerializer,
+    FollowerItemSerializer,
+    FollowingItemSerializer,
     LoginInputSerializer,
-    PublicUserSerializer,
     RefreshTokenInputSerializer,
     RegisterInputSerializer,
     SoapTransactionSerializer,
     UpdateProfileSerializer,
+    UserProfileDetailSerializer,
 )
 from .services import (
     delete_account,
@@ -194,10 +201,10 @@ class CurrentUserView(APIView):
 class PublicProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(responses={200: PublicUserSerializer})
+    @extend_schema(responses={200: UserProfileDetailSerializer})
     def get(self, request, username: str):
         user = get_user_by_username(username=username)
-        return Response(PublicUserSerializer(user).data)
+        return Response(UserProfileDetailSerializer(user, context={"request": request}).data)
 
 
 class UserWalletView(APIView):
@@ -238,3 +245,29 @@ class UserFollowView(APIView):
         target_user = get_user_by_username(username=username)
         unfollow_user(follower=request.user, followed=target_user)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class UserFollowersView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(responses={200: FollowerItemSerializer(many=True)})
+    def get(self, request, username: str):
+        target_user = get_user_by_username(username=username)
+        qs = list_user_followers(user=target_user)
+        paginator = PageNumberPagination()
+        page = paginator.paginate_queryset(qs, request)
+        serializer = FollowerItemSerializer(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
+
+
+class UserFollowingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(responses={200: FollowingItemSerializer(many=True)})
+    def get(self, request, username: str):
+        target_user = get_user_by_username(username=username)
+        qs = list_user_following(user=target_user)
+        paginator = PageNumberPagination()
+        page = paginator.paginate_queryset(qs, request)
+        serializer = FollowingItemSerializer(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)

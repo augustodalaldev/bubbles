@@ -340,3 +340,59 @@ def test_follow_and_unfollow_api(auth_client):
     # Cannot unfollow again
     unfollow_dup = client.delete(f"/api/v1/users/{target.username}/follow/")
     assert unfollow_dup.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_user_profile_detail_includes_counts_and_relationship_flags(auth_client):
+    client, user = auth_client
+    target = UserFactory(username="socialstar")
+
+    # Initially: 0 followers, 0 following, is_following=False
+    resp = client.get(f"/api/v1/users/{target.username}/")
+    assert resp.status_code == status.HTTP_200_OK
+    assert resp.data["followers_count"] == 0
+    assert resp.data["following_count"] == 0
+    assert resp.data["is_following"] is False
+    assert resp.data["is_followed_by"] is False
+
+    # user follows target
+    from apps.accounts.models import UserConnection
+
+    UserConnection.objects.create(follower=user, followed=target)
+
+    # target also follows user
+    UserConnection.objects.create(follower=target, followed=user)
+
+    resp2 = client.get(f"/api/v1/users/{target.username}/")
+    assert resp2.status_code == status.HTTP_200_OK
+    assert resp2.data["followers_count"] == 1
+    assert resp2.data["following_count"] == 1
+    assert resp2.data["is_following"] is True
+    assert resp2.data["is_followed_by"] is True
+
+
+def test_user_followers_and_following_lists_api(auth_client):
+    client, user = auth_client
+    target = UserFactory(username="targetperson")
+    friend1 = UserFactory(username="friend1")
+    friend2 = UserFactory(username="friend2")
+
+    from apps.accounts.models import UserConnection
+
+    # friend1 and friend2 follow target
+    UserConnection.objects.create(follower=friend1, followed=target)
+    UserConnection.objects.create(follower=friend2, followed=target)
+    # target follows friend1
+    UserConnection.objects.create(follower=target, followed=friend1)
+
+    # Followers list
+    resp_followers = client.get(f"/api/v1/users/{target.username}/followers/")
+    assert resp_followers.status_code == status.HTTP_200_OK
+    assert resp_followers.data["count"] == 2
+    follower_usernames = [item["user"]["username"] for item in resp_followers.data["results"]]
+    assert set(follower_usernames) == {"friend1", "friend2"}
+
+    # Following list
+    resp_following = client.get(f"/api/v1/users/{target.username}/following/")
+    assert resp_following.status_code == status.HTTP_200_OK
+    assert resp_following.data["count"] == 1
+    assert resp_following.data["results"][0]["user"]["username"] == "friend1"

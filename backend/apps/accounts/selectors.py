@@ -4,6 +4,8 @@ from django.db.models import QuerySet
 from apps.core.exceptions import DomainError
 from apps.economy.models import EconomySettings, SoapTransaction, Wallet
 
+from .models import UserConnection
+
 User = get_user_model()
 
 
@@ -46,3 +48,21 @@ def get_user_wallet_and_transactions(*, user: User) -> tuple[Wallet, QuerySet[So
         .order_by("-created_at", "-id")
     )
     return wallet, transactions
+
+
+def list_user_followers(*, user: User) -> QuerySet[UserConnection]:
+    """List connections where target user is followed by active users."""
+    return (
+        UserConnection.objects.select_related("follower")
+        .filter(followed=user, follower__is_active=True)
+        .order_by("-created_at")
+    )
+
+
+def list_user_following(*, user: User) -> QuerySet[UserConnection]:
+    """List connections where target user follows active users."""
+    return (
+        UserConnection.objects.select_related("followed")
+        .filter(follower=user, followed__is_active=True)
+        .order_by("-created_at")
+    )

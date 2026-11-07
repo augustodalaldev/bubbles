@@ -3,6 +3,8 @@ from rest_framework import serializers
 
 from apps.economy.models import SoapTransaction
 
+from .models import UserConnection
+
 User = get_user_model()
 
 
@@ -30,6 +32,8 @@ class RefreshTokenInputSerializer(serializers.Serializer):
 class CurrentUserSerializer(serializers.ModelSerializer):
     soap_balance = serializers.SerializerMethodField()
     wallet = serializers.SerializerMethodField()
+    followers_count = serializers.SerializerMethodField()
+    following_count = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -45,6 +49,8 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "created_at",
             "soap_balance",
             "wallet",
+            "followers_count",
+            "following_count",
         ]
         read_only_fields = fields
 
@@ -60,6 +66,12 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "soap_balance": wallet.soap_balance,
             "passive_earn_rate": wallet.passive_earn_rate,
         }
+
+    def get_followers_count(self, obj: User) -> int:
+        return obj.follower_connections.filter(follower__is_active=True).count()
+
+    def get_following_count(self, obj: User) -> int:
+        return obj.following_connections.filter(followed__is_active=True).count()
 
 
 class UpdateProfileSerializer(serializers.Serializer):
@@ -92,6 +104,63 @@ class PublicUserSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         ]
+        read_only_fields = fields
+
+
+class UserProfileDetailSerializer(PublicUserSerializer):
+    """Full public profile representation with social stats and relationship flags."""
+
+    followers_count = serializers.SerializerMethodField()
+    following_count = serializers.SerializerMethodField()
+    is_following = serializers.SerializerMethodField()
+    is_followed_by = serializers.SerializerMethodField()
+
+    class Meta(PublicUserSerializer.Meta):
+        fields = PublicUserSerializer.Meta.fields + [
+            "followers_count",
+            "following_count",
+            "is_following",
+            "is_followed_by",
+        ]
+
+    def get_followers_count(self, obj: User) -> int:
+        return obj.follower_connections.filter(follower__is_active=True).count()
+
+    def get_following_count(self, obj: User) -> int:
+        return obj.following_connections.filter(followed__is_active=True).count()
+
+    def get_is_following(self, obj: User) -> bool:
+        request = self.context.get("request")
+        if not request or not request.user or not request.user.is_authenticated:
+            return False
+        if request.user.id == obj.id:
+            return False
+        return UserConnection.objects.filter(follower=request.user, followed=obj).exists()
+
+    def get_is_followed_by(self, obj: User) -> bool:
+        request = self.context.get("request")
+        if not request or not request.user or not request.user.is_authenticated:
+            return False
+        if request.user.id == obj.id:
+            return False
+        return UserConnection.objects.filter(follower=obj, followed=request.user).exists()
+
+
+class FollowerItemSerializer(serializers.ModelSerializer):
+    user = PublicUserSerializer(source="follower", read_only=True)
+
+    class Meta:
+        model = UserConnection
+        fields = ["id", "user", "created_at"]
+        read_only_fields = fields
+
+
+class FollowingItemSerializer(serializers.ModelSerializer):
+    user = PublicUserSerializer(source="followed", read_only=True)
+
+    class Meta:
+        model = UserConnection
+        fields = ["id", "user", "created_at"]
         read_only_fields = fields
 
 

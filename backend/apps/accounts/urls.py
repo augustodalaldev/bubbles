@@ -13,4 +13,14 @@ urlpatterns = [
     path("users/me/wallet/", views.UserWalletView.as_view(), name="users-me-wallet"),
     path("users/<str:username>/", views.PublicProfileView.as_view(), name="users-public-profile"),
     path("users/<str:username>/follow/", views.UserFollowView.as_view(), name="users-follow"),
+    path(
+        "users/<str:username>/followers/",
+        views.UserFollowersView.as_view(),
+        name="users-followers",
+    ),
+    path(
+        "users/<str:username>/following/",
+        views.UserFollowingView.as_view(),
+        name="users-following",
+    ),
 ]
