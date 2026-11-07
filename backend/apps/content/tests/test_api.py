@@ -311,6 +311,19 @@ def test_feed_bubblegrams_api():
     assert resp.status_code == status.HTTP_200_OK
     assert resp.data["count"] == 1
     assert resp.data["results"][0]["text"] == "Friend's thought"
+    assert resp.data["results"][0]["is_suggested"] is False
+    assert resp.data["results"][0]["suggestion_reason"] is None
+
+    # Add a popular suggestion from another creator
+    creator = UserFactory()
+    BubblegramFactory(user=creator, text="Popular post", soap_count=15)
+
+    resp2 = client.get("/api/v1/feed/")
+    assert resp2.status_code == status.HTTP_200_OK
+    assert resp2.data["count"] == 2
+    popular_item = [p for p in resp2.data["results"] if p["text"] == "Popular post"][0]
+    assert popular_item["is_suggested"] is True
+    assert popular_item["suggestion_reason"] == "popular"
 
 
 def test_feed_bubblepops_api():

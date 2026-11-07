@@ -717,3 +717,79 @@ def test_list_feed_bubblepops():
     tray = list(list_feed_bubblepops(user=viewer))
     assert len(tray) == 1
     assert tray[0].id == pop_active.id
+
+
+def test_feed_suggestions_popular_and_network():
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    now = timezone.now()
+    viewer = UserFactory(username="viewer_user")
+    friend = UserFactory(username="friend_user")
+    friend_follower = UserFactory(username="friend_follower_user")
+    popular_creator = UserFactory(username="popular_creator_user")
+
+    # viewer follows friend
+    UserConnection.objects.create(follower=viewer, followed=friend)
+    # friend_follower also follows friend (2nd-degree connection to viewer)
+    UserConnection.objects.create(follower=friend_follower, followed=friend)
+
+    # 1. Post by friend (normal feed)
+    p_friend = Bubblegram.objects.create(
+        user=friend, text="Friend's post", published_at=now - timedelta(hours=3)
+    )
+
+    # 2. Post by friend_follower (network suggestion, published 2h ago)
+    p_network = Bubblegram.objects.create(
+        user=friend_follower, text="Network post", published_at=now - timedelta(hours=2)
+    )
+
+    # 3. Post by popular_creator (popular suggestion, high soaps in last 24h, published 1h ago)
+    p_popular = Bubblegram.objects.create(
+        user=popular_creator,
+        text="Trending viral post",
+        soap_count=42,
+        published_at=now - timedelta(hours=1),
+    )
+
+    # Fetch feed
+    feed = list(list_feed_bubblegrams(user=viewer))
+    feed_ids = [p.id for p in feed]
+
+    # All 3 posts should be in the feed, ordered chronologically
+    assert feed_ids == [p_popular.id, p_network.id, p_friend.id]
+
+    feed_map = {p.id: p for p in feed}
+    assert feed_map[p_friend.id].is_suggested is False
+    assert feed_map[p_friend.id].suggestion_reason is None
+
+    assert feed_map[p_popular.id].is_suggested is True
+    assert feed_map[p_popular.id].suggestion_reason == "popular"
+
+    assert feed_map[p_network.id].is_suggested is True
+    assert feed_map[p_network.id].suggestion_reason == "network"
+
+
+def test_feed_suggestions_are_strictly_bounded():
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    now = timezone.now()
+    viewer = UserFactory()
+    creator = UserFactory()
+
+    # Create 10 popular posts from the last 24h
+    for i in range(10):
+        Bubblegram.objects.create(
+            user=creator,
+            text=f"Popular post {i}",
+            soap_count=i + 1,
+            published_at=now - timedelta(hours=i + 1),
+        )
+
+    # Feed must cap popular suggestions to max_popular_suggestions (default 4)
+    feed = list(list_feed_bubblegrams(user=viewer, max_popular_suggestions=4))
+    suggested = [p for p in feed if p.is_suggested]
+    assert len(suggested) == 4

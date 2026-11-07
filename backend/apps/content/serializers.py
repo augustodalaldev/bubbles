@@ -33,6 +33,8 @@ class BubblegramSerializer(serializers.ModelSerializer):
     community = BubblegramCommunitySerializer(read_only=True)
     media = BubblegramMediaSerializer(many=True, read_only=True)
     can_delete = serializers.SerializerMethodField()
+    is_suggested = serializers.SerializerMethodField()
+    suggestion_reason = serializers.SerializerMethodField()
 
     class Meta:
         model = Bubblegram
@@ -46,8 +48,16 @@ class BubblegramSerializer(serializers.ModelSerializer):
             "published_at",
             "media",
             "can_delete",
+            "is_suggested",
+            "suggestion_reason",
         ]
         read_only_fields = fields
+
+    def get_is_suggested(self, obj: Bubblegram) -> bool:
+        return bool(getattr(obj, "is_suggested", False))
+
+    def get_suggestion_reason(self, obj: Bubblegram) -> str | None:
+        return getattr(obj, "suggestion_reason", None)
 
     def get_can_delete(self, obj: Bubblegram) -> bool:
         request = self.context.get("request")

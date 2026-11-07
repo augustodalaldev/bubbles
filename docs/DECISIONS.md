@@ -115,6 +115,7 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 | Strictly chronological feed with zero algorithmic ranking | Aligns with core product principle: followed personal bubblegrams + active community bubblegrams, ordered strictly by `-published_at, -id` |
 | Stories tray separated from main feed | Dedicated `/api/v1/feed/bubblepops/` endpoint returns active stories from followed users without cluttering the post stream |
 | Unified discovery endpoint (`/api/v1/search/?q=...`) | Fast case-insensitive search across active users (username/name) and communities (commname/name/description) |
+| Bounded social recommendations in feed ("Sugerido para você") | Interweaves bounded (max 4 popular in last 24h + max 4 from 2nd-degree network) suggested posts with `is_suggested` and `suggestion_reason`; preserves strict chronological ordering (`-published_at`) and finite pagination without endless doomscrolling |
 
 
 

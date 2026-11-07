@@ -1,5 +1,7 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
-from django.db.models import Q, QuerySet
+from django.db.models import BooleanField, Case, CharField, Q, QuerySet, Value, When
 from django.utils import timezone
 
 from apps.accounts.models import UserConnection
@@ -85,18 +87,33 @@ def list_user_bubblepops(*, username: str) -> QuerySet[Bubblepop]:
     )
 
 
-def list_feed_bubblegrams(*, user: User) -> QuerySet[Bubblegram]:
-    """Chronological feed (RF009):
+def list_feed_bubblegrams(
+    *,
+    user: User,
+    include_suggestions: bool = True,
+    max_popular_suggestions: int = 4,
+    max_network_suggestions: int = 4,
+) -> QuerySet[Bubblegram]:
+    """Chronological feed (RF009) with bounded social recommendations.
 
-    Personal posts from followed users + posts from communities the user belongs to (non-banned),
-    plus the user's own personal posts. Strictly ordered by -published_at.
+    Primary content:
+    - Personal posts from followed users
+    - Posts from non-banned active communities the user belongs to
+    - User's own personal posts
+
+    Interleaved suggested content (bounded, not infinite):
+    - Popular posts (highest soap count in the last 24h across public content)
+    - Network posts (recent posts from 2nd-degree connections: followers of my followed users)
     """
-    followed_user_ids = UserConnection.objects.filter(
-        follower=user,
-        followed__is_active=True,
-    ).values_list("followed_id", flat=True)
+    now = timezone.now()
+    followed_user_ids = list(
+        UserConnection.objects.filter(
+            follower=user,
+            followed__is_active=True,
+        ).values_list("followed_id", flat=True)
+    )
 
-    user_community_ids = (
+    user_community_ids = list(
         CommunityMember.objects.filter(
             user=user,
             community__archived_at__isnull=True,
@@ -105,13 +122,75 @@ def list_feed_bubblegrams(*, user: User) -> QuerySet[Bubblegram]:
         .values_list("community_id", flat=True)
     )
 
+    normal_q = (
+        Q(community__isnull=True, user_id__in=followed_user_ids)
+        | Q(community_id__in=user_community_ids)
+        | Q(community__isnull=True, user_id=user.id)
+    )
+
+    popular_ids: set[int] = set()
+    network_ids: set[int] = set()
+
+    if include_suggestions:
+        # 1. Popular suggestions: top soap posts in the last 24h
+        since_24h = now - timedelta(hours=24)
+        popular_candidates = list(
+            Bubblegram.objects.filter(
+                published_at__gte=since_24h,
+                soap_count__gt=0,
+                user__is_active=True,
+            )
+            .exclude(normal_q)
+            .order_by("-soap_count", "-published_at")
+            .values_list("id", flat=True)[:max_popular_suggestions]
+        )
+        popular_ids = set(popular_candidates)
+
+        # 2. Network suggestions: 2nd-degree connections (followers of my followed users)
+        if followed_user_ids:
+            network_user_ids = list(
+                UserConnection.objects.filter(
+                    followed_id__in=followed_user_ids,
+                    follower__is_active=True,
+                )
+                .exclude(follower_id=user.id)
+                .exclude(follower_id__in=followed_user_ids)
+                .values_list("follower_id", flat=True)[:50]
+            )
+            if network_user_ids:
+                since_7d = now - timedelta(days=7)
+                network_candidates = list(
+                    Bubblegram.objects.filter(
+                        user_id__in=network_user_ids,
+                        community__isnull=True,
+                        published_at__gte=since_7d,
+                    )
+                    .exclude(id__in=popular_ids)
+                    .exclude(normal_q)
+                    .order_by("-published_at")
+                    .values_list("id", flat=True)[:max_network_suggestions]
+                )
+                network_ids = set(network_candidates)
+
+    suggested_ids = popular_ids | network_ids
+    feed_filter = normal_q if not suggested_ids else (normal_q | Q(id__in=suggested_ids))
+
     return (
         Bubblegram.objects.select_related("user", "community")
         .prefetch_related("media")
-        .filter(
-            Q(community__isnull=True, user_id__in=followed_user_ids)
-            | Q(community_id__in=user_community_ids)
-            | Q(community__isnull=True, user_id=user.id)
+        .filter(feed_filter)
+        .annotate(
+            is_suggested=Case(
+                When(id__in=suggested_ids, then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField(),
+            ),
+            suggestion_reason=Case(
+                When(id__in=popular_ids, then=Value("popular")),
+                When(id__in=network_ids, then=Value("network")),
+                default=Value(None),
+                output_field=CharField(null=True),
+            ),
         )
         .order_by("-published_at", "-id")
     )
