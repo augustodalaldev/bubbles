@@ -1,9 +1,14 @@
-from django.db.models import QuerySet
+from django.contrib.auth import get_user_model
+from django.db.models import Q, QuerySet
 from django.utils import timezone
 
+from apps.accounts.models import UserConnection
+from apps.communities.models import CommunityMember, MemberState
 from apps.core.exceptions import DomainError
 
 from .models import Bubblegram, Bubblepop, Comment
+
+User = get_user_model()
 
 
 def get_bubblegram_by_id(*, bubblegram_id: int) -> Bubblegram:
@@ -74,6 +79,58 @@ def list_user_bubblepops(*, username: str) -> QuerySet[Bubblepop]:
         Bubblepop.objects.select_related("user")
         .filter(
             user__username__iexact=username.strip().lower(),
+            expires_at__gt=timezone.now(),
+        )
+        .order_by("created_at")
+    )
+
+
+def list_feed_bubblegrams(*, user: User) -> QuerySet[Bubblegram]:
+    """Chronological feed (RF009):
+
+    Personal posts from followed users + posts from communities the user belongs to (non-banned),
+    plus the user's own personal posts. Strictly ordered by -published_at.
+    """
+    followed_user_ids = UserConnection.objects.filter(
+        follower=user,
+        followed__is_active=True,
+    ).values_list("followed_id", flat=True)
+
+    user_community_ids = (
+        CommunityMember.objects.filter(
+            user=user,
+            community__archived_at__isnull=True,
+        )
+        .exclude(current_state=MemberState.BANNED)
+        .values_list("community_id", flat=True)
+    )
+
+    return (
+        Bubblegram.objects.select_related("user", "community")
+        .prefetch_related("media")
+        .filter(
+            Q(community__isnull=True, user_id__in=followed_user_ids)
+            | Q(community_id__in=user_community_ids)
+            | Q(community__isnull=True, user_id=user.id)
+        )
+        .order_by("-published_at", "-id")
+    )
+
+
+def list_feed_bubblepops(*, user: User) -> QuerySet[Bubblepop]:
+    """Ephemeral stories tray (RF009):
+
+    Active (non-expired) bubblepops from users that the current user follows.
+    """
+    followed_user_ids = UserConnection.objects.filter(
+        follower=user,
+        followed__is_active=True,
+    ).values_list("followed_id", flat=True)
+
+    return (
+        Bubblepop.objects.select_related("user")
+        .filter(
+            user_id__in=followed_user_ids,
             expires_at__gt=timezone.now(),
         )
         .order_by("created_at")

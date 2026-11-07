@@ -295,3 +295,43 @@ def test_list_user_bubblepops_api_excludes_expired():
     assert resp.status_code == status.HTTP_200_OK
     assert len(resp.data) == 1
     assert resp.data[0]["id"] == active_pop.id
+
+
+def test_feed_bubblegrams_api():
+    from apps.accounts.models import UserConnection
+
+    viewer = UserFactory()
+    friend = UserFactory()
+    UserConnection.objects.create(follower=viewer, followed=friend)
+
+    BubblegramFactory(user=friend, text="Friend's thought")
+
+    client = auth_client(viewer)
+    resp = client.get("/api/v1/feed/")
+    assert resp.status_code == status.HTTP_200_OK
+    assert resp.data["count"] == 1
+    assert resp.data["results"][0]["text"] == "Friend's thought"
+
+
+def test_feed_bubblepops_api():
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from apps.accounts.models import UserConnection
+
+    viewer = UserFactory()
+    friend = UserFactory()
+    UserConnection.objects.create(follower=viewer, followed=friend)
+
+    pop = BubblepopFactory(
+        user=friend,
+        created_at=timezone.now(),
+        expires_at=timezone.now() + timedelta(hours=10),
+    )
+
+    client = auth_client(viewer)
+    resp = client.get("/api/v1/feed/bubblepops/")
+    assert resp.status_code == status.HTTP_200_OK
+    assert len(resp.data) == 1
+    assert resp.data[0]["id"] == pop.id

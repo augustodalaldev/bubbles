@@ -4,6 +4,7 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
 
+from apps.accounts.models import UserConnection
 from apps.accounts.tests.factories import UserFactory
 from apps.communities.models import MemberRole, MemberState
 from apps.communities.tests.factories import CommunityFactory, CommunityMemberFactory
@@ -15,6 +16,7 @@ from apps.content.models import (
     Comment,
     CommentSupport,
 )
+from apps.content.selectors import list_feed_bubblegrams, list_feed_bubblepops
 from apps.content.services import (
     create_bubblegram,
     create_bubblepop,
@@ -622,3 +624,96 @@ def test_delete_bubblepop():
 
     delete_bubblepop(actor=author, bubblepop=pop)
     assert not Bubblepop.objects.filter(pk=pop.pk).exists()
+
+
+def test_list_feed_bubblegrams():
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    now = timezone.now()
+    viewer = UserFactory()
+    friend = UserFactory()
+    stranger = UserFactory()
+    community = CommunityFactory()
+    other_community = CommunityFactory()
+
+    # viewer follows friend
+    UserConnection.objects.create(follower=viewer, followed=friend)
+    # viewer is member of community
+    CommunityMemberFactory(
+        community=community, user=viewer, role=MemberRole.MEMBER, current_state=MemberState.ACTIVE
+    )
+
+    # 1. Post by friend (personal) -> SHOULD BE IN FEED
+    p1 = Bubblegram.objects.create(
+        user=friend, text="Friend post", published_at=now - timedelta(hours=3)
+    )
+    # 2. Post in community -> SHOULD BE IN FEED
+    p2 = Bubblegram.objects.create(
+        user=stranger,
+        community=community,
+        text="Community post",
+        published_at=now - timedelta(hours=2),
+    )
+    # 3. Post by viewer (personal) -> SHOULD BE IN FEED
+    p3 = Bubblegram.objects.create(
+        user=viewer, text="Viewer post", published_at=now - timedelta(hours=1)
+    )
+    # 4. Post by stranger (personal) -> NOT IN FEED
+    Bubblegram.objects.create(
+        user=stranger, text="Stranger post", published_at=now - timedelta(hours=4)
+    )
+    # 5. Post in other community (not a member) -> NOT IN FEED
+    Bubblegram.objects.create(
+        user=friend,
+        community=other_community,
+        text="Other comm post",
+        published_at=now - timedelta(hours=5),
+    )
+
+    feed = list(list_feed_bubblegrams(user=viewer))
+    feed_ids = [p.id for p in feed]
+
+    assert len(feed) == 3
+    # Strictly chronological order (-published_at): p3 (1h ago), p2 (2h ago), p1 (3h ago)
+    assert feed_ids == [p3.id, p2.id, p1.id]
+
+
+def test_list_feed_bubblepops():
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    viewer = UserFactory()
+    friend = UserFactory()
+    stranger = UserFactory()
+
+    UserConnection.objects.create(follower=viewer, followed=friend)
+    now = timezone.now()
+
+    # Active story by friend
+    pop_active = Bubblepop.objects.create(
+        user=friend,
+        image=create_test_image("active.png"),
+        created_at=now - timedelta(hours=2),
+        expires_at=now + timedelta(hours=22),
+    )
+    # Expired story by friend
+    Bubblepop.objects.create(
+        user=friend,
+        image=create_test_image("expired.png"),
+        created_at=now - timedelta(hours=26),
+        expires_at=now - timedelta(hours=2),
+    )
+    # Active story by stranger
+    Bubblepop.objects.create(
+        user=stranger,
+        image=create_test_image("stranger.png"),
+        created_at=now - timedelta(hours=1),
+        expires_at=now + timedelta(hours=23),
+    )
+
+    tray = list(list_feed_bubblepops(user=viewer))
+    assert len(tray) == 1
+    assert tray[0].id == pop_active.id

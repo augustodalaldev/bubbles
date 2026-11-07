@@ -14,6 +14,8 @@ from .selectors import (
     get_comment_by_id,
     list_bubblegram_comments,
     list_community_bubblegrams,
+    list_feed_bubblegrams,
+    list_feed_bubblepops,
     list_user_bubblegrams,
     list_user_bubblepops,
 )
@@ -221,5 +223,27 @@ class UserBubblepopsView(APIView):
     @extend_schema(responses={200: BubblepopSerializer(many=True)})
     def get(self, request, username: str):
         qs = list_user_bubblepops(username=username)
+        serializer = BubblepopSerializer(qs, many=True, context={"request": request})
+        return Response(serializer.data)
+
+
+class FeedView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(responses={200: BubblegramSerializer(many=True)})
+    def get(self, request):
+        qs = list_feed_bubblegrams(user=request.user)
+        paginator = PageNumberPagination()
+        page = paginator.paginate_queryset(qs, request)
+        serializer = BubblegramSerializer(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
+
+
+class FeedBubblepopsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(responses={200: BubblepopSerializer(many=True)})
+    def get(self, request):
+        qs = list_feed_bubblepops(user=request.user)
         serializer = BubblepopSerializer(qs, many=True, context={"request": request})
         return Response(serializer.data)

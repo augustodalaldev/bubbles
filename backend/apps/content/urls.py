@@ -54,4 +54,14 @@ urlpatterns = [
         views.UserBubblepopsView.as_view(),
         name="user-bubblepops",
     ),
+    path(
+        "feed/",
+        views.FeedView.as_view(),
+        name="feed-bubblegrams",
+    ),
+    path(
+        "feed/bubblepops/",
+        views.FeedBubblepopsView.as_view(),
+        name="feed-bubblepops",
+    ),
 ]
