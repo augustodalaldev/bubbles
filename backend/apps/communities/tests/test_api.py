@@ -1,4 +1,5 @@
 import pytest
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -107,6 +108,8 @@ def test_community_members_list_api(django_assert_num_queries):
     for u in users:
         CommunityMemberFactory(community=community, user=u)
 
+    users[0].last_seen_at = timezone.now()
+    users[0].save(update_fields=["last_seen_at"])
     client = auth_client(users[0])
 
     # Ensure select_related on user prevents N+1 queries:

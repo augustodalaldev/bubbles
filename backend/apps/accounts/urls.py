@@ -8,6 +8,7 @@ urlpatterns = [
     path("auth/login/", views.LoginView.as_view(), name="auth-login"),
     path("auth/refresh/", views.RefreshTokenView.as_view(), name="auth-refresh"),
     path("auth/logout/", views.LogoutView.as_view(), name="auth-logout"),
+    path("auth/heartbeat/", views.HeartbeatView.as_view(), name="auth-heartbeat"),
     # User endpoints
     path("users/me/", views.CurrentUserView.as_view(), name="users-me"),
     path("users/me/wallet/", views.UserWalletView.as_view(), name="users-me-wallet"),

@@ -1,8 +1,12 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Any
 
+from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models import Sum
+from django.utils import timezone
 
 from apps.core.exceptions import DomainError
 from apps.economy.exceptions import InsufficientSoap
@@ -10,6 +14,7 @@ from apps.economy.models import (
     CREDIT_ACTION_TYPES,
     DEBIT_ACTION_TYPES,
     ActionType,
+    EconomySettings,
     SoapTransaction,
     Wallet,
 )
@@ -219,3 +224,118 @@ def debit_bubblepop(
 ) -> SoapTransaction:
     """Debit soap from a wallet to publish a bubblepop (cost is burned)."""
     return debit(wallet, cost, action_type=ActionType.DEBIT_BUBBLEPOP)
+
+
+@transaction.atomic
+def distribute_passive_soap(*, now: datetime | None = None) -> int:
+    """Distribute passive soap to active users (RF019).
+
+    Invariants:
+    1. Only active users seen within the last `passive_interval_minutes` receive soap.
+    2. Daily limit is capped at `passive_daily_cap`.
+    3. Ledger rows use ActionType.PASSIVE_EARN.
+    4. Idempotency key prevents double credits for the same time window bucket.
+    """
+    User = get_user_model()
+    current_time = now or timezone.now()
+    settings_obj = EconomySettings.load()
+
+    interval_mins = settings_obj.passive_interval_minutes
+    daily_cap = settings_obj.passive_daily_cap
+    default_rate = settings_obj.default_passive_earn_rate
+
+    cutoff = current_time - timedelta(minutes=interval_mins)
+    eligible_users = (
+        User.objects.filter(
+            is_active=True,
+            deleted_at__isnull=True,
+            last_seen_at__gte=cutoff,
+        )
+        .select_related("wallet")
+        .order_by("pk")
+    )
+
+    today_start = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
+    window_bucket = int(current_time.timestamp() // (interval_mins * 60))
+    credited_count = 0
+
+    for user in eligible_users:
+        wallet, _ = Wallet.objects.get_or_create(
+            user=user,
+            defaults={
+                "soap_balance": 0,
+                "passive_earn_rate": default_rate,
+            },
+        )
+        rate = wallet.passive_earn_rate if wallet.passive_earn_rate is not None else default_rate
+        if rate <= 0:
+            continue
+
+        today_earned = (
+            SoapTransaction.objects.filter(
+                wallet=wallet,
+                action_type=ActionType.PASSIVE_EARN,
+                created_at__gte=today_start,
+            ).aggregate(total=Sum("amount"))["total"]
+            or 0
+        )
+
+        remaining_cap = daily_cap - today_earned
+        if remaining_cap <= 0:
+            continue
+
+        grant = min(rate, remaining_cap)
+        idempotency_key = f"passive:{user.id}:{current_time.date().isoformat()}:{window_bucket}"
+
+        if SoapTransaction.objects.filter(idempotency_key=idempotency_key).exists():
+            continue
+
+        try:
+            credit(
+                wallet,
+                grant,
+                action_type=ActionType.PASSIVE_EARN,
+                idempotency_key=idempotency_key,
+            )
+            credited_count += 1
+        except Exception:
+            pass
+
+    return credited_count
+
+
+@transaction.atomic
+def update_economy_settings(*, actor: Any, data: dict[str, Any]) -> EconomySettings:
+    """Update system economy parameters (admin only)."""
+    if not actor.is_staff:
+        raise DomainError(
+            "Only staff administrators can update economy settings.",
+            code="permission_denied",
+            http_status=403,
+        )
+
+    settings_obj = EconomySettings.load()
+    updatable_fields = [
+        "signup_grant",
+        "support_cost",
+        "author_credit",
+        "community_credit",
+        "bubblegram_profile_cost",
+        "bubblegram_community_cost",
+        "bubblepop_hours_per_soap",
+        "bubblepop_min_hours",
+        "bubblepop_max_hours",
+        "founding_cost",
+        "default_passive_earn_rate",
+        "passive_interval_minutes",
+        "passive_daily_cap",
+    ]
+
+    for field in updatable_fields:
+        if field in data and data[field] is not None:
+            setattr(settings_obj, field, data[field])
+
+    settings_obj.updated_by = actor
+    settings_obj.full_clean()
+    settings_obj.save()
+    return settings_obj

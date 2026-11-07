@@ -565,3 +565,21 @@ def delete_bubblepop(*, actor: User, bubblepop: Bubblepop) -> None:
     bubblepop.delete()
     if image_file:
         image_file.delete(save=False)
+
+
+@transaction.atomic
+def cleanup_expired_bubblepops(*, now: Any = None) -> int:
+    """Hard-delete all expired Bubblepop stories and their media files."""
+    current_time = now or timezone.now()
+    expired_pops = list(Bubblepop.objects.filter(expires_at__lte=current_time))
+    if not expired_pops:
+        return 0
+
+    image_files = [pop.image for pop in expired_pops if pop.image]
+    count = len(expired_pops)
+    Bubblepop.objects.filter(id__in=[pop.id for pop in expired_pops]).delete()
+
+    for image in image_files:
+        image.delete(save=False)
+
+    return count

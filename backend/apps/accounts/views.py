@@ -271,3 +271,19 @@ class UserFollowingView(APIView):
         page = paginator.paginate_queryset(qs, request)
         serializer = FollowingItemSerializer(page, many=True, context={"request": request})
         return paginator.get_paginated_response(serializer.data)
+
+
+class HeartbeatView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(request=None, responses={200: OpenApiTypes.OBJECT})
+    def post(self, request):
+        from django.utils import timezone
+
+        now = timezone.now()
+        type(request.user).objects.filter(pk=request.user.pk).update(last_seen_at=now)
+        request.user.last_seen_at = now
+        return Response(
+            {"status": "ok", "last_seen_at": now.isoformat()},
+            status=status.HTTP_200_OK,
+        )

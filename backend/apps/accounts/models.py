@@ -35,6 +35,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     profile_photo = models.ImageField(upload_to=UploadTo("profile_photos"), blank=True)
     customization_json = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
+    last_seen_at = models.DateTimeField(null=True, blank=True, db_index=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
