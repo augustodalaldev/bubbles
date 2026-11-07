@@ -27,8 +27,8 @@
 - [x] 4.1 Activity tracking (`last_seen_at`), heartbeat endpoint, passive soap distribution service & expired Bubblepops cleanup command
 - [x] 4.2 EconomySettings management (GET/PATCH `/api/v1/economy/settings/` restricted to staff)
 
-## Pillar 5 — Customization & Design Tokens (Proposed)
-- [ ] 5.1 Asset catalog purchase with soap & dynamic theming
+## Pillar 5 — Customization & Design Tokens
+- [x] 5.1 Modular customization catalog (`CustomizationItem`), user inventory (`UserInventoryItem`), soap purchasing (`SPEND_CUSTOMIZATION`), inventory-validated profile equipping (`customization_json`) & design tokens API
 
 ## Pillar 6 — Moderation & Governance (Proposed)
 - [ ] 6.1 Content moderation, audit logs & system admin tooling

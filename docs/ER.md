@@ -34,6 +34,10 @@ erDiagram
     User ||--o{ Letter : "receives"
     Letter ||--o| Letter : "replies to (reply_to)"
 
+    User ||--o{ UserInventoryItem : "owns in inventory"
+    CustomizationItem ||--o{ UserInventoryItem : "held by user"
+    SoapTransaction ||--o| UserInventoryItem : "payment link (optional)"
+
     User {
         bigint id PK
         string username UK "lowercase, 3-30 chars, [a-z0-9_]"
@@ -179,5 +183,25 @@ erDiagram
         string image "nullable, immutable"
         datetime sent_at
         datetime read_at "nullable, set once on opening"
+    }
+
+    CustomizationItem {
+        bigint id PK
+        string name "max 100"
+        string code UK "unique slug"
+        string item_type "AVATAR_FRAME, PROFILE_THEME, CHAT_BUBBLE, BADGE, NAME_COLOR"
+        text description
+        integer price "cost in soap (0 for free/starter)"
+        json metadata "design tokens / styles consumed by frontend"
+        boolean is_active
+        datetime created_at
+    }
+
+    UserInventoryItem {
+        bigint id PK
+        bigint user_id FK
+        bigint item_id FK
+        bigint transaction_id FK "nullable SPEND_CUSTOMIZATION transaction"
+        datetime acquired_at
     }
 ```

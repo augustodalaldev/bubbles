@@ -126,6 +126,14 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 | Django management commands for periodic maintenance | `manage.py distribute_passive_soap` and `manage.py cleanup_expired_bubblepops` can be invoked via Linux cron, Kubernetes CronJob, or Celery task wrappers without requiring an external message broker during dev |
 | Singleton `EconomySettings` administration API (`/api/v1/economy/settings/`) | Read accessible to authenticated users so clients know fees/rates; `PATCH` strictly restricted to staff administrators (`IsAdminUser`) with model-level validation and actor audit tracking (`updated_by`) |
 
+## Pillar 5 Decisions (2026-11-07)
+| Decision | Reason |
+|---|---|
+| Modular Customization Catalog (`CustomizationItem`) | Stores extensible item types (`AVATAR_FRAME`, `PROFILE_THEME`, `CHAT_BUBBLE`, `BADGE`, `NAME_COLOR`), unique slug `code`, soap `price`, and JSON `metadata` for design tokens/CSS styles consumed directly by the frontend |
+| User Inventory Model (`UserInventoryItem`) | Distinct relationship model linking users to acquired items with unique constraint `(user, item)` preventing duplicate purchases; tracks origin `SPEND_CUSTOMIZATION` transaction |
+| Inventory-Gated Active Customization (`customization_json`) | `customization_json` reflects what the user is currently wearing; updating/equipping (`/api/v1/customization/equip/` or `/api/v1/users/me/`) strictly enforces that all equipped items exist in the user's inventory |
+| Atomic Soap Purchase Flow (`purchase_customization_item`) | Atomic execution debits soap via `spend_customization` and registers the inventory holding; enforces item active status, unowned status, and balance sufficiency |
+
 
 
 
