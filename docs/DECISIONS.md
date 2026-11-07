@@ -95,6 +95,20 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 | Community detail capabilities payload | `GET /communities/{commname}/` returns `my_membership` and a boolean `permissions` map so the frontend does not re-implement access rules |
 | Community wallet read access restricted | `GET /communities/{commname}/wallet/` strictly requires active `LEADER` or `COMM_ADMIN` (or system admin) |
 
+## Pillar 2 Decisions (2026-11-07)
+| Decision | Reason |
+|---|---|
+| Max text length: 2,000 chars for posts and comments | Unified upper bound keeping interactions focused and manageable |
+| Immutability for posts and comments | Reflects product philosophy ("think before you interact"); content cannot be edited, only deleted |
+| Post deletion does NOT refund supports | Supports are final; deleting content preserves economic history and balances (ledger rows use `SET_NULL` cascade) |
+| Text optional for posts with media | Users can publish image posts without descriptions; `TEXT` type still requires text |
+| Local media storage behind Django `STORAGES` + `UploadTo` abstraction | Zero-model-change migration path to S3/cloud storage in the future |
+| Free threaded comments with active community member gating | Comments require 0 soap; posting in a community requires active membership and non-archived status |
+| Supports: 1 soap donor debit, +1 author credit (+1 community wallet on community content) | Atomic ledger transfers via `apply_movements(..., origin=support)`; supports are non-refundable; self-support and duplicate support blocked |
+| Bubblepops duration-based pricing: `ceil(hours / 4)` | Ephemeral stories (1 to 48 hours) costing between 1 and 12 soap; auto-filtered on read by `expires_at > now` |
+| Follow-gated direct mail (Letters) | Starting a thread requires following the recipient; replies are follow-exempt via `reply_to` (max 1 reply per letter); immutable on send |
+
+
 
 
 
