@@ -105,6 +105,21 @@ class EconomySettings(models.Model):
     def delete(self, *args, **kwargs):
         raise DomainError("EconomySettings singleton cannot be deleted.")
 
+    def clean(self):
+        super().clean()
+        if self.bubblepop_min_hours > self.bubblepop_max_hours:
+            raise ValidationError(
+                {"bubblepop_min_hours": "Minimum hours cannot exceed maximum hours."}
+            )
+        if self.bubblepop_hours_per_soap <= 0:
+            raise ValidationError(
+                {"bubblepop_hours_per_soap": "Hours per soap must be greater than 0."}
+            )
+        if self.passive_interval_minutes <= 0:
+            raise ValidationError(
+                {"passive_interval_minutes": "Passive interval minutes must be greater than 0."}
+            )
+
     @classmethod
     def load(cls) -> "EconomySettings":
         cached = cache.get(cls.CACHE_KEY)
