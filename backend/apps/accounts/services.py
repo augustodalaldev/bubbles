@@ -19,6 +19,7 @@ from .validators import (
 
 User = get_user_model()
 
+
 @transaction.atomic
 def register_user(
     *,
@@ -287,10 +288,17 @@ def follow_user(*, follower: User, followed: User) -> UserConnection:
             http_status=400,
         )
 
-    connection, created = UserConnection.objects.get_or_create(
-        follower=follower,
-        followed=followed,
-    )
+    try:
+        connection, created = UserConnection.objects.get_or_create(
+            follower=follower,
+            followed=followed,
+        )
+    except IntegrityError:
+        raise DomainError(
+            "You are already following this user.",
+            code="already_following",
+            http_status=400,
+        ) from None
     if not created:
         raise DomainError(
             "You are already following this user.",

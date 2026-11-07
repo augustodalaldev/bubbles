@@ -89,6 +89,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
             "description",
             "profile_photo",
             "customization_json",
+            "is_active",
             "created_at",
         ]
         read_only_fields = fields

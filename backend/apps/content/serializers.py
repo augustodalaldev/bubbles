@@ -57,9 +57,13 @@ class BubblegramSerializer(serializers.ModelSerializer):
         if user.is_staff or obj.user_id == user.id:
             return True
         if obj.community_id:
-            membership = CommunityMember.objects.filter(
-                community_id=obj.community_id, user=user
-            ).first()
+            cache_attr = f"_comm_member_{obj.community_id}"
+            if not hasattr(request, cache_attr):
+                membership = CommunityMember.objects.filter(
+                    community_id=obj.community_id, user=user
+                ).first()
+                setattr(request, cache_attr, membership)
+            membership = getattr(request, cache_attr)
             if (
                 membership
                 and membership.current_state == MemberState.ACTIVE
@@ -109,9 +113,13 @@ class CommentSerializer(serializers.ModelSerializer):
         if obj.bubblegram.user_id == actor.id:
             return True
         if obj.bubblegram.community_id:
-            membership = CommunityMember.objects.filter(
-                community_id=obj.bubblegram.community_id, user=actor
-            ).first()
+            cache_attr = f"_comm_member_{obj.bubblegram.community_id}"
+            if not hasattr(request, cache_attr):
+                membership = CommunityMember.objects.filter(
+                    community_id=obj.bubblegram.community_id, user=actor
+                ).first()
+                setattr(request, cache_attr, membership)
+            membership = getattr(request, cache_attr)
             if (
                 membership
                 and membership.current_state == MemberState.ACTIVE

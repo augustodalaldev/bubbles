@@ -3,7 +3,7 @@ from datetime import timedelta
 from typing import Any
 
 from django.contrib.auth import get_user_model
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import F
 from django.utils import timezone
 
@@ -170,12 +170,11 @@ def delete_bubblegram(*, actor: User, bubblegram: Bubblegram) -> None:
             http_status=403,
         )
 
-    # Delete media files from storage
-    for m in bubblegram.media.all():
-        if m.media:
-            m.media.delete(save=False)
-
+    # Delete post from DB first, then cleanup media files from storage
+    media_files = [m.media for m in bubblegram.media.all() if m.media]
     bubblegram.delete()
+    for media in media_files:
+        media.delete(save=False)
 
 
 @transaction.atomic
@@ -340,7 +339,14 @@ def support_bubblegram(*, donor: User, bubblegram: Bubblegram) -> BubblegramSupp
         defaults={"soap_balance": 0, "passive_earn_rate": settings_obj.default_passive_earn_rate},
     )
 
-    support = BubblegramSupport.objects.create(bubblegram=bubblegram, donor=donor)
+    try:
+        support = BubblegramSupport.objects.create(bubblegram=bubblegram, donor=donor)
+    except IntegrityError:
+        raise DomainError(
+            "You have already supported this bubblegram.",
+            code="already_supported",
+            http_status=400,
+        ) from None
 
     movements = [
         Movement(
@@ -431,7 +437,14 @@ def support_comment(*, donor: User, comment: Comment) -> CommentSupport:
         defaults={"soap_balance": 0, "passive_earn_rate": settings_obj.default_passive_earn_rate},
     )
 
-    support = CommentSupport.objects.create(comment=comment, donor=donor)
+    try:
+        support = CommentSupport.objects.create(comment=comment, donor=donor)
+    except IntegrityError:
+        raise DomainError(
+            "You have already supported this comment.",
+            code="already_supported",
+            http_status=400,
+        ) from None
 
     movements = [
         Movement(
@@ -548,6 +561,7 @@ def delete_bubblepop(*, actor: User, bubblepop: Bubblepop) -> None:
             http_status=403,
         )
 
-    if bubblepop.image:
-        bubblepop.image.delete(save=False)
+    image_file = bubblepop.image
     bubblepop.delete()
+    if image_file:
+        image_file.delete(save=False)

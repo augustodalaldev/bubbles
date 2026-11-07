@@ -1,7 +1,7 @@
 from typing import Any
 
 from django.contrib.auth import get_user_model
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.accounts.models import UserConnection
@@ -86,13 +86,22 @@ def send_letter(
                 http_status=403,
             )
 
-    return Letter.objects.create(
-        sender=sender,
-        recipient=recipient,
-        text=clean_text,
-        image=image,
-        reply_to=reply_to,
-    )
+    try:
+        return Letter.objects.create(
+            sender=sender,
+            recipient=recipient,
+            text=clean_text,
+            image=image,
+            reply_to=reply_to,
+        )
+    except IntegrityError:
+        if reply_to:
+            raise DomainError(
+                "This letter has already been replied to.",
+                code="already_replied",
+                http_status=400,
+            ) from None
+        raise
 
 
 @transaction.atomic
