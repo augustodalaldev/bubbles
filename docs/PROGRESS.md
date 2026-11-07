@@ -23,9 +23,9 @@
 - [x] 3.3 Ephemeral Stories Tray (active bubblepops from followed users)
 - [x] 3.4 Discovery & Global Search (unified search across users and communities)
 
-## Pillar 4 — Passive Soap & Economy Admin (Proposed)
-- [ ] 4.1 Activity tracking (`last_seen_at`) & Celery periodic distribution
-- [ ] 4.2 EconomySettings management
+## Pillar 4 — Passive Soap & Economy Admin
+- [x] 4.1 Activity tracking (`last_seen_at`), heartbeat endpoint, passive soap distribution service & expired Bubblepops cleanup command
+- [x] 4.2 EconomySettings management (GET/PATCH `/api/v1/economy/settings/` restricted to staff)
 
 ## Pillar 5 — Customization & Design Tokens (Proposed)
 - [ ] 5.1 Asset catalog purchase with soap & dynamic theming

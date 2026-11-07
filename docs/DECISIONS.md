@@ -117,6 +117,15 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 | Unified discovery endpoint (`/api/v1/search/?q=...`) | Fast case-insensitive search across active users (username/name) and communities (commname/name/description) |
 | Bounded social recommendations in feed ("Sugerido para você") | Interweaves bounded (max 4 popular in last 24h + max 4 from 2nd-degree network) suggested posts with `is_suggested` and `suggestion_reason`; preserves strict chronological ordering (`-published_at`) and finite pagination without endless doomscrolling |
 
+## Pillar 4 Decisions (2026-11-07)
+| Decision | Reason |
+|---|---|
+| User presence tracking via throttled middleware + heartbeat API | `UpdateLastSeenMiddleware` throttles DB updates to at most once every 60s per user to avoid DB write hotspots on navigation; `POST /api/v1/auth/heartbeat/` provides explicit presence updates |
+| Passive Soap distribution engine (`distribute_passive_soap`) | Users seen within `passive_interval_minutes` receive `default_passive_earn_rate` (5 soap), strictly capped at `passive_daily_cap` (15 soap/day); time-windowed idempotency keys prevent duplicate payouts within the same interval |
+| Ephemeral content hard cleanup (`cleanup_expired_bubblepops`) | Bubblepops with `expires_at <= now` are purged from PostgreSQL along with their physical media files from Django `default_storage` |
+| Django management commands for periodic maintenance | `manage.py distribute_passive_soap` and `manage.py cleanup_expired_bubblepops` can be invoked via Linux cron, Kubernetes CronJob, or Celery task wrappers without requiring an external message broker during dev |
+| Singleton `EconomySettings` administration API (`/api/v1/economy/settings/`) | Read accessible to authenticated users so clients know fees/rates; `PATCH` strictly restricted to staff administrators (`IsAdminUser`) with model-level validation and actor audit tracking (`updated_by`) |
+
 
 
 
