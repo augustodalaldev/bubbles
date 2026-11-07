@@ -1,8 +1,20 @@
+from django.contrib.auth import get_user_model
+from django.db.models import Q
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from apps.accounts.serializers import PublicUserSerializer
+from apps.communities.models import Community
+from apps.communities.serializers import CommunityListSerializer
+
+from .serializers import SearchResultSerializer
+
+User = get_user_model()
 
 
 @extend_schema(responses=OpenApiTypes.OBJECT)
@@ -10,3 +22,45 @@ from rest_framework.response import Response
 @permission_classes([AllowAny])
 def health(request):
     return Response({"status": "ok"})
+
+
+class SearchView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="q",
+                type=str,
+                description="Search query string for users and communities",
+                required=False,
+            )
+        ],
+        responses={200: SearchResultSerializer},
+    )
+    def get(self, request):
+        query = request.query_params.get("q", "").strip()
+        if not query:
+            return Response({"query": "", "users": [], "communities": []})
+
+        users = User.objects.filter(
+            Q(username__icontains=query) | Q(name__icontains=query),
+            is_active=True,
+            deleted_at__isnull=True,
+        ).order_by("username")[:20]
+
+        communities = Community.objects.filter(
+            Q(commname__icontains=query)
+            | Q(name__icontains=query)
+            | Q(description__icontains=query),
+            archived_at__isnull=True,
+        ).order_by("-member_count", "commname")[:20]
+
+        data = {
+            "query": query,
+            "users": PublicUserSerializer(users, many=True, context={"request": request}).data,
+            "communities": CommunityListSerializer(
+                communities, many=True, context={"request": request}
+            ).data,
+        }
+        return Response(data, status=status.HTTP_200_OK)
