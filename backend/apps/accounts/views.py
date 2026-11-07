@@ -24,7 +24,13 @@ from .serializers import (
     SoapTransactionSerializer,
     UpdateProfileSerializer,
 )
-from .services import delete_account, register_user, update_profile
+from .services import (
+    delete_account,
+    follow_user,
+    register_user,
+    unfollow_user,
+    update_profile,
+)
 
 REFRESH_COOKIE_NAME = "refresh_token"
 AUTH_COOKIE_PATH = "/api/v1/auth/"
@@ -213,3 +219,22 @@ class UserWalletView(APIView):
                 "results": tx_serializer.data,
             }
         )
+
+
+class UserFollowView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(request=None, responses={201: OpenApiTypes.OBJECT})
+    def post(self, request, username: str):
+        target_user = get_user_by_username(username=username)
+        follow_user(follower=request.user, followed=target_user)
+        return Response(
+            {"detail": f"Now following {target_user.username}."},
+            status=status.HTTP_201_CREATED,
+        )
+
+    @extend_schema(responses={204: None})
+    def delete(self, request, username: str):
+        target_user = get_user_by_username(username=username)
+        unfollow_user(follower=request.user, followed=target_user)
+        return Response(status=status.HTTP_204_NO_CONTENT)

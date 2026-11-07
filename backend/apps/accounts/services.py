@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from apps.core.exceptions import DomainError
 
+from .models import UserConnection
 from .validators import (
     validate_birth_date,
     validate_username_format,
@@ -17,7 +18,6 @@ from .validators import (
 )
 
 User = get_user_model()
-
 
 @transaction.atomic
 def register_user(
@@ -268,3 +268,48 @@ def delete_account(*, user: User, password: str) -> None:
     user.is_active = False
     user.deleted_at = timezone.now()
     user.save()
+
+
+@transaction.atomic
+def follow_user(*, follower: User, followed: User) -> UserConnection:
+    """Follow a user (immediate, directed, no approval required)."""
+    if follower.id == followed.id:
+        raise DomainError(
+            "You cannot follow yourself.",
+            code="cannot_follow_self",
+            http_status=400,
+        )
+
+    if not followed.is_active:
+        raise DomainError(
+            "Cannot follow an inactive or deleted user.",
+            code="user_inactive",
+            http_status=400,
+        )
+
+    connection, created = UserConnection.objects.get_or_create(
+        follower=follower,
+        followed=followed,
+    )
+    if not created:
+        raise DomainError(
+            "You are already following this user.",
+            code="already_following",
+            http_status=400,
+        )
+    return connection
+
+
+@transaction.atomic
+def unfollow_user(*, follower: User, followed: User) -> None:
+    """Unfollow a user."""
+    deleted_count, _ = UserConnection.objects.filter(
+        follower=follower,
+        followed=followed,
+    ).delete()
+    if deleted_count == 0:
+        raise DomainError(
+            "You are not following this user.",
+            code="not_following",
+            http_status=400,
+        )

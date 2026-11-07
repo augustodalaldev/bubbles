@@ -315,3 +315,28 @@ def test_auth_throttling():
     finally:
         ScopedRateThrottle.THROTTLE_RATES = original_rates
         cache.clear()
+
+
+def test_follow_and_unfollow_api(auth_client):
+    client, user = auth_client
+    target = UserFactory(username="targetuser")
+
+    # Follow
+    follow_resp = client.post(f"/api/v1/users/{target.username}/follow/")
+    assert follow_resp.status_code == status.HTTP_201_CREATED
+
+    # Cannot follow again
+    dup_resp = client.post(f"/api/v1/users/{target.username}/follow/")
+    assert dup_resp.status_code == status.HTTP_400_BAD_REQUEST
+
+    # Cannot follow self
+    self_resp = client.post(f"/api/v1/users/{user.username}/follow/")
+    assert self_resp.status_code == status.HTTP_400_BAD_REQUEST
+
+    # Unfollow
+    unfollow_resp = client.delete(f"/api/v1/users/{target.username}/follow/")
+    assert unfollow_resp.status_code == status.HTTP_204_NO_CONTENT
+
+    # Cannot unfollow again
+    unfollow_dup = client.delete(f"/api/v1/users/{target.username}/follow/")
+    assert unfollow_dup.status_code == status.HTTP_400_BAD_REQUEST
