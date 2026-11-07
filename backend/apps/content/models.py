@@ -155,7 +155,7 @@ class Comment(models.Model):
         blank=True,
         related_name="replies",
     )
-    text = models.TextField(max_length=1000)
+    text = models.TextField(max_length=2000)
     # Cached counter of supports.
     soap_count = models.PositiveIntegerField(default=0)
     published_at = models.DateTimeField(default=timezone.now, editable=False)
