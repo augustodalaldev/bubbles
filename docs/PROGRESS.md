@@ -17,9 +17,11 @@
 - [x] 2.4 Bubblepops (ephemeral stories, duration-based pricing, auto-expiry filtering)
 - [x] 2.5 Letters (asynchronous follow-gated direct mail, reply threading, read tracking)
 
-## Pillar 3 — Social Feed & Discovery (Proposed)
-- [ ] 3.1 Follows management & profile relationships
-- [ ] 3.2 Chronological Feed (personal bubblegrams from followed users + active community bubblegrams)
+## Pillar 3 — Social Feed & Discovery
+- [x] 3.1 Follows management & profile relationships (followers/following lists, counts, relationship flags)
+- [x] 3.2 Chronological Feed (personal bubblegrams from followed users + active community bubblegrams)
+- [x] 3.3 Ephemeral Stories Tray (active bubblepops from followed users)
+- [x] 3.4 Discovery & Global Search (unified search across users and communities)
 
 ## Pillar 4 — Passive Soap & Economy Admin (Proposed)
 - [ ] 4.1 Activity tracking (`last_seen_at`) & Celery periodic distribution

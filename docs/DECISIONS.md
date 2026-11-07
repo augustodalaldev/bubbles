@@ -108,6 +108,15 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 | Bubblepops duration-based pricing: `ceil(hours / 4)` | Ephemeral stories (1 to 48 hours) costing between 1 and 12 soap; auto-filtered on read by `expires_at > now` |
 | Follow-gated direct mail (Letters) | Starting a thread requires following the recipient; replies are follow-exempt via `reply_to` (max 1 reply per letter); immutable on send |
 
+## Pillar 3 Decisions (2026-11-07)
+| Decision | Reason |
+|---|---|
+| Split user serializers (`PublicUserSerializer` vs `UserProfileDetailSerializer`) | Prevents N+1 queries when embedding authors in lists (posts, comments, letters) while providing full stats (`followers_count`, `following_count`, `is_following`, `is_followed_by`) on profile detail |
+| Strictly chronological feed with zero algorithmic ranking | Aligns with core product principle: followed personal bubblegrams + active community bubblegrams, ordered strictly by `-published_at, -id` |
+| Stories tray separated from main feed | Dedicated `/api/v1/feed/bubblepops/` endpoint returns active stories from followed users without cluttering the post stream |
+| Unified discovery endpoint (`/api/v1/search/?q=...`) | Fast case-insensitive search across active users (username/name) and communities (commname/name/description) |
+
+
 
 
 
