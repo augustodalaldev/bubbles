@@ -21,12 +21,16 @@ class ActionType(models.TextChoices):
     CREDIT_FOUNDING = "CREDIT_FOUNDING", "Credit founding"
     SPEND_CUSTOMIZATION = "SPEND_CUSTOMIZATION", "Spend customization"
     ADMIN_ADJUSTMENT = "ADMIN_ADJUSTMENT", "Admin adjustment"
+    DEBIT_BUBBLEGRAM = "DEBIT_BUBBLEGRAM", "Debit bubblegram"
+    DEBIT_BUBBLEPOP = "DEBIT_BUBBLEPOP", "Debit bubblepop"
 
 
 DEBIT_ACTION_TYPES = [
     ActionType.DEBIT_INTERACTION,
     ActionType.DEBIT_FOUNDING,
     ActionType.SPEND_CUSTOMIZATION,
+    ActionType.DEBIT_BUBBLEGRAM,
+    ActionType.DEBIT_BUBBLEPOP,
 ]
 
 CREDIT_ACTION_TYPES = [

@@ -203,3 +203,19 @@ def spend_customization(
     `cost` must be a positive integer.
     """
     return debit(wallet, cost, action_type=ActionType.SPEND_CUSTOMIZATION)
+
+
+def debit_bubblegram(
+    wallet: Wallet,
+    cost: int,
+) -> SoapTransaction:
+    """Debit soap from a wallet to publish a bubblegram (cost is burned)."""
+    return debit(wallet, cost, action_type=ActionType.DEBIT_BUBBLEGRAM)
+
+
+def debit_bubblepop(
+    wallet: Wallet,
+    cost: int,
+) -> SoapTransaction:
+    """Debit soap from a wallet to publish a bubblepop (cost is burned)."""
+    return debit(wallet, cost, action_type=ActionType.DEBIT_BUBBLEPOP)
