@@ -38,6 +38,10 @@ erDiagram
     CustomizationItem ||--o{ UserInventoryItem : "held by user"
     SoapTransaction ||--o| UserInventoryItem : "payment link (optional)"
 
+    User ||--o{ Report : "files report"
+    User ||--o| Report : "reviewed by (optional)"
+    User ||--o{ AuditLog : "performed by (actor)"
+
     User {
         bigint id PK
         string username UK "lowercase, 3-30 chars, [a-z0-9_]"
@@ -49,7 +53,10 @@ erDiagram
         json customization_json "profile customizations (colors, borders, etc.)"
         string profile_photo "upload_to profile_photos"
         datetime created_at
+        datetime last_seen_at "presence tracking"
         datetime deleted_at "soft-delete anonymization"
+        string status "ACTIVE, SUSPENDED, BANNED"
+        datetime suspended_until "nullable"
         boolean is_active
         boolean is_staff
     }
@@ -73,6 +80,7 @@ erDiagram
         integer member_count "cached counter"
         datetime created_at
         datetime archived_at "nullable, archived = read-only"
+        datetime blocked_at "nullable, admin blocked"
     }
 
     CommunityMember {
@@ -203,5 +211,30 @@ erDiagram
         bigint item_id FK
         bigint transaction_id FK "nullable SPEND_CUSTOMIZATION transaction"
         datetime acquired_at
+    }
+
+    Report {
+        bigint id PK
+        bigint reporter_id FK
+        string target_type "USER | COMMUNITY | BUBBLEGRAM | COMMENT"
+        string target_id
+        string reason "SPAM | HARASSMENT | HATE_SPEECH | INAPPROPRIATE_CONTENT | OTHER"
+        text description
+        string status "PENDING | INVESTIGATING | RESOLVED | DISMISSED"
+        bigint reviewed_by_id FK "nullable"
+        datetime reviewed_at "nullable"
+        text resolution_notes
+        datetime created_at
+    }
+
+    AuditLog {
+        bigint id PK
+        bigint actor_id FK "nullable"
+        string action "USER_SUSPEND | USER_BAN | USER_UNBAN | COMMUNITY_BLOCK | COMMUNITY_UNBLOCK | CONTENT_DELETE | ECONOMY_ADJUSTMENT | REPORT_RESOLVE | REPORT_DISMISS"
+        string target_type
+        string target_id
+        text reason
+        json metadata
+        datetime created_at
     }
 ```

@@ -134,6 +134,15 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 | Inventory-Gated Active Customization (`customization_json`) | `customization_json` reflects what the user is currently wearing; updating/equipping (`/api/v1/customization/equip/` or `/api/v1/users/me/`) strictly enforces that all equipped items exist in the user's inventory |
 | Atomic Soap Purchase Flow (`purchase_customization_item`) | Atomic execution debits soap via `spend_customization` and registers the inventory holding; enforces item active status, unowned status, and balance sufficiency |
 
+## Pillar 6 Decisions (2026-11-07)
+| Decision | Reason |
+|---|---|
+| User reporting pipeline (`Report`) | Authenticated users can report inappropriate users, communities, bubblegrams, or comments (`POST /api/v1/reports/`); staff reviews and resolves reports (`PATCH /api/v1/admin/reports/{id}/`) with resolution notes |
+| Administrative Audit Logging (`AuditLog`) | Centralized, append-only log capturing administrative actions (suspensions, bans, unbans, community blocks, content deletions, economy adjustments, report resolutions) with actor, target, reason, and structured metadata |
+| Account suspension & ban mechanics | `User.status` (`ACTIVE`/`SUSPENDED`/`BANNED`) with `suspended_until`. Suspended accounts are barred from posting, commenting, supporting, and sending letters until the suspension expires; banned accounts are permanently deactivated (`is_active=False`) |
+| Community blocking (`Community.blocked_at`) | Blocks malicious communities (`blocked_at is not None`) preventing joins, publishing, comments, and supports |
+| Administrative soap adjustments (`admin_adjust_soap`) | Staff can credit or debit wallets with `ActionType.ADMIN_ADJUSTMENT`, with mandatory reason and audit entry recording before and after balances |
+
 
 
 

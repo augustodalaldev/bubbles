@@ -30,8 +30,8 @@
 ## Pillar 5 — Customization & Design Tokens
 - [x] 5.1 Modular customization catalog (`CustomizationItem`), user inventory (`UserInventoryItem`), soap purchasing (`SPEND_CUSTOMIZATION`), inventory-validated profile equipping (`customization_json`) & design tokens API
 
-## Pillar 6 — Moderation & Governance (Proposed)
-- [ ] 6.1 Content moderation, audit logs & system admin tooling
+## Pillar 6 — Moderation & Governance
+- [x] 6.1 Content moderation, user reports (`Report`), administrative audit logging (`AuditLog`), account suspension/ban, community blocking & admin tooling
 
 ## Notes
 - Do NOT run `migrate` until the custom `User` exists and `AUTH_USER_MODEL` is set (first task of 1.2).
