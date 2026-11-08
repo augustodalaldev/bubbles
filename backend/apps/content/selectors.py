@@ -117,6 +117,7 @@ def list_feed_bubblegrams(
         CommunityMember.objects.filter(
             user=user,
             community__archived_at__isnull=True,
+            community__blocked_at__isnull=True,
         )
         .exclude(current_state=MemberState.BANNED)
         .values_list("community_id", flat=True)
@@ -140,6 +141,7 @@ def list_feed_bubblegrams(
                 soap_count__gt=0,
                 user__is_active=True,
             )
+            .exclude(community__blocked_at__isnull=False)
             .exclude(normal_q)
             .order_by("-soap_count", "-published_at")
             .values_list("id", flat=True)[:max_popular_suggestions]

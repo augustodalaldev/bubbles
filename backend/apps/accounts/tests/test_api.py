@@ -182,6 +182,9 @@ def test_current_user_me_get_authenticated(auth_client):
     assert response.data["id"] == user.id
     assert response.data["username"] == user.username
     assert response.data["email"] == user.email
+    assert response.data["status"] == "ACTIVE"
+    assert response.data["is_suspended"] is False
+    assert response.data["suspended_until"] is None
     assert response.data["soap_balance"] == 20
     assert response.data["wallet"]["soap_balance"] == 20
     assert response.data["wallet"]["passive_earn_rate"] == 5

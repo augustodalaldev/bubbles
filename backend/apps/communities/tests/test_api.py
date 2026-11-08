@@ -234,3 +234,24 @@ def test_community_wallet_api():
     res = client.get(f"/api/v1/communities/{community.commname}/wallet/")
     assert res.status_code == status.HTTP_200_OK
     assert res.data["soap_balance"] == 350
+
+
+def test_community_blocked_listing_and_permissions():
+    active_comm = CommunityFactory(name="Active Comm")
+    blocked_comm = CommunityFactory(name="Blocked Comm", blocked_at=timezone.now())
+
+    user = UserFactory()
+    client = auth_client(user)
+
+    # Regular user does not see blocked community in list
+    res = client.get("/api/v1/communities/")
+    assert res.status_code == status.HTTP_200_OK
+    comm_names = [c["commname"] for c in res.data["results"]]
+    assert active_comm.commname in comm_names
+    assert blocked_comm.commname not in comm_names
+
+    # Permissions on blocked community disallow join
+    res_detail = client.get(f"/api/v1/communities/{blocked_comm.commname}/")
+    assert res_detail.status_code == status.HTTP_200_OK
+    assert res_detail.data["permissions"]["can_join"] is False
+    assert res_detail.data["permissions"]["can_edit"] is False

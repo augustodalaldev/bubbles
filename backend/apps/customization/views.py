@@ -70,7 +70,13 @@ class CustomizationCatalogDetailView(APIView):
 
     @extend_schema(responses={200: CustomizationItemSerializer})
     def get(self, request, pk: int):
-        item = get_object_or_404(CustomizationItem, pk=pk)
+        user = getattr(request, "user", None)
+        qs = (
+            CustomizationItem.objects.all()
+            if (user and user.is_staff)
+            else CustomizationItem.objects.filter(is_active=True)
+        )
+        item = get_object_or_404(qs, pk=pk)
         return Response(CustomizationItemSerializer(item, context={"request": request}).data)
 
     @extend_schema(

@@ -54,6 +54,7 @@ class SearchView(APIView):
             | Q(name__icontains=query)
             | Q(description__icontains=query),
             archived_at__isnull=True,
+            blocked_at__isnull=True,
         ).order_by("-member_count", "commname")[:20]
 
         data = {

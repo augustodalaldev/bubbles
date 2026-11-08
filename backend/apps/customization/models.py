@@ -57,7 +57,7 @@ class UserInventoryItem(models.Model):
         on_delete=models.PROTECT,
         related_name="user_holdings",
     )
-    acquired_at = models.DateTimeField(default=timezone.now, editable=False)
+    acquired_at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
     transaction = models.ForeignKey(
         "economy.SoapTransaction",
         on_delete=models.SET_NULL,

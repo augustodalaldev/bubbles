@@ -42,17 +42,28 @@ def compute_community_permissions(
     is_leader = is_member and membership.role == MemberRole.LEADER and is_active
     is_admin = is_member and membership.role == MemberRole.COMM_ADMIN and is_active
     is_archived = community.is_archived
+    is_blocked = getattr(community, "is_blocked", False)
 
     return {
-        "can_edit": bool(is_staff or ((is_leader or is_admin) and not is_archived)),
-        "can_edit_guidelines": bool(is_staff or (is_leader and not is_archived)),
-        "can_manage_members": bool(is_staff or is_leader or is_admin),
-        "can_manage_admins": bool(is_staff or is_leader),
-        "can_transfer_leadership": bool(is_staff or (is_leader and not is_archived)),
-        "can_archive": bool((is_staff or is_leader) and not is_archived),
+        "can_edit": bool(
+            is_staff or ((is_leader or is_admin) and not is_archived and not is_blocked)
+        ),
+        "can_edit_guidelines": bool(is_staff or (is_leader and not is_archived and not is_blocked)),
+        "can_manage_members": bool(is_staff or ((is_leader or is_admin) and not is_blocked)),
+        "can_manage_admins": bool(is_staff or (is_leader and not is_blocked)),
+        "can_transfer_leadership": bool(
+            is_staff or (is_leader and not is_archived and not is_blocked)
+        ),
+        "can_archive": bool((is_staff or is_leader) and not is_archived and not is_blocked),
         "can_view_wallet": bool(is_staff or is_leader or is_admin),
-        "can_join": bool(is_authenticated and not is_member and not is_banned and not is_archived),
-        "can_leave": bool(is_member and not is_leader),
+        "can_join": bool(
+            is_authenticated
+            and not is_member
+            and not is_banned
+            and not is_archived
+            and not is_blocked
+        ),
+        "can_leave": bool(is_member and not is_leader and not is_blocked),
     }
 
 
@@ -64,6 +75,9 @@ def list_communities(
 ) -> QuerySet[Community]:
     """List or search communities (RF004)."""
     qs = Community.objects.all().order_by("-created_at")
+
+    if not getattr(user, "is_staff", False):
+        qs = qs.filter(blocked_at__isnull=True)
 
     if mine and user.is_authenticated:
         member_comm_ids = (

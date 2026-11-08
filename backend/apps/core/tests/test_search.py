@@ -60,6 +60,7 @@ def test_search_excludes_archived_and_deleted():
     from django.utils import timezone
 
     archived_comm = CommunityFactory(commname="oldpython", archived_at=timezone.now())
+    blocked_comm = CommunityFactory(commname="badpython", blocked_at=timezone.now())
 
     resp = client.get("/api/v1/search/?q=python")
     assert resp.status_code == status.HTTP_200_OK
@@ -69,3 +70,4 @@ def test_search_excludes_archived_and_deleted():
 
     comm_ids = [c["id"] for c in resp.data["communities"]]
     assert archived_comm.id not in comm_ids
+    assert blocked_comm.id not in comm_ids
