@@ -82,12 +82,25 @@ def create_bubblegram(
                 extra={"fields": {"media": ["At most 4 images are allowed."]}},
             )
 
+    if getattr(author, "is_suspended", False):
+        raise DomainError(
+            "Suspended accounts cannot publish bubblegrams.",
+            code="account_suspended",
+            http_status=403,
+        )
+
     if community is not None:
         if community.is_archived:
             raise DomainError(
                 "Cannot publish in an archived community.",
                 code="community_archived",
                 http_status=400,
+            )
+        if community.is_blocked:
+            raise DomainError(
+                "Cannot publish in a blocked community.",
+                code="community_blocked",
+                http_status=403,
             )
 
         membership = CommunityMember.objects.filter(community=community, user=author).first()
@@ -208,12 +221,25 @@ def create_comment(
             extra={"fields": {"text": ["Comment text cannot exceed 2000 characters."]}},
         )
 
+    if getattr(author, "is_suspended", False):
+        raise DomainError(
+            "Suspended accounts cannot comment.",
+            code="account_suspended",
+            http_status=403,
+        )
+
     if bubblegram.community_id:
         if bubblegram.community.is_archived:
             raise DomainError(
                 "Cannot comment in an archived community.",
                 code="community_archived",
                 http_status=400,
+            )
+        if bubblegram.community.is_blocked:
+            raise DomainError(
+                "Cannot comment in a blocked community.",
+                code="community_blocked",
+                http_status=403,
             )
         membership = CommunityMember.objects.filter(
             community_id=bubblegram.community_id, user=author
@@ -295,6 +321,13 @@ def support_bubblegram(*, donor: User, bubblegram: Bubblegram) -> BubblegramSupp
        if community post, credits 1 soap to community wallet.
     5. Increments cached `bubblegram.soap_count`.
     """
+    if getattr(donor, "is_suspended", False):
+        raise DomainError(
+            "Suspended accounts cannot support content.",
+            code="account_suspended",
+            http_status=403,
+        )
+
     if donor.id == bubblegram.user_id:
         raise DomainError(
             "Users cannot support their own bubblegram.",
@@ -315,6 +348,12 @@ def support_bubblegram(*, donor: User, bubblegram: Bubblegram) -> BubblegramSupp
                 "Cannot interact in an archived community.",
                 code="community_archived",
                 http_status=400,
+            )
+        if bubblegram.community.is_blocked:
+            raise DomainError(
+                "Cannot interact in a blocked community.",
+                code="community_blocked",
+                http_status=403,
             )
         membership = CommunityMember.objects.filter(
             community_id=bubblegram.community_id, user=donor
@@ -394,6 +433,13 @@ def support_comment(*, donor: User, comment: Comment) -> CommentSupport:
        if community content, credits 1 soap to community wallet.
     5. Increments cached `comment.soap_count`.
     """
+    if getattr(donor, "is_suspended", False):
+        raise DomainError(
+            "Suspended accounts cannot support content.",
+            code="account_suspended",
+            http_status=403,
+        )
+
     if donor.id == comment.user_id:
         raise DomainError(
             "Users cannot support their own comment.",
@@ -415,6 +461,12 @@ def support_comment(*, donor: User, comment: Comment) -> CommentSupport:
                 "Cannot interact in an archived community.",
                 code="community_archived",
                 http_status=400,
+            )
+        if community.is_blocked:
+            raise DomainError(
+                "Cannot interact in a blocked community.",
+                code="community_blocked",
+                http_status=403,
             )
         membership = CommunityMember.objects.filter(community=community, user=donor).first()
         if membership and membership.current_state in (MemberState.SILENCED, MemberState.BANNED):

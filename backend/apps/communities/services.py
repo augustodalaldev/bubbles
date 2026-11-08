@@ -276,6 +276,13 @@ def join_community(*, user: User, community: Community) -> CommunityMember:
             http_status=400,
         )
 
+    if community.is_blocked:
+        raise DomainError(
+            "Cannot join a blocked community.",
+            code="community_blocked",
+            http_status=403,
+        )
+
     existing = CommunityMember.objects.filter(community=community, user=user).first()
     if existing:
         if existing.current_state == MemberState.BANNED:

@@ -42,6 +42,7 @@ class Community(models.Model):
     member_count = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     archived_at = models.DateTimeField(null=True, blank=True)
+    blocked_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     class Meta:
         verbose_name_plural = "communities"
@@ -58,6 +59,10 @@ class Community(models.Model):
     @property
     def is_archived(self) -> bool:
         return self.archived_at is not None
+
+    @property
+    def is_blocked(self) -> bool:
+        return self.blocked_at is not None
 
 
 class CommunityMember(models.Model):

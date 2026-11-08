@@ -46,6 +46,13 @@ def send_letter(
             extra={"fields": {"text": ["Letter text cannot exceed 5000 characters."]}},
         )
 
+    if getattr(sender, "is_suspended", False):
+        raise DomainError(
+            "Suspended accounts cannot send letters.",
+            code="account_suspended",
+            http_status=403,
+        )
+
     if sender.id == recipient.id:
         raise DomainError(
             "You cannot send a letter to yourself.",

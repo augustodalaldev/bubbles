@@ -17,6 +17,12 @@ from .validators import (
 )
 
 
+class UserStatus(models.TextChoices):
+    ACTIVE = "ACTIVE", "Active"
+    SUSPENDED = "SUSPENDED", "Suspended"
+    BANNED = "BANNED", "Banned"
+
+
 class User(AbstractBaseUser, PermissionsMixin):
     username = models.CharField(
         max_length=30,
@@ -37,6 +43,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     last_seen_at = models.DateTimeField(null=True, blank=True, db_index=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=UserStatus.choices,
+        default=UserStatus.ACTIVE,
+        db_index=True,
+    )
+    suspended_until = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
@@ -57,6 +70,18 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.username
+
+    @property
+    def is_suspended(self) -> bool:
+        if self.status != UserStatus.SUSPENDED:
+            return False
+        if not self.suspended_until:
+            return True
+        return self.suspended_until > timezone.now()
+
+    @property
+    def is_banned(self) -> bool:
+        return self.status == UserStatus.BANNED
 
     def clean(self):
         super().clean()
