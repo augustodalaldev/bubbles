@@ -152,26 +152,13 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
             <X className="w-4 h-4" />
           </button>
 
-          {/* Left Side: Media or Text */}
+          {/* Left Side: Media or Text (Borderless, no fake reflection) */}
           {mediaUrl ? (
             <div className="md:w-1/2 bg-slate-900 flex items-center justify-center relative min-h-[280px] md:min-h-[460px]">
               <img
                 src={mediaUrl}
                 alt="Publicação"
                 className="w-full h-full object-cover max-h-[460px]"
-              />
-
-              {/* Elongated specular reflection in bottom-right corner */}
-              <div 
-                className="absolute rounded-full pointer-events-none"
-                style={{
-                  bottom: "8%",
-                  right: "8%",
-                  width: "48%",
-                  height: "14%",
-                  background: "linear-gradient(0deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0) 100%)",
-                  transform: "rotate(-18deg)",
-                }}
               />
 
               {isStory && (
@@ -189,23 +176,34 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
             </div>
           )}
 
-          {/* Right Side: Author, Details & Support */}
+          {/* Right Side: Author, Minimalist Balance & Engagement */}
           <div className="md:w-1/2 p-4 sm:p-5 flex flex-col justify-between overflow-y-auto bg-white">
             <div>
-              {/* Author header */}
-              <div className="flex items-center gap-3 pb-3 border-b border-slate-200">
-                <img
-                  src={author.profile_photo || ""}
-                  alt={author.name}
-                  className="w-10 h-10 rounded-full object-cover border border-slate-300"
-                />
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900 leading-tight">
-                    {author.name}
-                  </h4>
-                  <span className="text-xs text-slate-500 font-medium">
-                    @{author.username}
-                  </span>
+              {/* Author header with Minimalist User Balance indicator */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200 pr-8">
+                <div className="flex items-center gap-2.5">
+                  <img
+                    src={author.profile_photo || ""}
+                    alt={author.name}
+                    className="w-9 h-9 rounded-full object-cover"
+                  />
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900 leading-tight">
+                      {author.name}
+                    </h4>
+                    <span className="text-xs text-slate-500 font-medium">
+                      @{author.username}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Minimalist User Soap Balance */}
+                <div 
+                  title="Seu saldo atual de soap"
+                  className="flex items-center gap-1 px-2 py-0.5 bg-slate-50 border border-slate-200 rounded-sm text-xs font-semibold text-slate-600"
+                >
+                  <SoapIcon size={13} />
+                  <span>{currentUser.soap_balance}</span>
                 </div>
               </div>
 
@@ -216,28 +214,27 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
                 </p>
               )}
 
-              {/* Engagement Bar: Soap Support (Max 1) + Share Button */}
+              {/* Engagement Bar: Soap Icon button + Share Button */}
               <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between gap-2">
                 <button
                   onClick={handleSoapSupport}
                   disabled={hasSupportedPost}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-bold rounded-sm transition-all ${
+                  title={hasSupportedPost ? "Você já apoiou esta publicação com 1 soap" : "Apoiar com 1 soap"}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-sm transition-all ${
                     hasSupportedPost 
-                      ? "bg-slate-100 text-slate-600 border border-slate-300 cursor-default" 
+                      ? "bg-slate-100 text-slate-500 border border-slate-200 cursor-default" 
                       : "btn-pink hover:brightness-105"
                   }`}
                 >
                   <SoapIcon size={14} />
-                  <span>
-                    {hasSupportedPost ? "Apoiado com 1 soap" : "Apoiar com 1 soap"} ({soapCount})
-                  </span>
+                  <span>{soapCount}</span>
                 </button>
 
                 {/* Share Button */}
                 <button
                   onClick={handleShare}
                   title="Compartilhar link da publicação"
-                  className="btn-outline py-1.5 px-3 text-xs font-semibold flex items-center gap-1.5 text-slate-600 hover:text-slate-900"
+                  className="btn-outline py-1.5 px-2.5 text-xs font-semibold flex items-center gap-1.5 text-slate-600 hover:text-slate-900"
                 >
                   {copiedShare ? (
                     <>
@@ -272,7 +269,7 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
                           <button
                             onClick={() => handleSupportComment(c.id)}
                             disabled={c.hasSupported}
-                            title={c.hasSupported ? "Você já apoiou este comentário" : "Apoiar comentário com 1 soap"}
+                            title={c.hasSupported ? "Você já apoiou este comentário" : "Apoiar com 1 soap"}
                             className={`flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold rounded-sm border transition-colors ${
                               c.hasSupported
                                 ? "bg-pink-100 border-pink-300 text-pink-700 cursor-default"
