@@ -1,181 +1,107 @@
-   PASSO 1: O Plano de Ação — Arquitetura do Frontend 
-  ──────
-  ## 1. Configuração Inicial do Projeto & Stack Tecnológica
-  
-  O frontend será criado no diretório frontend/ na raiz do repositório, integrado com a API do Django já existente.
-  
-  • Build Tool & Framework: Vite com React 19 e TypeScript (compilação ultrarrápida, HMR instantâneo e tipagem segura compatível com o schema OpenAPI).
-  • Estilização & Design System:                                                                                                                          
-      • TailwindCSS + PostCSS + Autoprefixer: Base utilitária para layout flexível e responsivo.
-      • Design Tokens Customizados no Tailwind: Configuração de utilitários específicos para estética Frutiger Aero / Liquid Glass (sombras volumétricas
-      internas inner-shadow, reflexos especulares lineares, efeito arco-íris iridescente de bolha de sabão e vidros com backdrop-blur).                   
-  • Interatividade & Física das Bolhas:
-      • framer-motion: Mecânica fundamental para posts e stories em formato de bolhas que flutuam, colidem, reagem ao arrastar com física de mola (spring
-      drag physics) e animações fluidas de abertura. 
-      • canvas-confetti: Efeito visual festivo de gotas d'água / bolhas estourando ao expirar Bubblepops ou confirmar transações de sabão.
-  • Ícones & UI Elements: 
-      • lucide-react: Ícones de alta precisão que receberão acabamento tridimensional e gradientes luminosos.
-  • Comunicação com a API & Estado Global:   
-      • axios: Cliente HTTP com interceptors para gerenciamento de JWT (injeção de token Bearer, renovação transparente via /api/v1/auth/refresh/ e      
-      captura do formato padrão de erro da API).
-      • zustand: Gerenciamento leve do estado de autenticação, dados do usuário ativo, presença/heartbeat e carrinho/inventário de customização.
-  • Estrutura de Diretórios (frontend/src/):
-    frontend/src/
-    ├── assets/          # Texturas de água, reflexos, molduras de bolhas e sons suaves 
-    ├── components/      # UI atômica (GlassCard, GlossyButton, BubbleNode, AvatarRing, SoapBadge) 
-    ├── features/        # Módulos de domínio conectados à API 
-    │   ├── auth/        # Login, Cadastro com verificação de idade e Heartbeat 
-    │   ├── feed/        # Feed cronológico, bandeja de Bubblepops e sugestões 
-    │   ├── profile/     # Tela de Perfil Orkut-style, playground de Bubblegrams flutuantes
-    │   ├── communities/ # Painel de comunidade, murais, membros e carteira coletiva
-    │   ├── customization/# Loja de tokens de design, provador e inventário
-    │   ├── letters/     # Mensageria de cartas encadeadas com visual de correspondência
-    │   └── moderation/  # Modais de denúncia (Report) e ações de moderação
-    ├── hooks/           # useAuth, useHeartbeat, useBubblePhysics, useThemeTokens
-    ├── layouts/         # Shell de 3 colunas (Sidebar Esquerda, Palco Central, Painel Direito)
-    ├── services/        # Cliente axios configurado com interceptors e endpoints da API
-    ├── styles/          # index.css com utilitários de vidro líquido, gradientes e iridescência
-    └── types/           # Interfaces TypeScript espelhando a API do backend 
-  
-  ──────
-  ## 2. Mapa de Telas Divididas por Seções
-  
-  ### Seção 1: Autenticação & Entrada 
-  
-  1. Tela de Login: Janela vítrea flutuante sobre fundo aquático translúcido, campos com brilho interno para usuário/e-mail e senha, botão glossy com 
-  reflexo de luz e link de recuperação. 
-  2. Tela de Registro & Boas-Vindas: Formulário com validação de idade mínima (14 anos), escolha de username único (@ proibido), preview de avatar em    
-  moldura esférica e modal festivo de boas-vindas destacando a bonificação inicial de +20 Sabões.
-  
-  ### Seção 2: Feed Social & Descoberta
-  
-  3. Feed Principal (Estritamente Cronológico): Linha do tempo central com publicações de amigos e comunidades seguidas, intercaladas com os blocos
-  sinalizados de "Sugerido para você" (recomendações populares das últimas 24h e conexões de 2º grau). Ao final da lista, indicador visual amigável: "Você
-  chegou ao fim por hoje!". 
-  4. Bandeja de Bubblepops (Stories Tray): Faixa superior com esferas aquáticas flutuantes com borda ondulante e contador regressivo indicando a tensão 
-  superficial antes da bolha estourar. 
-  5. Modal Imersivo de Bubblepop: Visualizador de mídia com efeito de expansão esférica (zoom físico de mola) e botão de doação rápida de sabão.
-  6. Descoberta & Busca Global: Dropdown dinâmico com visual glassmorphism exibindo resultados separados entre perfis e comunidades, com contadores de    
-  membros e conexões mútuas.
-  
-  ### Seção 3: Comunidades (Estrutura Orkut 2.0)
-  
-  7. Hub de Comunidades: Catálogo de comunidades em que o usuário participa e destaques populares em blocos translúcidos com contadores de membros e selo 
-  do fundador.
-  8. Página da Comunidade:
-      • Header Volumétrico: Banner com efeito de água, avatar esférico da comunidade e botões de ação ("Participar", "Sair", "Doar para a Carteira").
-      • Mural de Bubblegrams: Publicações exclusivas de membros ativos com comentários encadeados (threaded replies).
-      • Bloco Lateral de Diretrizes: Card vítreo fixo com as regras de convivência definidas pela liderança. 
-      • Aba de Membros: Grid com categorização clara de cargos (Líder, Admin, Membro) e status (Ativo, Silenciado). 
-      • Carteira Coletiva: Visualizador dos sabões arrecadados pela comunidade para personalizações coletivas.
-  
-  
-  ### Seção 4: Perfil do Usuário (Foco do MVP — Passo 3)
-  
-  9. Tela de Perfil (Layout Orkut Revisitado):
-      • Coluna Esquerda (Identidade): Avatar com a moldura cosmética equipada, indicador de presença em tempo real (Ativo agora / Visto há 5 min),    
-      biografia, saldo de sabão pessoal e botões de interação direta ("Seguir", "Enviar Carta", "Apoiar com Sabão").
-      • Coluna Central (Conteúdo & Bolhas Interativas):   
-          • Playground de Bubblegrams (Posts Fixos): Em vez de grade quadrada monótona, os posts são esferas translúcidas interativas que o usuário pode
-          arrastar, soltar, colidir e explorar com física elástica via framer-motion. Ao clicar em uma bolha, ela se expande suavemente revelando imagens,
-          texto e comentários.
-          • Carrossel de Bubblepops (Posts Efêmeros): Bolhas menores com pulsação aquática e indicador de horas restantes antes de estourarem.
-      • Coluna Direita (Conexões & Blocos Clássicos):
-          • Bloco de Amigos/Seguidores (Grid 3x3 de avatares com contador total e link "Ver todos"). 
-          • Bloco de Comunidades que participa.
-          • Bloco de Cartas/Recados recentes recebidos. 
-  
-  
-  
-  ### Seção 5: Loja de Sabão & Inventário (Customização)
-  
-  10. Catálogo de Cosméticos: Vitrine modular com cartões tridimensionais divididos por tipos: Molduras de Avatar (AVATAR_FRAME), Temas de Perfil       
-  (PROFILE_THEME), Estilos de Bolha (CHAT_BUBBLE), Emblemas (BADGE) e Cores de Nome (NAME_COLOR). 
-  11. Provador em Tempo Real (Live Preview): Simulador visual que aplica os tokens de design instantaneamente no perfil do usuário antes de efetuar a     
-  compra com sabão. 
-  12. Inventário do Usuário: Painel com todos os itens possuídos e botões de "Equipar" e "Desequipar" que salvam o estado ativo em customization_json.
-  13. Extrato da Carteira: Tabela transparente com o histórico auditável de sabões (ganhos passivos periódicos de +5, apoios recebidos/enviados e gastos 
-  em customização).
-  
-  ### Seção 6: Mensageria (Cartas) & Moderação
-  
-  14. Caixa de Cartas (Letters Inbox): Interface inspirada em papel de carta translúcido e selos postais, com separação de Recebidas e Enviadas e threads
-  encadeadas (reply_to).
-  15. Central de Moderação & Denúncias: Modal acessível para qualquer usuário denunciar posts/perfis e painel administrativo para staff gerenciar     
-  denúncias e aplicar suspensões com auditoria.
-  ──────
-  ## 3. Estrutura Base de Layouts (Shell Orkut Modernizado)
-  
-  O layout geral do Bubbles seguirá uma grade balanceada de 3 colunas (Three-Column Grid), com cabeçalho translúcido superior:
-  
-    ┌──────────────────────────────────────────────────────────────────────────────────┐ 
-    │  [Logo 3D Bubbles]      [ Barra de Busca Vítrea ]      (52 Sabões)  [Avatar Ring]│ 
-    ├───────────────────┬──────────────────────────────────┬───────────────────────────┤ 
-    │                   │                                  │                           │ 
-    │  COLUNA ESQUERDA  │         PALCO CENTRAL            │      COLUNA DIREITA       │
-    │  (Identidade)     │     (Feed / Playground)          │      (Social & Blocos)    │
-    │                   │                                  │                           │
-    │  - Foto de Perfil │  - Bandeja de Bubblepops         │  - Bloco de Amigos (3x3)  │
-    │  - Nome & Status  │  - Área de Criação de Post       │  - Bloco de Comunidades   │ 
-    │  - Saldo de Sabão │  - Stream / Bolhas Arrastáveis   │  - Bloco de Cartas        │
-    │  - Menu Rápido    │    (Física Interativa)           │  - Atividades Recentes    │
-    │                   │                                  │                           │
-    └───────────────────┴──────────────────────────────────┴───────────────────────────┘ 
-  
-  1. Header Flutuante ("Liquid Glass Bar"): 
-      • Fundo translúcido com forte desfoque (bg-white/45 backdrop-blur-xl border-b border-white/60).
-      • Sombra interna sutil na borda superior (inset 0 1px 1px rgba(255, 255, 255, 0.9)). 
-      • Logotipo do Bubbles com esferas aquáticas brilhantes. 
-      • Pílula de Sabão interativa: exibe o saldo com brilho iridescente e animação de bolha ao receber novos sabões passivos. 
-      • Heartbeat silencioso integrado em segundo plano mantendo o last_seen_at atualizado.
-  2. Left Rail (~260px - Painel de Navegação & Identidade):
-      • Bloco vítreo com foto do usuário, status de presença e atalhos com ícones volumétricos (Início, Comunidades, Cartas, Loja de Sabão, Meu Perfil). 
-  3. Center Stage (~680px - Fluxo Principal): 
-      • Espaço amplo dedicado ao consumo de conteúdo, seja o feed de notícias ou o playground de bolhas flutuantes interativas no perfil.
-  4. Right Rail (~300px - Blocos Sociais Estilo Orkut): 
-      • Caixas modulares translúcidas com cantos super-arredondados (rounded-3xl), sombra profunda suave e cabeçalho com reflexo glossy.
-  
-  ──────
-  ## 4. Paleta de Cores Tailwind & Design Tokens (Frutiger Aero & Liquid Glass)
-  
-  As cores foram desenhadas para reproduzir a luz, a água, a transparência e o otimismo visual dos anos 2000, com refinamento moderno da Apple: 
-  
-  ### A. Paleta de Cores Primárias (Água, Céu & Sabão) 
-  
-  • Cyan Aqua (Água Cristalina): 
-      • bubble-cyan-50: #E6FAFC (fundo suave de cards)
-      • bubble-cyan-100: #B8F2F8 (vidro translúcido com reflexo) 
-      • bubble-cyan-300: #4EE2F2 (destaques, bordas luminosas)
-      • bubble-cyan-500: #08C4DB (botões primários volumétricos)
-      • bubble-cyan-700: #057A8A (textos de alto contraste) 
-  • Seafoam Teal (Verde Mar):
-      • water-teal-50: #E8F8F5 
-      • water-teal-300: #64D2B8 
-      • water-teal-500: #1EB995 (indicador de online e comunidade ativa)
-  • Soap Pink (Iridescência de Bolha): 
-      • soap-pink-50: #FDF0F5
-      • soap-pink-200: #F9B7D3 (reflexo rosado na casca da bolha)
-      • soap-pink-400: #EE5B9B (botões de apoiar com sabão e notificações)
-      • soap-pink-600: #B52264 
-  • Pure White & Opacidades Vítreas:   
-      • glass-base: rgba(255, 255, 255, 0.40)
-      • glass-highlight: rgba(255, 255, 255, 0.75) 
-      • glass-border: rgba(255, 255, 255, 0.65)
-      • glass-shadow: rgba(8, 196, 219, 0.12)
-  
-  
-  ### B. Classes e Efeitos Utilitários Especiais 
-  
-  • glass-card:
-      • background: rgba(255, 255, 255, 0.45);
-      • backdrop-filter: blur(16px) saturate(180%);
-      • border: 1px solid rgba(255, 255, 255, 0.7); 
-      • box-shadow: 0 10px 30px -10px rgba(8, 196, 219, 0.15), inset 0 1px 2px rgba(255, 255, 255, 0.9);
-  • glossy-bubble:
-      • Esfera com gradiente radial que simula volume 3D: ponto de luz branco no topo superior esquerdo (inset 4px 6px 12px rgba(255, 255, 255, 0.85)),   
-      centro translúcido e borda inferior com dispersão de luz ciano/rosa.
-  • liquid-button:
-      • Botão volumétrico estilo pílula com brilho superior permanente, sombra suave de elevação e animação elástica ao clique (scale: 0.96).
-  
-  ──────
-  Este plano de ação está aprovado para darmos início ao PASSO 2 (Configuração Inicial) e ao PASSO 3 (MVP da Tela de Perfil com bolhas interativas)
+# Plano de Arquitetura e Design do Frontend — Bubbles
+
+## 1. Identidade Visual & Princípios de Design (Anti-AI Slop)
+
+Este documento redefine as diretrizes estéticas e a arquitetura do frontend do Bubbles, substituindo clichês genéricos e efeitos sobrecarregados por um design intencional, funcional e fundamentado na web do início dos anos 2000 (Orkut + Windows Aero / Segoe UI), alinhado com a paleta oficial da marca.
+
+### Princípios Chave de Design
+
+1. **Estrutura Reta e Firme (Estilo Clássico 2000s / Orkut):**
+   - Os painéis, caixas e cartões da interface possuem cantos retos ou sutilmente chanfrados (bordas de 0 a 4px, sem o visual arredondado de "pílula SaaS" em todo lugar).
+   - Cabeçalhos de blocos bem delimitados com linha divisória sutil, garantindo alta densidade de informação e leitura limpa.
+   - **Bordas arredondadas e volumétricas são reservadas exclusivamente para elementos que de fato representam bolhas** (avatares esféricos, posts Bubblegrams no mural, stories Bubblepops e o token de soap).
+
+2. **Tipografia Segoe UI:**
+   - Família tipográfica: `"Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif`.
+   - Hierarquia clássica e sóbria: sem textos em caixa-alta desnecessários (*all-caps eyebrow labels*), sem palavras isoladas em itálico colorido e sem enfeites tipográficos artificiais. Textos objetivos em sentence-case.
+
+3. **Zero Emojis — Apenas Ícones Profissionais:**
+   - Emojis (`🫧`, `🧼`, `⭐️`, `🧊`, etc.) foram banidos da UI.
+   - Todas as ações e metáforas utilizam ícones vetoriais SVG limpos e padronizados (Lucide e SVGs proprietários da marca).
+   - A marca Bubbles utiliza os arquivos vetoriais oficiais de `@references/icon.svg` e `@references/logo.svg`.
+   - A moeda de troca **soap** possui um glifo/ícone vetorial proprietário marcante.
+
+4. **Performance, Calmaria Visual e Fim de Animações Inúteis:**
+   - Remoção de elementos piscantes (*animate-ping*), anéis pulsantes contínuos nos stories e partículas de fundo que sobrecarregavam a renderização.
+   - Movimento restrito a ações intencionais do usuário: a física de arraste dos Bubblegrams (`framer-motion`), abertura de modais e transições de abas.
+
+5. **Compatibilidade Rigorosa com a API (100% Fiel ao Backend):**
+   - Eliminação de dados fictícios sem respaldo no modelo de dados (como medidores de "Confiável/Legal/Sexy" e "Cidade").
+   - Apenas campos reais dos modelos Django:
+     - `User`: `username`, `name`, `birth_date`, `description`, `profile_photo`, `customization_json`, `created_at`, `status`, `followers_count`, `following_count`.
+     - `Letter`: Correspondência privada e direta entre dois usuários (`sender`, `recipient`, `text`, `image`, `sent_at`, `read_at`).
+     - `Bubblegram`: Publicação perene (`user`, `community`, `text`, `type`, `media`, `soap_count`, `published_at`, `comments`).
+     - `Bubblepop`: Mídia efêmera (`user`, `image`, `description`, `created_at`, `expires_at`).
+     - `Soap / Carteira`: Saldo do usuário e geração passiva (+5/dia).
+
+6. **Mecânica de Engajamento Exclusiva por Soap:**
+   - No Bubbles não existem "curtidas" nem "corações". A única forma de apoiar criadores e interagir com publicações é através do envio de **soap** (`BubblegramSupport`).
+
+---
+
+## 2. Paleta de Cores e Tokens Oficiais
+
+A paleta é baseada nos arquivos vetoriais de `@references/` com ênfase no **branco** e no **rosa**:
+
+| Token | Hex | Função e Aplicação |
+|---|---|---|
+| **White Base** | `#FFFFFF` | Fundo principal de cartões e painéis retos, transparências vítreas leves. |
+| **Pink Primary** | `#F465AC` | Cor de destaque primária da marca Bubbles, botões principais de ação, badges ativas. |
+| **Purple Accent** | `#7B63FF` | Profundidade, botões secundários, anéis de foco e elementos de contraste. |
+| **Lime Green Accent** | `#4BF521` | Destaques pontuais, indicador de status ativo/online e indicadores positivos. |
+| **Surface Gray** | `#F8FAFC` / `#F1F5F9` | Fundo geral da página e trilhas estruturais neutras. |
+| **Slate Text** | `#0F172A` / `#334155` | Tipografia de alto contraste e máxima legibilidade. |
+| **Borders** | `#E2E8F0` / `#CBD5E1` | Linhas de divisão retas e contornos estruturais sutis. |
+
+*Nota: Tons de ciano saturados foram removidos.*
+
+---
+
+## 3. Estrutura de Telas e Módulos do Sistema
+
+### Seção 1: Autenticação & Entrada
+1. **Login:** Painel reto translúcido centralizado, inputs limpos com borda fina, botão primário em rosa `#F465AC` e recuperação de conta.
+2. **Cadastro:** Formulário estruturado com validação de idade mínima (14 anos exigidos pelo backend), criação de usuário e aviso do bônus inicial de +20 soap.
+
+### Seção 2: Feed Principal & Descoberta
+3. **Feed Cronológico:** Linha do tempo central com postagens de seguidos e comunidades, com injeção intercalada de sugestões populares (posts com mais soap das últimas 24h e seguidos de seguidos) com limite fixo e indicação de fim de feed.
+4. **Bandeja de Bubblepops:** Faixa horizontal com bolhas compactas, sem pulsação contínua, indicando o tempo restante de forma discreta.
+5. **Busca:** Campo de busca direto para perfis e comunidades.
+
+### Seção 3: Comunidades (Orkut 2.0)
+6. **Hub de Comunidades:** Lista de comunidades com contagem de membros e avatar esférico.
+7. **Página de Comunidade:** Painel reto com cabeçalho, diretrizes, lista de membros categorizados por cargo e mural de Bubblegrams exclusivo.
+
+### Seção 4: Perfil do Usuário (MVP Validado)
+8. **Layout de 3 Colunas Orkut Revisitado:**
+   - **Coluna Esquerda:** Avatar esférico do usuário com moldura cosmética, nome, `@username`, data de nascimento, data de entrada, biografia, saldo de soap (+5/dia) e botões de ação ("Seguir" e "Enviar carta").
+   - **Coluna Central:**
+     - Bandeja compacta de Bubblepops com menor espaçamento.
+     - Mural de Bolhas (Bubblegrams) interativo com física elástica via `framer-motion`, bolhas maiores e mais expressivas (~160px a 210px), e alternador para modo Grade.
+   - **Coluna Direita:**
+     - Bloco de Amigos (grid 3x3 com contador real e link "Ver todos").
+     - Bloco de Comunidades (lista com contadores).
+     - Seção de Cartas (correspondências diretas recentes e botão para redigir nova carta).
+
+### Seção 5: Loja de Customizações & Inventário
+9. **Loja de Itens:** Catálogo de itens adquiríveis com soap (molduras de avatar, temas de perfil, estilos de bolha).
+10. **Inventário do Usuário:** Painel de itens possuídos com ação de equipar/desequipar que atualiza o `customization_json`.
+
+### Seção 6: Mensageria Direta (Cartas)
+11. **Caixa Postal de Cartas:** Conversas privadas entre usuários, com threads encadeadas (`reply_to`), suporte a anexo de imagem e marcação de lida (`read_at`).
+
+---
+
+## 4. Especificações do Modal de Detalhes da Bolha
+
+- **Visual:** Janela limpa, fundo escurecido estático com desfoque moderado.
+- **Engajamento Único:** Botão **"Apoiar com 1 soap"** com exibição do contador atualizado. Remoção total de ícones de coração/curtidas.
+- **Comentários:** Lista encadeada de comentários com suporte a réplica e entrada de texto direta.
+
+---
+
+## 5. Próximos Passos de Execução
+1. Atualização dos tokens de cor, tipografia e estilos globais em `tailwind.config.js` e `index.css`.
+2. Criação dos componentes de ícone vetorial (`BrandLogo.tsx`, `SoapIcon.tsx`).
+3. Refatoração dos componentes da Tela de Perfil (`Header.tsx`, `ProfileView.tsx`, `BubblegramBall.tsx`, `BubblepopStory.tsx`, `PostDetailModal.tsx`).
+4. Verificação de build com TypeScript e validação visual no navegador.
