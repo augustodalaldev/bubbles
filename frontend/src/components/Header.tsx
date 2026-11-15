@@ -13,9 +13,9 @@ export const Header: React.FC<HeaderProps> = ({ onSearchChange }) => {
     <header className="sticky top-0 z-40 w-full bg-white border-b border-slate-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
         
-        {/* Brand Logo with Official SVG */}
+        {/* Brand Logo with Official SVG (Normal / Non-Bold) */}
         <div className="flex items-center cursor-pointer">
-          <BrandLogo height={28} />
+          <BrandLogo height={32} />
         </div>
 
         {/* Global Search Bar (Straight, Clean 2000s/Aero style) */}

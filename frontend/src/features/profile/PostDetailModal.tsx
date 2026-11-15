@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bubblegram, Bubblepop, User } from "@/types";
-import { X, MessageCircle, Send, Clock } from "lucide-react";
+import { X, MessageCircle, Send, Clock, Share2, Check } from "lucide-react";
 import { SoapIcon } from "@/components/SoapIcon";
 import confetti from "canvas-confetti";
 
@@ -12,6 +12,16 @@ interface PostDetailModalProps {
   onClose: () => void;
 }
 
+interface CommentItem {
+  id: number;
+  author: string;
+  avatar: string;
+  text: string;
+  time: string;
+  soapCount: number;
+  hasSupported: boolean;
+}
+
 export const PostDetailModal: React.FC<PostDetailModalProps> = ({
   post,
   story,
@@ -19,22 +29,28 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
   onClose,
 }) => {
   const [soapCount, setSoapCount] = useState<number>(post?.soap_count ?? 12);
-  const [hasSupported, setHasSupported] = useState(false);
+  const [hasSupportedPost, setHasSupportedPost] = useState(false);
   const [commentInput, setCommentInput] = useState("");
-  const [comments, setComments] = useState<Array<{ id: number; author: string; avatar: string; text: string; time: string }>>([
+  const [copiedShare, setCopiedShare] = useState(false);
+
+  const [comments, setComments] = useState<CommentItem[]>([
     {
       id: 1,
       author: "Carol Diniz",
       avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80",
       text: "Excelente nitidez e composição de cores.",
       time: "há 20 min",
+      soapCount: 3,
+      hasSupported: false,
     },
     {
       id: 2,
       author: "Lucas Melo",
       avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80",
-      text: "Enviei 2 soap de apoio. Trabalho muito bem executado.",
+      text: "Enviei 1 soap de apoio. Trabalho muito bem executado.",
       time: "há 1 hora",
+      soapCount: 1,
+      hasSupported: false,
     },
   ]);
 
@@ -47,10 +63,13 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
     : (post?.media && post.media.length > 0 ? post.media[0].media : null);
   const description = isStory ? story?.description : post?.text;
 
+  // Maximum 1 soap support per post
   const handleSoapSupport = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (hasSupportedPost) return;
+
     setSoapCount((prev) => prev + 1);
-    setHasSupported(true);
+    setHasSupportedPost(true);
 
     try {
       const rect = (e.target as HTMLElement).getBoundingClientRect();
@@ -58,8 +77,8 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
       const y = (rect.top + rect.height / 2) / window.innerHeight;
 
       confetti({
-        particleCount: 30,
-        spread: 50,
+        particleCount: 25,
+        spread: 45,
         origin: { x, y },
         colors: ["#F465AC", "#7B63FF", "#4BF521", "#FFFFFF"],
         shapes: ["circle"],
@@ -68,6 +87,28 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
     } catch {
       // Fallback
     }
+  };
+
+  // Maximum 1 soap support per comment
+  const handleSupportComment = (commentId: number) => {
+    setComments((prev) =>
+      prev.map((c) => {
+        if (c.id === commentId && !c.hasSupported) {
+          return {
+            ...c,
+            soapCount: c.soapCount + 1,
+            hasSupported: true,
+          };
+        }
+        return c;
+      })
+    );
+  };
+
+  const handleShare = () => {
+    navigator.clipboard?.writeText(window.location.href);
+    setCopiedShare(true);
+    setTimeout(() => setCopiedShare(false), 2000);
   };
 
   const handleAddComment = (e: React.FormEvent) => {
@@ -82,6 +123,8 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
         avatar: currentUser.profile_photo || "",
         text: commentInput.trim(),
         time: "agora",
+        soapCount: 0,
+        hasSupported: false,
       },
     ]);
     setCommentInput("");
@@ -117,6 +160,20 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
                 alt="Publicação"
                 className="w-full h-full object-cover max-h-[460px]"
               />
+
+              {/* Elongated specular reflection in bottom-right corner */}
+              <div 
+                className="absolute rounded-full pointer-events-none"
+                style={{
+                  bottom: "8%",
+                  right: "8%",
+                  width: "48%",
+                  height: "14%",
+                  background: "linear-gradient(0deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0) 100%)",
+                  transform: "rotate(-18deg)",
+                }}
+              />
+
               {isStory && (
                 <div className="absolute bottom-3 left-3 px-2.5 py-1 bg-slate-900/80 text-white text-xs font-semibold rounded-sm flex items-center gap-1.5 border border-white/20">
                   <Clock className="w-3 h-3 text-pink-400" />
@@ -159,23 +216,41 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
                 </p>
               )}
 
-              {/* Engagement Bar: Soap Support EXCLUSIVELY */}
-              <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between">
+              {/* Engagement Bar: Soap Support (Max 1) + Share Button */}
+              <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between gap-2">
                 <button
                   onClick={handleSoapSupport}
+                  disabled={hasSupportedPost}
                   className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-bold rounded-sm transition-all ${
-                    hasSupported 
-                      ? "bg-pink-700 text-white" 
+                    hasSupportedPost 
+                      ? "bg-slate-100 text-slate-600 border border-slate-300 cursor-default" 
                       : "btn-pink hover:brightness-105"
                   }`}
                 >
-                  <SoapIcon size={15} />
-                  <span>Apoiar com 1 soap ({soapCount})</span>
+                  <SoapIcon size={14} />
+                  <span>
+                    {hasSupportedPost ? "Apoiado com 1 soap" : "Apoiar com 1 soap"} ({soapCount})
+                  </span>
                 </button>
 
-                <span className="text-xs text-slate-500 font-medium">
-                  {soapCount} apoios
-                </span>
+                {/* Share Button */}
+                <button
+                  onClick={handleShare}
+                  title="Compartilhar link da publicação"
+                  className="btn-outline py-1.5 px-3 text-xs font-semibold flex items-center gap-1.5 text-slate-600 hover:text-slate-900"
+                >
+                  {copiedShare ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-emerald-700">Copiado!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span>Compartilhar</span>
+                    </>
+                  )}
+                </button>
               </div>
 
               {/* Comments Section */}
@@ -185,12 +260,29 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
                   <span>Comentários ({comments.length})</span>
                 </div>
 
-                <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
                   {comments.map((c) => (
                     <div key={c.id} className="p-2 bg-slate-50 border border-slate-200 rounded-sm text-xs">
                       <div className="flex items-center justify-between mb-0.5">
                         <span className="font-bold text-slate-800">{c.author}</span>
-                        <span className="text-[10px] text-slate-400">{c.time}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-slate-400">{c.time}</span>
+                          
+                          {/* Soap Support on Comments (Max 1) */}
+                          <button
+                            onClick={() => handleSupportComment(c.id)}
+                            disabled={c.hasSupported}
+                            title={c.hasSupported ? "Você já apoiou este comentário" : "Apoiar comentário com 1 soap"}
+                            className={`flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold rounded-sm border transition-colors ${
+                              c.hasSupported
+                                ? "bg-pink-100 border-pink-300 text-pink-700 cursor-default"
+                                : "bg-white border-slate-200 text-slate-600 hover:border-pink-300 hover:text-pink-600"
+                            }`}
+                          >
+                            <SoapIcon size={11} />
+                            <span>{c.soapCount}</span>
+                          </button>
+                        </div>
                       </div>
                       <p className="text-slate-600 text-[11px] leading-snug">{c.text}</p>
                     </div>
@@ -200,7 +292,7 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
             </div>
 
             {/* Comment Input */}
-            <form onSubmit={handleAddComment} className="mt-4 pt-3 border-t border-slate-200 flex items-center gap-2">
+            <form onSubmit={handleAddComment} className="mt-3 pt-2.5 border-t border-slate-200 flex items-center gap-2">
               <input
                 type="text"
                 placeholder="Escrever um comentário..."

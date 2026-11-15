@@ -20,7 +20,10 @@ import {
   Grid, 
   Plus, 
   Clock, 
-  ShoppingBag
+  ShoppingBag,
+  User,
+  Users,
+  Compass
 } from "lucide-react";
 
 export const ProfileView: React.FC = () => {
@@ -43,43 +46,73 @@ export const ProfileView: React.FC = () => {
       })
     : "";
 
+  // 6 friends for 3 rows x 2 columns
+  const visibleFriends = MOCK_FRIENDS.slice(0, 6);
+
   return (
     <main className="max-w-7xl mx-auto px-4 py-5">
-      {/* 3-Column Classic Straight Layout */}
+      {/* 3-Column Layout: Left (Carteira -> Perfil -> Cartas), Center (Bubblepops & Mural), Right (Amigos 2x3 & Comunidades) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         
         {/* ========================================================
-            LEFT COLUMN: User Profile & Identity (No rounded panels)
+            LEFT COLUMN: Carteira -> Perfil -> Cartas
            ======================================================== */}
-        <div className="lg:col-span-3 space-y-4">
+        <div className="lg:col-span-4 space-y-4">
           
-          {/* Main User Profile Card */}
+          {/* 1. Carteira de Soap e Personalização */}
           <div className="panel-classic">
             <div className="panel-classic-header">
-              <span>Perfil</span>
-              <span className="flex items-center gap-1.5 text-[11px] font-normal text-slate-500">
-                <span className="w-2 h-2 rounded-full bg-lime-400" />
-                Ativo
+              <span className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-800">
+                <SoapIcon size={18} />
+                Carteira de soap
+              </span>
+              <span className="font-bold text-pink-600 text-sm">
+                {MOCK_USER.soap_balance} soap
+              </span>
+            </div>
+            <div className="p-3 text-xs text-slate-600">
+              <p className="leading-snug">
+                Geração passiva: <strong>+5 soap</strong> por dia.
+              </p>
+              <button className="mt-2.5 w-full btn-outline py-1.5 px-3 text-xs font-semibold flex items-center justify-center gap-1.5 text-slate-700 hover:text-pink-600">
+                <ShoppingBag className="w-3.5 h-3.5 text-pink-500" />
+                Loja de personalização
+              </button>
+            </div>
+          </div>
+
+          {/* 2. Perfil do Usuário (Sinal de ativo removido) */}
+          <div className="panel-classic">
+            <div className="panel-classic-header">
+              <span className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-800">
+                <User className="w-4 h-4 text-purple-600" />
+                Perfil
               </span>
             </div>
 
             <div className="p-4 text-center flex flex-col items-center">
-              {/* Spherical Bubble Avatar with Cosmetics */}
+              {/* Spherical Bubble Avatar with subtle solid border (no gradient borders) */}
               <div className="relative mb-3 group cursor-pointer">
-                <div 
-                  className="w-28 h-28 rounded-full p-1 transition-transform duration-200 group-hover:scale-102"
-                  style={{
-                    background: "linear-gradient(135deg, #F465AC 0%, #7B63FF 100%)",
-                    boxShadow: "0 0 16px rgba(244, 101, 172, 0.4)",
-                  }}
-                >
-                  <div className="w-full h-full rounded-full overflow-hidden border-2 border-white relative bg-slate-100">
+                <div className="w-28 h-28 rounded-full p-1 border-2 border-pink-500/40 bg-white">
+                  <div className="w-full h-full rounded-full overflow-hidden relative bg-slate-100">
                     <img
                       src={MOCK_USER.profile_photo || ""}
                       alt={MOCK_USER.name}
                       className="w-full h-full object-cover"
                     />
-                    <div className="bubble-reflection" />
+
+                    {/* Elongated specular reflection in bottom-right corner */}
+                    <div 
+                      className="absolute rounded-full pointer-events-none"
+                      style={{
+                        bottom: "6%",
+                        right: "8%",
+                        width: "48%",
+                        height: "14%",
+                        background: "linear-gradient(0deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 100%)",
+                        transform: "rotate(-18deg)",
+                      }}
+                    />
                   </div>
                 </div>
               </div>
@@ -117,18 +150,18 @@ export const ProfileView: React.FC = () => {
                 </button>
               </div>
 
-              {/* Profile Details (Only 100% backend fields) */}
+              {/* Profile Details (Only 100% backend supported fields) */}
               <div className="w-full pt-3 border-t border-slate-200 text-left space-y-1.5 text-xs text-slate-600">
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400 flex items-center gap-1.5">
-                    <Calendar className="w-3 h-3 text-slate-400" />
+                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
                     Nascimento:
                   </span>
                   <span className="font-semibold text-slate-700">{formattedBirthDate}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400 flex items-center gap-1.5">
-                    <Clock className="w-3 h-3 text-slate-400" />
+                    <Clock className="w-3.5 h-3.5 text-slate-400" />
                     Membro desde:
                   </span>
                   <span className="font-semibold text-slate-700">{formattedJoinDate}</span>
@@ -165,44 +198,63 @@ export const ProfileView: React.FC = () => {
             </div>
           </div>
 
-          {/* Soap Wallet Panel */}
+          {/* 3. Seção de Cartas (Direta e Privada) */}
           <div className="panel-classic">
             <div className="panel-classic-header">
-              <span className="flex items-center gap-1.5">
-                <SoapIcon size={14} />
-                Carteira de soap
+              <span className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-800">
+                <Mail className="w-4 h-4 text-purple-600" />
+                Cartas
               </span>
-              <span className="font-bold text-pink-600">
-                {MOCK_USER.soap_balance} soap
-              </span>
-            </div>
-            <div className="p-3 text-xs text-slate-600">
-              <p className="leading-snug">
-                Geração passiva: <strong>+5 soap</strong> por dia.
-              </p>
-              <button className="mt-2.5 w-full btn-outline py-1 px-2.5 text-xs flex items-center justify-center gap-1.5 text-slate-700">
-                <ShoppingBag className="w-3.5 h-3.5 text-pink-500" />
-                Loja de personalização
+              <button className="text-xs text-pink-600 font-semibold hover:underline">
+                Nova carta
               </button>
+            </div>
+
+            <div className="p-3 space-y-2.5">
+              {MOCK_LETTERS.map((letter) => (
+                <div key={letter.id} className="p-2.5 bg-slate-50 border border-slate-200 rounded-sm">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1.5">
+                      <img
+                        src={letter.sender.avatar}
+                        alt={letter.sender.name}
+                        className="w-5 h-5 rounded-full object-cover border border-slate-200"
+                      />
+                      <span className="text-xs font-bold text-slate-800">
+                        {letter.sender.name}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400">
+                      {letter.sent_at}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-snug">
+                    "{letter.text}"
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
 
         </div>
 
         {/* ========================================================
-            CENTER COLUMN: Bubblepops Tray & Mural of Bubbles
+            CENTER COLUMN: Bubblepops Tray & Mural de Bolhas
            ======================================================== */}
-        <div className="lg:col-span-6 space-y-4">
+        <div className="lg:col-span-5 space-y-4">
           
           {/* Bubblepops Tray (Ephemeral Stories) */}
           <div className="panel-classic">
             <div className="panel-classic-header">
-              <span>Bubblepops</span>
+              <span className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-800">
+                <Clock className="w-4 h-4 text-pink-500" />
+                Bubblepops
+              </span>
               <button 
                 title="Criar nova bolha temporária"
-                className="btn-outline py-0.5 px-2 text-[11px] font-semibold flex items-center gap-1"
+                className="btn-outline py-0.5 px-2.5 text-xs font-semibold flex items-center gap-1"
               >
-                <Plus className="w-3 h-3 text-pink-600" />
+                <Plus className="w-3.5 h-3.5 text-pink-600" />
                 Novo
               </button>
             </div>
@@ -223,9 +275,12 @@ export const ProfileView: React.FC = () => {
           <div className="panel-classic flex flex-col">
             <div className="panel-classic-header">
               <div className="flex items-center gap-2">
-                <span>Mural de bolhas</span>
-                <span className="text-[11px] font-normal text-slate-400">
-                  ({MOCK_BUBBLEGRAMS.length} postagens)
+                <span className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-800">
+                  <Layers className="w-4 h-4 text-pink-500" />
+                  Mural de bolhas
+                </span>
+                <span className="text-xs font-normal text-slate-400">
+                  ({MOCK_BUBBLEGRAMS.length})
                 </span>
               </div>
 
@@ -261,16 +316,16 @@ export const ProfileView: React.FC = () => {
               {viewMode === "physics" ? (
                 <div 
                   ref={playgroundRef}
-                  className="relative w-full h-[560px] bg-slate-50 border border-slate-200 overflow-hidden"
+                  className="relative w-full h-[580px] bg-slate-50 border border-slate-200 overflow-hidden"
                 >
-                  {/* Watermark instructions */}
+                  {/* Subtle hint */}
                   <div className="absolute inset-x-0 bottom-2 text-center pointer-events-none select-none">
                     <span className="text-[10px] text-slate-400 font-medium bg-white/80 px-2 py-0.5 border border-slate-200 rounded-sm">
-                      Arraste as bolhas pela tela ou clique para expandir
+                      Arraste as bolhas de fotos e retângulos de texto pela tela
                     </span>
                   </div>
 
-                  {/* Enlarged Draggable Bubblegrams */}
+                  {/* Draggable Bubblegrams: Round photos + Rounded rectangular texts */}
                   {MOCK_BUBBLEGRAMS.map((post) => (
                     <BubblegramBall
                       key={post.id}
@@ -281,8 +336,8 @@ export const ProfileView: React.FC = () => {
                   ))}
                 </div>
               ) : (
-                /* Classic Straight Grid View */
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                /* Classic Grid View */
+                <div className="grid grid-cols-2 gap-3">
                   {MOCK_BUBBLEGRAMS.map((post) => (
                     <div
                       key={post.id}
@@ -318,31 +373,35 @@ export const ProfileView: React.FC = () => {
         </div>
 
         {/* ========================================================
-            RIGHT COLUMN: Friends, Communities & Direct Letters
+            RIGHT COLUMN: Amigos (6 fotos: 3 linhas x 2 colunas) & Comunidades
            ======================================================== */}
         <div className="lg:col-span-3 space-y-4">
           
-          {/* Friends Grid Card (Classic 3x3) */}
+          {/* Amigos (6 fotos: 2 colunas x 3 linhas) */}
           <div className="panel-classic">
             <div className="panel-classic-header">
-              <span>Amigos ({MOCK_USER.followers_count})</span>
+              <span className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-800">
+                <Users className="w-4 h-4 text-purple-600" />
+                Amigos ({MOCK_USER.followers_count})
+              </span>
               <a href="#amigos" className="text-xs text-pink-600 font-semibold hover:underline">
                 ver todos
               </a>
             </div>
 
             <div className="p-3">
-              <div className="grid grid-cols-3 gap-2">
-                {MOCK_FRIENDS.map((friend) => (
+              {/* 3 rows x 2 columns grid */}
+              <div className="grid grid-cols-2 gap-3">
+                {visibleFriends.map((friend) => (
                   <div key={friend.id} className="flex flex-col items-center cursor-pointer group">
-                    <div className="w-14 h-14 overflow-hidden border border-slate-200 group-hover:border-pink-400 transition-colors">
+                    <div className="w-16 h-16 rounded-md overflow-hidden border border-slate-200 group-hover:border-pink-400 transition-colors shadow-2xs">
                       <img
                         src={friend.avatar}
                         alt={friend.name}
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    <span className="text-[11px] font-medium text-slate-700 mt-1 truncate max-w-[60px] text-center group-hover:text-pink-600">
+                    <span className="text-[11px] font-medium text-slate-700 mt-1 truncate max-w-[70px] text-center group-hover:text-pink-600">
                       {friend.name.split(" ")[0]}
                     </span>
                   </div>
@@ -351,10 +410,13 @@ export const ProfileView: React.FC = () => {
             </div>
           </div>
 
-          {/* Communities Card */}
+          {/* Comunidades Card */}
           <div className="panel-classic">
             <div className="panel-classic-header">
-              <span>Comunidades ({MOCK_COMMUNITIES.length})</span>
+              <span className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-800">
+                <Compass className="w-4 h-4 text-pink-500" />
+                Comunidades ({MOCK_COMMUNITIES.length})
+              </span>
               <a href="#comunidades" className="text-xs text-pink-600 font-semibold hover:underline">
                 ver todas
               </a>
@@ -364,12 +426,12 @@ export const ProfileView: React.FC = () => {
               {MOCK_COMMUNITIES.map((comm) => (
                 <div 
                   key={comm.id}
-                  className="flex items-center gap-2.5 p-1.5 hover:bg-slate-50 transition-colors cursor-pointer group border border-transparent hover:border-slate-200"
+                  className="flex items-center gap-2.5 p-1.5 hover:bg-slate-50 transition-colors cursor-pointer group border border-transparent hover:border-slate-200 rounded-sm"
                 >
                   <img
                     src={comm.community_photo || ""}
                     alt={comm.name}
-                    className="w-9 h-9 object-cover border border-slate-200"
+                    className="w-9 h-9 object-cover border border-slate-200 rounded-sm"
                   />
                   <div className="flex-1 min-w-0">
                     <h4 className="text-xs font-semibold text-slate-800 truncate group-hover:text-pink-600">
@@ -379,44 +441,6 @@ export const ProfileView: React.FC = () => {
                       {comm.member_count.toLocaleString("pt-BR")} membros
                     </span>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Direct Letters Section (Private Correspondence) */}
-          <div className="panel-classic">
-            <div className="panel-classic-header">
-              <span className="flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-purple-600" />
-                Cartas
-              </span>
-              <button className="text-xs text-pink-600 font-semibold hover:underline">
-                Nova carta
-              </button>
-            </div>
-
-            <div className="p-3 space-y-2.5">
-              {MOCK_LETTERS.map((letter) => (
-                <div key={letter.id} className="p-2.5 bg-slate-50 border border-slate-200">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-1.5">
-                      <img
-                        src={letter.sender.avatar}
-                        alt={letter.sender.name}
-                        className="w-4 h-4 rounded-full object-cover"
-                      />
-                      <span className="text-xs font-bold text-slate-800">
-                        {letter.sender.name}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-slate-400">
-                      {letter.sent_at}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600 leading-snug">
-                    "{letter.text}"
-                  </p>
                 </div>
               ))}
             </div>

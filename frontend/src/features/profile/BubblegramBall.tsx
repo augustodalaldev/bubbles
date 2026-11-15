@@ -16,10 +16,22 @@ export const BubblegramBall: React.FC<BubblegramBallProps> = ({
   onClick,
 }) => {
   const isDraggingRef = useRef(false);
-  // Enlarged sizes (default 190px instead of 150px)
-  const size = post.size || 190;
-  const hasMedia = post.media && post.media.length > 0;
+  const hasMedia = post.type === "MEDIA" && post.media && post.media.length > 0;
   const firstMedia = hasMedia ? post.media[0].media : null;
+
+  // Solid palette border with low opacity (no gradients)
+  const paletteBorders = [
+    "border-pink-500/35",
+    "border-purple-500/35",
+    "border-lime-500/40",
+  ];
+  const borderClass = paletteBorders[post.id % paletteBorders.length];
+
+  // Photo posts: Large round sphere (~190-215px)
+  // Text posts: Smaller rounded rectangle (~175x110px)
+  const isRoundPhoto = hasMedia;
+  const width = isRoundPhoto ? (post.size || 200) : 175;
+  const height = isRoundPhoto ? (post.size || 200) : 110;
 
   return (
     <motion.div
@@ -41,8 +53,8 @@ export const BubblegramBall: React.FC<BubblegramBallProps> = ({
           onClick(post);
         }
       }}
-      whileHover={{ scale: 1.04, zIndex: 30 }}
-      whileDrag={{ scale: 1.08, zIndex: 40, cursor: "grabbing" }}
+      whileHover={{ scale: 1.03, zIndex: 30 }}
+      whileDrag={{ scale: 1.06, zIndex: 40, cursor: "grabbing" }}
       initial={{ 
         x: post.initialX ?? 0, 
         y: post.initialY ?? 0, 
@@ -55,70 +67,84 @@ export const BubblegramBall: React.FC<BubblegramBallProps> = ({
       }}
       transition={{ duration: 0.3 }}
       style={{
-        width: size,
-        height: size,
+        width,
+        height,
       }}
       className="absolute cursor-grab select-none touch-none group"
     >
-      {/* 3D Bubble Sphere Body */}
-      <div 
-        className="relative w-full h-full rounded-full overflow-hidden p-2 transition-shadow duration-200 group-hover:shadow-[0_12px_32px_rgba(244,101,172,0.35)]"
-        style={{
-          background: "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.95) 0%, rgba(255,230,242,0.75) 25%, rgba(244,101,172,0.55) 65%, rgba(123,99,255,0.45) 90%, rgba(255,255,255,0.9) 100%)",
-          boxShadow: "inset -6px -8px 18px rgba(123,99,255,0.28), inset 4px 6px 14px rgba(255,255,255,0.95), 0 10px 24px -4px rgba(244,101,172,0.3)",
-          border: "2px solid rgba(255, 255, 255, 0.9)",
-        }}
-      >
-        {/* Post Content Interior */}
-        <div className="w-full h-full rounded-full overflow-hidden relative bg-white flex items-center justify-center">
-          {hasMedia && firstMedia ? (
+      {isRoundPhoto ? (
+        /* Round Bubble for Media Posts */
+        <div 
+          className={`relative w-full h-full rounded-full overflow-hidden p-1.5 bg-white border-2 ${borderClass} shadow-md transition-shadow group-hover:shadow-lg`}
+        >
+          <div className="w-full h-full rounded-full overflow-hidden relative bg-slate-100 flex items-center justify-center">
             <img
-              src={firstMedia}
-              alt="Post preview"
+              src={firstMedia!}
+              alt="Publicação"
               className="w-full h-full object-cover rounded-full pointer-events-none group-hover:scale-105 transition-transform duration-300"
             />
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center bg-gradient-to-br from-pink-50 via-white to-purple-50">
-              <p className="text-xs font-semibold text-slate-800 line-clamp-4 leading-relaxed px-2">
-                {post.text}
-              </p>
+
+            {/* Subtle bottom gradient to enhance soap badge readability */}
+            <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-slate-950/60 to-transparent pointer-events-none" />
+
+            {/* Elongated specular lens reflection in bottom-right corner */}
+            <div 
+              className="absolute rounded-full pointer-events-none"
+              style={{
+                bottom: "7%",
+                right: "9%",
+                width: "48%",
+                height: "14%",
+                background: "linear-gradient(0deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 100%)",
+                transform: "rotate(-18deg)",
+              }}
+            />
+
+            {/* Bottom Soap Badge */}
+            <div className="absolute bottom-2.5 inset-x-0 flex justify-center pointer-events-none">
+              <span className="px-2.5 py-1 rounded-full text-[11px] font-bold text-white bg-slate-900/80 backdrop-blur-sm border border-white/30 shadow-sm flex items-center gap-1.5 group-hover:bg-pink-700/90 transition-colors">
+                <SoapIcon size={13} />
+                <span>{post.soap_count}</span>
+                <ImageIcon className="w-3 h-3 ml-0.5 opacity-80" />
+              </span>
             </div>
-          )}
+          </div>
+        </div>
+      ) : (
+        /* Smaller Rounded Rectangle for Text Posts */
+        <div 
+          className={`relative w-full h-full rounded-xl overflow-hidden p-3 bg-white border-2 ${borderClass} shadow-sm flex flex-col justify-between transition-shadow group-hover:shadow-md`}
+        >
+          {/* Text Content */}
+          <p className="text-[11px] font-semibold text-slate-800 line-clamp-3 leading-relaxed pointer-events-none">
+            "{post.text}"
+          </p>
 
-          {/* Liquid Glass Overlay inside ball */}
-          <div className="absolute inset-0 rounded-full bg-gradient-to-t from-slate-950/45 via-transparent to-white/20 pointer-events-none" />
+          {/* Bottom Bar: Soap badge and Elongated reflection */}
+          <div className="flex items-center justify-between pt-1 border-t border-slate-100 pointer-events-none">
+            <span className="text-[10px] font-bold text-slate-700 flex items-center gap-1">
+              <SoapIcon size={12} />
+              <span>{post.soap_count}</span>
+            </span>
+            <span className="text-[9px] text-slate-400">
+              texto
+            </span>
+          </div>
 
-          {/* Upper Specular Lens Reflection (Glossy Highlight) */}
+          {/* Elongated specular reflection in bottom-right corner */}
           <div 
             className="absolute rounded-full pointer-events-none"
             style={{
-              top: "8%",
-              left: "20%",
-              width: "46%",
-              height: "26%",
-              background: "linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.05) 100%)",
-              transform: "rotate(-25deg)",
-              filter: "blur(0.5px)",
+              bottom: "4px",
+              right: "6px",
+              width: "45%",
+              height: "8px",
+              background: "linear-gradient(0deg, rgba(244, 101, 172, 0.25) 0%, rgba(255, 255, 255, 0) 100%)",
+              transform: "rotate(-5deg)",
             }}
           />
-
-          {/* Bottom Soap Support Count Badge */}
-          <div className="absolute bottom-2.5 inset-x-0 flex justify-center pointer-events-none">
-            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold text-white bg-slate-900/75 backdrop-blur-sm border border-white/40 shadow-sm flex items-center gap-1.5 group-hover:bg-pink-700/90 transition-colors">
-              <SoapIcon size={13} />
-              <span>{post.soap_count}</span>
-              {hasMedia && <ImageIcon className="w-3 h-3 ml-0.5 opacity-80" />}
-            </span>
-          </div>
         </div>
-
-        {/* Hover Action Label */}
-        <div className="absolute inset-0 rounded-full bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-3 text-white pointer-events-none">
-          <span className="text-xs font-bold drop-shadow">
-            Abrir publicação
-          </span>
-        </div>
-      </div>
+      )}
     </motion.div>
   );
 };
