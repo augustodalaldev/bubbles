@@ -1,0 +1,95 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  theme: {
+    extend: {
+      colors: {
+        bubble: {
+          50: "#E6FAFC",
+          100: "#B8F2F8",
+          200: "#80E6F2",
+          300: "#4EE2F2",
+          400: "#1CD4E8",
+          500: "#08C4DB",
+          600: "#069FB3",
+          700: "#057A8A",
+          800: "#045661",
+          900: "#02373F",
+        },
+        water: {
+          50: "#E8F8F5",
+          100: "#C4EFE6",
+          200: "#9CE4D4",
+          300: "#64D2B8",
+          400: "#36BE9E",
+          500: "#1EB995",
+          600: "#149577",
+          700: "#0E725B",
+          800: "#0A5141",
+          900: "#063329",
+        },
+        soap: {
+          50: "#FDF0F5",
+          100: "#FAD8E7",
+          200: "#F9B7D3",
+          300: "#F485B5",
+          400: "#EE5B9B",
+          500: "#E33582",
+          600: "#B52264",
+          700: "#8B174B",
+          800: "#630E34",
+          900: "#3D071E",
+        },
+        sky: {
+          50: "#F0F9FF",
+          100: "#E0F2FE",
+          200: "#BAE6FD",
+          300: "#7DD3FC",
+          400: "#38BDF8",
+          500: "#0EA5E9",
+          600: "#0284C7",
+          700: "#0369A1",
+        },
+      },
+      boxShadow: {
+        "glass": "0 8px 32px 0 rgba(8, 196, 219, 0.16)",
+        "glass-lg": "0 14px 40px -10px rgba(8, 196, 219, 0.22), inset 0 1px 2px 0 rgba(255, 255, 255, 0.9)",
+        "bubble": "inset -6px -8px 16px rgba(4, 86, 97, 0.25), inset 4px 6px 14px rgba(255, 255, 255, 0.9), 0 10px 25px -5px rgba(8, 196, 219, 0.35)",
+        "bubble-pop": "inset -4px -6px 12px rgba(181, 34, 100, 0.25), inset 3px 5px 10px rgba(255, 255, 255, 0.95), 0 8px 20px -4px rgba(238, 91, 155, 0.4)",
+        "glossy-btn": "inset 0 1px 1px 0 rgba(255, 255, 255, 0.8), inset 0 -2px 4px 0 rgba(0, 0, 0, 0.12), 0 4px 14px 0 rgba(8, 196, 219, 0.35)",
+        "glossy-btn-pink": "inset 0 1px 1px 0 rgba(255, 255, 255, 0.8), inset 0 -2px 4px 0 rgba(0, 0, 0, 0.12), 0 4px 14px 0 rgba(238, 91, 155, 0.4)",
+        "inner-glow": "inset 0 2px 6px rgba(255, 255, 255, 0.8), inset 0 -2px 6px rgba(8, 196, 219, 0.15)",
+      },
+      borderRadius: {
+        "3xl": "1.75rem",
+        "4xl": "2.25rem",
+      },
+      animation: {
+        "float-slow": "float 6s ease-in-out infinite",
+        "float-medium": "float 4.5s ease-in-out infinite",
+        "float-reverse": "floatReverse 5.5s ease-in-out infinite",
+        "pulse-subtle": "pulseSubtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "shimmer": "shimmer 2.5s infinite linear",
+      },
+      keyframes: {
+        float: {
+          "0%, 100%": { transform: "translateY(0px)" },
+          "50%": { transform: "translateY(-10px)" },
+        },
+        floatReverse: {
+          "0%, 100%": { transform: "translateY(0px)" },
+          "50%": { transform: "translateY(8px)" },
+        },
+        pulseSubtle: {
+          "0%, 100%": { opacity: "1", transform: "scale(1)" },
+          "50%": { opacity: "0.85", transform: "scale(1.025)" },
+        },
+        shimmer: {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
+      },
+    },
+  },
+  plugins: [],
+};

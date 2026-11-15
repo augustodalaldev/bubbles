@@ -1,4 +1,4 @@
-.PHONY: up down logs run test lint format check-migrations
+.PHONY: up down logs run test lint format check-migrations frontend-dev frontend-build
 
 up:
 	docker compose up -d
@@ -11,6 +11,12 @@ logs:
 
 run:
 	cd backend && uv run python manage.py runserver
+
+frontend-dev:
+	cd frontend && npm run dev
+
+frontend-build:
+	cd frontend && npm run build
 
 test:
 	cd backend && uv run pytest
