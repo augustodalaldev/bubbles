@@ -1,27 +1,23 @@
-import { Sparkles, Droplets } from "lucide-react";
+import { AmbientBubbles } from "@/components/AmbientBubbles";
+import { Header } from "@/components/Header";
+import { ProfileView } from "@/features/profile/ProfileView";
 
 export default function App() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <div className="glass-card max-w-lg w-full p-8 rounded-4xl text-center relative overflow-hidden">
-        {/* Specular gloss reflection */}
-        <div className="bubble-reflection" />
-        
-        <div className="w-20 h-20 mx-auto bubble-sphere flex items-center justify-center mb-6 shadow-bubble">
-          <Droplets className="w-10 h-10 text-white drop-shadow-[0_2px_4px_rgba(4,86,97,0.4)]" />
-        </div>
+    <div className="min-h-screen bg-gradient-to-b from-[#b8f2f8]/70 via-[#e2f9fc]/80 to-[#fedbe9]/60 text-slate-800 relative selection:bg-bubble-300 selection:text-bubble-950">
+      {/* Frutiger Aero Ambient Water Caustics & Floating Background Bubbles */}
+      <AmbientBubbles />
 
-        <h1 className="text-3xl font-extrabold text-bubble-900 tracking-tight flex items-center justify-center gap-2">
-          Bubbles <Sparkles className="w-6 h-6 text-soap-400 animate-spin" style={{ animationDuration: "8s" }} />
-        </h1>
-        <p className="text-bubble-700 mt-2 font-medium">
-          Frontend Frutiger Aero & Liquid Glass configurado com sucesso!
-        </p>
+      {/* Liquid Glass Header */}
+      <Header />
 
-        <div className="mt-6 p-4 glass-card-subtle rounded-2xl text-sm text-bubble-800">
-          Pronto para o <strong>Passo 3: MVP da Tela de Perfil</strong> com bolhas interativas, física de arraste e layout estilo Orkut.
-        </div>
-      </div>
+      {/* Orkut-inspired Profile Screen MVP */}
+      <ProfileView />
+
+      {/* Subtle Footer with 2000s tech optimism tagline */}
+      <footer className="relative z-10 py-6 text-center text-xs font-semibold text-bubble-800/60">
+        Bubbles © 2026 • Frutiger Aero & Liquid Glass Social Network
+      </footer>
     </div>
   );
 }
