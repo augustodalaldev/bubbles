@@ -10,7 +10,6 @@ import {
 import { BubblegramBall } from "./BubblegramBall";
 import { BubblepopStory } from "./BubblepopStory";
 import { PostDetailModal } from "./PostDetailModal";
-import { BubbleOverlay } from "@/components/BubbleOverlay";
 import { Bubblegram, Bubblepop } from "@/types";
 import { SoapIcon } from "@/components/SoapIcon";
 import { 
@@ -66,16 +65,14 @@ export const ProfileView: React.FC = () => {
             </div>
 
             <div className="p-4 text-center flex flex-col items-center">
-              {/* Spherical Bubble Avatar with authentic bubble.svg overlay */}
+              {/* Profile Avatar (Clean photo without bubble filter) */}
               <div className="relative mb-3 group cursor-pointer">
-                <div className="w-24 h-24 rounded-full overflow-hidden relative bg-slate-100 shadow-sm transition-transform duration-200 group-hover:scale-102">
+                <div className="w-24 h-24 rounded-full overflow-hidden bg-slate-100 shadow-sm transition-transform duration-200 group-hover:scale-102">
                   <img
                     src={MOCK_USER.profile_photo || ""}
                     alt={MOCK_USER.name}
                     className="w-full h-full object-cover"
                   />
-                  {/* Bubble overlay */}
-                  <BubbleOverlay opacity={0.7} />
                 </div>
               </div>
 

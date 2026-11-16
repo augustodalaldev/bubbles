@@ -34,8 +34,8 @@ export const BubblepopStory: React.FC<BubblepopStoryProps> = ({ story, onClick }
           alt={story.description || "Bubblepop"}
           className="w-full h-full object-cover"
         />
-        {/* User's authentic bubble reflection SVG overlay */}
-        <BubbleOverlay opacity={0.65} />
+        {/* User's authentic bubble reflection SVG overlay with subtle opacity */}
+        <BubbleOverlay opacity={0.5} />
       </div>
 
       {/* Countdown Label */}

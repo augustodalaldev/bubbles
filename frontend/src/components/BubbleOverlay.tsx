@@ -7,7 +7,7 @@ interface BubbleOverlayProps {
 
 export const BubbleOverlay: React.FC<BubbleOverlayProps> = ({ 
   className = "", 
-  opacity = 0.95 
+  opacity = 0.55 
 }) => {
   return (
     <img

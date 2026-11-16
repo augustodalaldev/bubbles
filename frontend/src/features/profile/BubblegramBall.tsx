@@ -74,8 +74,8 @@ export const BubblegramBall: React.FC<BubblegramBallProps> = ({
             className="w-full h-full object-cover rounded-full pointer-events-none group-hover:scale-105 transition-transform duration-300"
           />
 
-          {/* User's bubble.svg overlay applied over round photo */}
-          <BubbleOverlay opacity={0.7} />
+          {/* User's bubble.svg overlay with subtle opacity */}
+          <BubbleOverlay opacity={0.5} />
 
           {/* Subtle bottom shadow to enhance soap badge readability */}
           <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/60 to-transparent pointer-events-none z-10" />
