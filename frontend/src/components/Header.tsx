@@ -5,8 +5,8 @@ import { BrandLogo } from "./BrandLogo";
 import { SoapIcon } from "./SoapIcon";
 
 interface HeaderProps {
-  currentView?: "feed" | "profile" | "communities" | "login" | "register";
-  onNavigate?: (view: "feed" | "profile" | "communities" | "login" | "register") => void;
+  currentView?: "feed" | "profile" | "communities" | "store" | "login" | "register";
+  onNavigate?: (view: "feed" | "profile" | "communities" | "store" | "login" | "register") => void;
   onSearchChange?: (term: string) => void;
 }
 
@@ -76,6 +76,16 @@ export const Header: React.FC<HeaderProps> = ({
               Comunidades
             </button>
             <button
+              onClick={() => onNavigate?.("store")}
+              className={`px-2.5 py-1 rounded-sm transition-all ${
+                currentView === "store"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Loja
+            </button>
+            <button
               onClick={() => onNavigate?.("login")}
               className={`px-2.5 py-1 rounded-sm transition-all ${
                 currentView === "login"
@@ -122,8 +132,13 @@ export const Header: React.FC<HeaderProps> = ({
               <Users className="w-4 h-4" />
             </button>
             <button 
-              title="Loja"
-              className="p-1.5 text-slate-600 hover:text-pink-600 hover:bg-slate-100 rounded-sm transition-colors"
+              onClick={() => onNavigate?.("store")}
+              title="Loja de Soap"
+              className={`p-1.5 rounded-sm transition-colors ${
+                currentView === "store"
+                  ? "text-pink-600 bg-pink-50"
+                  : "text-slate-600 hover:text-pink-600 hover:bg-slate-100"
+              }`}
             >
               <Store className="w-4 h-4" />
             </button>
@@ -137,7 +152,8 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Soap Balance Badge with Enlarged SoapIcon */}
           <div 
-            title="Seu saldo de soap para apoios e customizações"
+            onClick={() => onNavigate?.("store")}
+            title="Seu saldo de soap (clique para abrir a Loja)"
             className="flex items-center gap-2 px-2.5 py-1 bg-pink-50 border border-pink-200 rounded-sm cursor-pointer hover:bg-pink-100/70 transition-colors"
           >
             <SoapIcon size={20} />
