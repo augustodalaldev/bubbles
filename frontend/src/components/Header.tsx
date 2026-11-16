@@ -5,8 +5,8 @@ import { BrandLogo } from "./BrandLogo";
 import { SoapIcon } from "./SoapIcon";
 
 interface HeaderProps {
-  currentView?: "feed" | "profile" | "login" | "register";
-  onNavigate?: (view: "feed" | "profile" | "login" | "register") => void;
+  currentView?: "feed" | "profile" | "communities" | "login" | "register";
+  onNavigate?: (view: "feed" | "profile" | "communities" | "login" | "register") => void;
   onSearchChange?: (term: string) => void;
 }
 
@@ -66,6 +66,16 @@ export const Header: React.FC<HeaderProps> = ({
               Perfil
             </button>
             <button
+              onClick={() => onNavigate?.("communities")}
+              className={`px-2.5 py-1 rounded-sm transition-all ${
+                currentView === "communities"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Comunidades
+            </button>
+            <button
               onClick={() => onNavigate?.("login")}
               className={`px-2.5 py-1 rounded-sm transition-all ${
                 currentView === "login"
@@ -101,8 +111,13 @@ export const Header: React.FC<HeaderProps> = ({
               <Compass className="w-4 h-4" />
             </button>
             <button 
+              onClick={() => onNavigate?.("communities")}
               title="Comunidades"
-              className="p-1.5 text-slate-600 hover:text-pink-600 hover:bg-slate-100 rounded-sm transition-colors"
+              className={`p-1.5 rounded-sm transition-colors ${
+                currentView === "communities"
+                  ? "text-pink-600 bg-pink-50"
+                  : "text-slate-600 hover:text-pink-600 hover:bg-slate-100"
+              }`}
             >
               <Users className="w-4 h-4" />
             </button>

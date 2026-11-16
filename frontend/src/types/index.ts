@@ -39,6 +39,11 @@ export interface Community {
   created_at: string;
   is_archived?: boolean;
   is_blocked?: boolean;
+  my_membership?: {
+    role: "LEADER" | "COMM_ADMIN" | "MEMBER";
+    current_state: "ACTIVE" | "SILENCED" | "BANNED";
+    joined_at: string;
+  } | null;
   permissions?: {
     can_edit: boolean;
     can_edit_guidelines: boolean;
@@ -50,6 +55,14 @@ export interface Community {
     can_join: boolean;
     can_leave: boolean;
   };
+}
+
+export interface CommunityMemberItem {
+  id: number;
+  user: User;
+  role: "LEADER" | "COMM_ADMIN" | "MEMBER";
+  current_state: "ACTIVE" | "SILENCED" | "BANNED";
+  joined_at: string;
 }
 
 export interface BubblegramMedia {

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Bubblegram, Bubblepop, User } from "@/types";
+import { Bubblegram, Bubblepop, Community, User } from "@/types";
 import { 
   MOCK_USER, 
   MOCK_COMMUNITIES, 
@@ -18,6 +18,7 @@ import { CheckCircle2, Compass, Search, X } from "lucide-react";
 interface FeedViewProps {
   onNavigateToProfile: () => void;
   onNavigateToView?: (view: string) => void;
+  onSelectCommunity?: (community: Community) => void;
   searchTerm?: string;
   onClearSearch?: () => void;
 }
@@ -25,6 +26,7 @@ interface FeedViewProps {
 export const FeedView: React.FC<FeedViewProps> = ({
   onNavigateToProfile,
   onNavigateToView,
+  onSelectCommunity,
   searchTerm = "",
   onClearSearch,
 }) => {
@@ -238,7 +240,10 @@ export const FeedView: React.FC<FeedViewProps> = ({
           <FeedSidebarRight
             communities={MOCK_COMMUNITIES}
             suggestedUsers={MOCK_SUGGESTED_USERS}
-            onSelectCommunity={(comm) => alert(`Comunidade selecionada: ${comm.name}`)}
+            onSelectCommunity={(comm) => {
+              if (onSelectCommunity) onSelectCommunity(comm);
+              else onNavigateToView?.("communities");
+            }}
             onSelectUser={(username) => alert(`Perfil selecionado: @${username}`)}
           />
         </div>

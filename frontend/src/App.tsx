@@ -2,22 +2,53 @@ import { useState } from "react";
 import { Header } from "@/components/Header";
 import { ProfileView } from "@/features/profile/ProfileView";
 import { FeedView } from "@/features/feed/FeedView";
+import { CommunityListView } from "@/features/communities/CommunityListView";
+import { CommunityDetailView } from "@/features/communities/CommunityDetailView";
 import { LoginView } from "@/features/auth/LoginView";
 import { RegisterView } from "@/features/auth/RegisterView";
+import { MOCK_COMMUNITIES, MOCK_USER } from "@/features/profile/mockData";
+import { Community } from "@/types";
 
-type View = "feed" | "profile" | "login" | "register";
+type View = "feed" | "profile" | "communities" | "community-detail" | "login" | "register";
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>("feed");
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [communities, setCommunities] = useState<Community[]>(MOCK_COMMUNITIES);
+  const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
+
+  const handleJoinToggleCommunity = (communityId: number) => {
+    setCommunities((prev) =>
+      prev.map((c) => {
+        if (c.id !== communityId) return c;
+        const isMember = !!c.my_membership;
+        return {
+          ...c,
+          member_count: isMember ? Math.max(1, c.member_count - 1) : c.member_count + 1,
+          my_membership: isMember
+            ? null
+            : {
+                role: "MEMBER",
+                current_state: "ACTIVE",
+                joined_at: new Date().toISOString(),
+              },
+        };
+      })
+    );
+  };
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col justify-between font-sans">
       <div>
         {/* Straight Classic Header with View Navigator */}
         <Header 
-          currentView={currentView}
-          onNavigate={(view) => setCurrentView(view)}
+          currentView={currentView === "community-detail" ? "communities" : currentView}
+          onNavigate={(view) => {
+            if (view === "communities") {
+              setSelectedCommunity(null);
+            }
+            setCurrentView(view);
+          }}
           onSearchChange={(term) => {
             setSearchTerm(term);
             if (term.trim() && currentView !== "feed") {
@@ -33,18 +64,52 @@ export default function App() {
             onNavigateToView={(v) => {
               if (v === "profile") setCurrentView("profile");
               else if (v === "feed") setCurrentView("feed");
+              else if (v === "communities") setCurrentView("communities");
+            }}
+            onSelectCommunity={(comm) => {
+              setSelectedCommunity(comm);
+              setCurrentView("community-detail");
             }}
             searchTerm={searchTerm}
             onClearSearch={() => setSearchTerm("")}
           />
         )}
+
+        {currentView === "communities" && (
+          <CommunityListView
+            communities={communities}
+            currentUser={MOCK_USER}
+            onSelectCommunity={(comm) => {
+              setSelectedCommunity(comm);
+              setCurrentView("community-detail");
+            }}
+            onJoinToggleCommunity={handleJoinToggleCommunity}
+            onCommunityCreated={(newComm) => {
+              setCommunities((prev) => [newComm, ...prev]);
+            }}
+          />
+        )}
+
+        {currentView === "community-detail" && selectedCommunity && (
+          <CommunityDetailView
+            community={selectedCommunity}
+            currentUser={MOCK_USER}
+            onBackToHub={() => setCurrentView("communities")}
+            onSelectOtherCommunity={(other) => {
+              setSelectedCommunity(other);
+            }}
+          />
+        )}
+
         {currentView === "profile" && <ProfileView />}
+
         {currentView === "login" && (
           <LoginView
             onNavigateToRegister={() => setCurrentView("register")}
             onLoginSuccess={() => setCurrentView("feed")}
           />
         )}
+
         {currentView === "register" && (
           <RegisterView
             onNavigateToLogin={() => setCurrentView("login")}
@@ -53,8 +118,8 @@ export default function App() {
         )}
       </div>
 
-      {/* Footer (Rendered on Profile, Auth, etc., while Feed has its internal bottom note) */}
-      {currentView !== "feed" && (
+      {/* Footer (Rendered on Profile, Hub, Auth, while Feed & CommunityDetail have internal stream note) */}
+      {currentView !== "feed" && currentView !== "community-detail" && (
         <footer className="py-6 text-center text-xs text-slate-400 border-t border-slate-200 mt-8">
           Bubbles • Rede Social
         </footer>
