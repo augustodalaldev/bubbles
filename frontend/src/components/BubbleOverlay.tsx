@@ -5,7 +5,10 @@ interface BubbleOverlayProps {
   opacity?: number;
 }
 
-export const BubbleOverlay: React.FC<BubbleOverlayProps> = ({ className = "", opacity = 1 }) => {
+export const BubbleOverlay: React.FC<BubbleOverlayProps> = ({ 
+  className = "", 
+  opacity = 0.95 
+}) => {
   return (
     <img
       src="/bubble.svg"

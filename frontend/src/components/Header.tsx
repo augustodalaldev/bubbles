@@ -61,12 +61,12 @@ export const Header: React.FC<HeaderProps> = ({ onSearchChange }) => {
             </button>
           </nav>
 
-          {/* Soap Balance Badge */}
+          {/* Soap Balance Badge with Enlarged SoapIcon */}
           <div 
             title="Seu saldo de soap para apoios e customizações"
             className="flex items-center gap-2 px-3 py-1 bg-pink-50 border border-pink-200 rounded-sm cursor-pointer hover:bg-pink-100/70 transition-colors"
           >
-            <SoapIcon size={16} />
+            <SoapIcon size={22} />
             <div className="flex flex-col text-left">
               <span className="text-xs font-bold text-pink-900 leading-tight">
                 {MOCK_USER.soap_balance} soap

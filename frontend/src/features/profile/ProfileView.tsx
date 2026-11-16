@@ -316,7 +316,7 @@ export const ProfileView: React.FC = () => {
                           </p>
                         )}
                         <span className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-slate-900/80 text-white text-[10px] font-bold rounded-sm flex items-center gap-1">
-                          <SoapIcon size={12} />
+                          <SoapIcon size={14} />
                           {post.soap_count}
                         </span>
                       </div>
@@ -342,8 +342,8 @@ export const ProfileView: React.FC = () => {
               <span className="text-sm sm:text-base font-bold text-slate-800">
                 Carteira de soap
               </span>
-              <span className="font-bold text-pink-600 text-sm flex items-center gap-1">
-                <SoapIcon size={16} />
+              <span className="font-bold text-pink-600 text-sm flex items-center gap-1.5">
+                <SoapIcon size={22} />
                 {MOCK_USER.soap_balance} soap
               </span>
             </div>

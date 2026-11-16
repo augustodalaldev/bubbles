@@ -83,7 +83,7 @@ export const BubblegramBall: React.FC<BubblegramBallProps> = ({
           {/* Bottom Soap Badge */}
           <div className="absolute bottom-2.5 inset-x-0 flex justify-center pointer-events-none z-20">
             <span className="px-2.5 py-1 rounded-full text-[11px] font-bold text-white bg-slate-900/80 backdrop-blur-sm shadow-sm flex items-center gap-1.5 group-hover:bg-pink-700/90 transition-colors">
-              <SoapIcon size={14} />
+              <SoapIcon size={18} />
               <span>{post.soap_count}</span>
               <ImageIcon className="w-3 h-3 ml-0.5 opacity-80" />
             </span>
@@ -96,7 +96,7 @@ export const BubblegramBall: React.FC<BubblegramBallProps> = ({
           <div className="bg-slate-50 border-b border-slate-200 px-2 py-1 flex items-center justify-between text-[10px] text-slate-500 font-semibold pointer-events-none">
             <span>Texto</span>
             <span className="flex items-center gap-1 text-slate-700">
-              <SoapIcon size={12} />
+              <SoapIcon size={15} />
               <span>{post.soap_count}</span>
             </span>
           </div>

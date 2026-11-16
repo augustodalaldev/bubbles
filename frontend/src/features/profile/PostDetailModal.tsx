@@ -82,7 +82,7 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
         spread: 60,
         startVelocity: 14,
         ticks: 140,
-        gravity: -0.22, // Float upward like real soap bubbles
+        gravity: -0.22,
         drift: 0.05,
         origin: { x, y },
         colors: ["#FFFFFF", "#FDF2F8", "#EDE9FE", "#FCE7F3"],
@@ -216,12 +216,12 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
                   </div>
                 </div>
 
-                {/* Minimalist User Soap Balance */}
+                {/* Minimalist User Soap Balance with enlarged SoapIcon */}
                 <div 
                   title="Seu saldo atual de soap"
-                  className="flex items-center gap-1 px-2 py-0.5 bg-slate-50 border border-slate-200 rounded-sm text-xs font-semibold text-slate-600"
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-sm text-xs font-semibold text-slate-700"
                 >
-                  <SoapIcon size={14} />
+                  <SoapIcon size={18} />
                   <span>{currentUser.soap_balance}</span>
                 </div>
               </div>
@@ -233,19 +233,19 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
                 </p>
               )}
 
-              {/* Engagement Bar: Light first, Purple when supported (contrasting with pink soap icon) */}
+              {/* Engagement Bar: Light first, Rosa bem claro when liked */}
               <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between gap-2">
                 <button
                   onClick={handleSoapSupport}
                   disabled={hasSupportedPost}
-                  title={hasSupportedPost ? "Você já apoiou esta publicação" : "Apoiar com soap"}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-sm transition-all ${
+                  title={hasSupportedPost ? "Você já apoiou esta publicação com soap" : "Apoiar com soap"}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-bold rounded-sm transition-all ${
                     hasSupportedPost 
-                      ? "bg-purple-600 text-white border border-purple-700 shadow-xs cursor-default" 
+                      ? "bg-pink-100 text-pink-900 border border-pink-300 shadow-2xs cursor-default" 
                       : "bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-2xs hover:border-slate-400"
                   }`}
                 >
-                  <SoapIcon size={16} />
+                  <SoapIcon size={22} />
                   <span>{soapCount}</span>
                 </button>
 
@@ -284,18 +284,18 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] text-slate-400">{c.time}</span>
                           
-                          {/* Soap Support on Comments (Max 1) */}
+                          {/* Soap Support on Comments with Rosa bem claro state */}
                           <button
                             onClick={() => handleSupportComment(c.id)}
                             disabled={c.hasSupported}
                             title={c.hasSupported ? "Você já apoiou este comentário" : "Apoiar comentário com soap"}
-                            className={`flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold rounded-sm border transition-colors ${
+                            className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-sm border transition-colors ${
                               c.hasSupported
-                                ? "bg-purple-600 text-white border-purple-700 cursor-default"
+                                ? "bg-pink-100 text-pink-900 border-pink-300 cursor-default"
                                 : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
                             }`}
                           >
-                            <SoapIcon size={12} />
+                            <SoapIcon size={14} />
                             <span>{c.soapCount}</span>
                           </button>
                         </div>
