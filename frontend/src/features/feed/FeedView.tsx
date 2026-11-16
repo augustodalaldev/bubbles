@@ -207,7 +207,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                   Nenhuma bolha encontrada.
                 </p>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Tente alterar seus filtros ou publique uma nova bolha clicando no botão + no canto inferior esquerdo.
+                  Tente alterar seus filtros ou publique uma nova bolha clicando no botão + no canto inferior direito.
                 </p>
               </div>
             )}

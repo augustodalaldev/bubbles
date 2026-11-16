@@ -117,15 +117,15 @@ export const CreateBubblePopup: React.FC<CreateBubblePopupProps> = ({
 
   return (
     <>
-      {/* Floating Action Button (Fixed Bottom-Left) */}
-      <div className="fixed bottom-6 left-6 z-40">
+      {/* Floating Action Button (Fixed Bottom-Right) */}
+      <div className="fixed bottom-6 right-6 z-50">
         <button
           onClick={() => setIsOpen((prev) => !prev)}
           title={isOpen ? "Fechar painel de publicação" : "Publicar nova bolha no mural"}
-          className={`w-13 h-13 rounded-full flex items-center justify-center text-white shadow-lg transition-all duration-200 ${
+          className={`w-13 h-13 rounded-full flex items-center justify-center text-white shadow-xl transition-all duration-200 cursor-pointer ${
             isOpen
-              ? "bg-slate-700 hover:bg-slate-800 rotate-45"
-              : "bg-pink-600 hover:bg-pink-700 hover:scale-105 active:scale-95 ring-4 ring-pink-100"
+              ? "bg-slate-800 hover:bg-slate-900 rotate-45"
+              : "bg-pink-600 hover:bg-pink-700 hover:scale-105 active:scale-95 ring-4 ring-pink-100/90"
           }`}
           style={{ width: "52px", height: "52px" }}
         >
@@ -133,16 +133,24 @@ export const CreateBubblePopup: React.FC<CreateBubblePopupProps> = ({
         </button>
       </div>
 
-      {/* Floating Popup Form (Positioned above the button in bottom-left) */}
+      {/* Floating Popup Form (Positioned directly above the button in bottom-right) */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: 15, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 15, scale: 0.95 }}
-            transition={{ duration: 0.18 }}
-            className="fixed bottom-22 left-6 z-50 w-[380px] sm:w-[420px] max-w-[calc(100vw-3rem)] panel-classic bg-white shadow-2xl border border-slate-300"
-          >
+          <>
+            {/* Click-outside backdrop to easily dismiss */}
+            <div
+              onClick={() => setIsOpen(false)}
+              className="fixed inset-0 z-40 bg-black/10 sm:bg-transparent"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              style={{ transformOrigin: "bottom right" }}
+              className="fixed bottom-20 right-6 z-50 w-[380px] sm:w-[420px] max-w-[calc(100vw-2.5rem)] max-h-[calc(100vh-6rem)] overflow-y-auto panel-classic bg-white shadow-2xl border border-slate-300"
+            >
             {/* Header */}
             <div className="panel-classic-header flex items-center justify-between">
               <div className="flex items-center gap-1.5">
@@ -312,8 +320,9 @@ export const CreateBubblePopup: React.FC<CreateBubblePopupProps> = ({
               </div>
             </form>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </>
+      )}
+    </AnimatePresence>
     </>
   );
 };

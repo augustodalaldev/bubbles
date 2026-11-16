@@ -113,8 +113,8 @@ A paleta é baseada nos arquivos vetoriais de `@references/` com ênfase no **br
 1. **Upload de Mídia de Alta Resolução (Até 10 MB por arquivo):**
    - O frontend e o backend (`DATA_UPLOAD_MAX_MEMORY_SIZE = 15MB`, `FILE_UPLOAD_MAX_MEMORY_SIZE = 10MB`) suportam upload de imagens de até **10 MB** cada (JPEG, PNG, WebP, GIF). Arquivos acima desse limite são rejeitados com feedback claro ao usuário.
 
-2. **Criação de Publicações (Popup no Canto Inferior Esquerdo):**
-   - A criação de publicações no feed geral foi desacoplada da linha do tempo e acionada por um botão flutuante com símbolo de `+` fixado no canto inferior esquerdo.
+2. **Criação de Publicações (Popup no Canto Inferior Direito):**
+   - A criação de publicações no feed geral foi desacoplada da linha do tempo e acionada por um botão flutuante com símbolo de `+` fixado no canto inferior direito.
    - Publicações originadas desse popup são sempre destinadas ao mural pessoal do usuário (com o custo de 10 soap).
    - **Publicações em comunidades são estritamente proibidas no popup geral:** postagens em comunidades só podem ser feitas de dentro da página da respectiva comunidade por membros autorizados.
 
