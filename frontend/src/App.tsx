@@ -53,10 +53,12 @@ export default function App() {
         )}
       </div>
 
-      {/* Footer */}
-      <footer className="py-6 text-center text-xs text-slate-400 border-t border-slate-200 mt-8">
-        Bubbles • Rede Social
-      </footer>
+      {/* Footer (Rendered on Profile, Auth, etc., while Feed has its internal bottom note) */}
+      {currentView !== "feed" && (
+        <footer className="py-6 text-center text-xs text-slate-400 border-t border-slate-200 mt-8">
+          Bubbles • Rede Social
+        </footer>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import React from "react";
 import { User } from "@/types";
 import { SoapIcon } from "@/components/SoapIcon";
-import { Compass, User as UserIcon, Users, Store, Mail, Sparkles } from "lucide-react";
+import { Compass, User as UserIcon, Users, Store, Mail } from "lucide-react";
 
 interface FeedSidebarLeftProps {
   currentUser: User;
@@ -135,19 +135,6 @@ export const FeedSidebarLeft: React.FC<FeedSidebarLeftProps> = ({
             )}
           </button>
 
-        </div>
-      </div>
-
-      {/* Soap Economy Reminder */}
-      <div className="panel-classic bg-slate-50/50">
-        <div className="p-3">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 mb-1">
-            <Sparkles className="w-3.5 h-3.5 text-pink-600" />
-            <span>Economia Solidária</span>
-          </div>
-          <p className="text-[11px] text-slate-600 leading-relaxed">
-            Aqui sua atenção não é vendida. Você gera 5 soap diários para apoiar o conteúdo de quem faz a rede valer a pena.
-          </p>
         </div>
       </div>
 

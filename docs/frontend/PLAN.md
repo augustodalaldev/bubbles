@@ -105,3 +105,18 @@ A paleta é baseada nos arquivos vetoriais de `@references/` com ênfase no **br
 2. Criação dos componentes de ícone vetorial (`BrandLogo.tsx`, `SoapIcon.tsx`).
 3. Refatoração dos componentes da Tela de Perfil (`Header.tsx`, `ProfileView.tsx`, `BubblegramBall.tsx`, `BubblepopStory.tsx`, `PostDetailModal.tsx`).
 4. Verificação de build com TypeScript e validação visual no navegador.
+
+---
+
+## 6. Decisões Arquiteturais e Políticas do Sistema (Persistidas)
+
+1. **Upload de Mídia de Alta Resolução (Até 10 MB por arquivo):**
+   - O frontend e o backend (`DATA_UPLOAD_MAX_MEMORY_SIZE = 15MB`, `FILE_UPLOAD_MAX_MEMORY_SIZE = 10MB`) suportam upload de imagens de até **10 MB** cada (JPEG, PNG, WebP, GIF). Arquivos acima desse limite são rejeitados com feedback claro ao usuário.
+
+2. **Criação de Publicações (Popup no Canto Inferior Esquerdo):**
+   - A criação de publicações no feed geral foi desacoplada da linha do tempo e acionada por um botão flutuante com símbolo de `+` fixado no canto inferior esquerdo.
+   - Publicações originadas desse popup são sempre destinadas ao mural pessoal do usuário (com o custo de 10 soap).
+   - **Publicações em comunidades são estritamente proibidas no popup geral:** postagens em comunidades só podem ser feitas de dentro da página da respectiva comunidade por membros autorizados.
+
+3. **Arquitetura de Rolagem da Interface:**
+   - Apenas a raia central (feed de publicações) possui barra de rolagem interna (`overflow-y-auto`), mantendo o cabeçalho e as barras laterais (perfil à esquerda, comunidades e recomendações à direita) visíveis e acompanhando o scroll sem deslocamentos desnecessários.

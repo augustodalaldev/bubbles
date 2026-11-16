@@ -8,7 +8,7 @@ import {
   MOCK_SUGGESTED_USERS 
 } from "@/features/profile/mockData";
 import { FeedBubblepopsTray } from "./FeedBubblepopsTray";
-import { CreateBubblegramBox } from "./CreateBubblegramBox";
+import { CreateBubblePopup } from "./CreateBubblePopup";
 import { FeedItemCard } from "./FeedItemCard";
 import { FeedSidebarLeft } from "./FeedSidebarLeft";
 import { FeedSidebarRight } from "./FeedSidebarRight";
@@ -88,13 +88,13 @@ export const FeedView: React.FC<FeedViewProps> = ({
   }, [bubblegrams, activeFilter, searchTerm, currentUser.id]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="max-w-7xl mx-auto px-4 py-3 h-[calc(100vh-3.5rem)] overflow-hidden">
       
       {/* 3-Column Classic Grid (Left 3 cols, Center 6 cols, Right 3 cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start h-full">
         
-        {/* Left Sidebar (3 Cols) */}
-        <div className="lg:col-span-3">
+        {/* Left Sidebar (3 Cols) - Static / Follows the View without scroll */}
+        <div className="lg:col-span-3 h-full overflow-y-auto scrollbar-none hidden lg:block">
           <FeedSidebarLeft
             currentUser={currentUser}
             onNavigateToProfile={onNavigateToProfile}
@@ -103,22 +103,14 @@ export const FeedView: React.FC<FeedViewProps> = ({
           />
         </div>
 
-        {/* Center Stream (6 Cols) */}
-        <div className="lg:col-span-6 min-w-0">
+        {/* Center Stream (6 Cols) - THE ONLY SCROLLABLE AREA */}
+        <div className="lg:col-span-6 min-w-0 h-full overflow-y-auto pr-1.5 scrollbar-thin">
           
           {/* Bubblepops 24h Stories Tray */}
           <FeedBubblepopsTray
             bubblepops={bubblepops}
             onSelectBubblepop={(story) => setSelectedStory(story)}
-            onOpenCreateModal={() => alert("Selecione uma imagem na caixa abaixo para publicar um Bubblepop efêmero.")}
-          />
-
-          {/* Create Post Box (Bubblegrams) */}
-          <CreateBubblegramBox
-            currentUser={currentUser}
-            communities={MOCK_COMMUNITIES}
-            onPostCreated={handlePostCreated}
-            onDeductSoap={handleDeductSoap}
+            onOpenCreateModal={() => alert("Para publicar um Bubblepop, utilize o botão de criação no perfil.")}
           />
 
           {/* Feed Filter Tabs & Search Indicator */}
@@ -215,7 +207,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                   Nenhuma bolha encontrada.
                 </p>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Tente alterar seus filtros ou publicar a primeira bolha no feed!
+                  Tente alterar seus filtros ou publique uma nova bolha clicando no botão + no canto inferior esquerdo.
                 </p>
               </div>
             )}
@@ -223,7 +215,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
 
           {/* End of Feed Indicator (Orkut / Classic Style) */}
           {filteredBubblegrams.length > 0 && (
-            <div className="panel-classic mt-6 p-4 text-center bg-slate-50/70 border border-slate-200">
+            <div className="panel-classic mt-6 mb-6 p-4 text-center bg-slate-50/70 border border-slate-200">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
               <h3 className="text-xs font-bold text-slate-800">
                 Você está em dia com todas as novidades!
@@ -234,10 +226,15 @@ export const FeedView: React.FC<FeedViewProps> = ({
             </div>
           )}
 
+          {/* Classic subtle footer at the bottom of the feed stream */}
+          <div className="py-4 text-center text-[11px] text-slate-400">
+            Bubbles • Rede Social
+          </div>
+
         </div>
 
-        {/* Right Sidebar (3 Cols) */}
-        <div className="lg:col-span-3">
+        {/* Right Sidebar (3 Cols) - Static / Follows the View without scroll */}
+        <div className="lg:col-span-3 h-full overflow-y-auto scrollbar-none hidden lg:block">
           <FeedSidebarRight
             communities={MOCK_COMMUNITIES}
             suggestedUsers={MOCK_SUGGESTED_USERS}
@@ -247,6 +244,13 @@ export const FeedView: React.FC<FeedViewProps> = ({
         </div>
 
       </div>
+
+      {/* Floating Action Button & Popup in the Bottom-Left */}
+      <CreateBubblePopup
+        currentUser={currentUser}
+        onPostCreated={handlePostCreated}
+        onDeductSoap={handleDeductSoap}
+      />
 
       {/* Post & Story Detail Inspection Modal */}
       {(selectedPost || selectedStory) && (
