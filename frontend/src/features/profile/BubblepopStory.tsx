@@ -1,6 +1,7 @@
 import React from "react";
 import { Bubblepop } from "@/types";
 import { Clock } from "lucide-react";
+import { BubbleOverlay } from "@/components/BubbleOverlay";
 
 interface BubblepopStoryProps {
   story: Bubblepop;
@@ -26,13 +27,15 @@ export const BubblepopStory: React.FC<BubblepopStoryProps> = ({ story, onClick }
       className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-pointer group" 
       onClick={() => onClick(story)}
     >
-      {/* Clean borderless circular story avatar */}
+      {/* Clean circular story avatar with authentic bubble SVG overlay */}
       <div className="relative w-14 h-14 rounded-full overflow-hidden bg-slate-100 shadow-sm transition-transform duration-150 group-hover:scale-105">
         <img
           src={story.image}
           alt={story.description || "Bubblepop"}
           className="w-full h-full object-cover"
         />
+        {/* User's authentic bubble reflection SVG overlay */}
+        <BubbleOverlay opacity={0.65} />
       </div>
 
       {/* Countdown Label */}

@@ -10,6 +10,7 @@ import {
 import { BubblegramBall } from "./BubblegramBall";
 import { BubblepopStory } from "./BubblepopStory";
 import { PostDetailModal } from "./PostDetailModal";
+import { BubbleOverlay } from "@/components/BubbleOverlay";
 import { Bubblegram, Bubblepop } from "@/types";
 import { SoapIcon } from "@/components/SoapIcon";
 import { 
@@ -20,10 +21,7 @@ import {
   Grid, 
   Plus, 
   Clock, 
-  ShoppingBag,
-  User,
-  Users,
-  Compass
+  ShoppingBag
 } from "lucide-react";
 
 export const ProfileView: React.FC = () => {
@@ -55,28 +53,29 @@ export const ProfileView: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         
         {/* ========================================================
-            LEFT COLUMN: Perfil -> Cartas (Narrow 3 cols)
+            LEFT COLUMN: Perfil -> Cartas (3 cols)
            ======================================================== */}
         <div className="lg:col-span-3 space-y-4">
           
-          {/* 1. Perfil do Usuário (Borderless, Sem sinal de ativo) */}
+          {/* 1. Perfil do Usuário */}
           <div className="panel-classic">
             <div className="panel-classic-header">
-              <span className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-800">
-                <User className="w-4 h-4 text-purple-600" />
+              <span className="text-sm sm:text-base font-bold text-slate-800">
                 Perfil
               </span>
             </div>
 
             <div className="p-4 text-center flex flex-col items-center">
-              {/* Spherical Bubble Avatar (Borderless, clean photo) */}
+              {/* Spherical Bubble Avatar with authentic bubble.svg overlay */}
               <div className="relative mb-3 group cursor-pointer">
-                <div className="w-24 h-24 rounded-full overflow-hidden bg-slate-100 shadow-sm transition-transform duration-200 group-hover:scale-102">
+                <div className="w-24 h-24 rounded-full overflow-hidden relative bg-slate-100 shadow-sm transition-transform duration-200 group-hover:scale-102">
                   <img
                     src={MOCK_USER.profile_photo || ""}
                     alt={MOCK_USER.name}
                     className="w-full h-full object-cover"
                   />
+                  {/* Bubble overlay */}
+                  <BubbleOverlay opacity={0.7} />
                 </div>
               </div>
 
@@ -113,7 +112,7 @@ export const ProfileView: React.FC = () => {
                 </button>
               </div>
 
-              {/* Profile Details (Only backend fields) */}
+              {/* Profile Details (Backend only) */}
               <div className="w-full pt-3 border-t border-slate-200 text-left space-y-1.5 text-xs text-slate-600">
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400 flex items-center gap-1.5">
@@ -164,8 +163,7 @@ export const ProfileView: React.FC = () => {
           {/* 2. Seção de Cartas */}
           <div className="panel-classic">
             <div className="panel-classic-header">
-              <span className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-800">
-                <Mail className="w-4 h-4 text-purple-600" />
+              <span className="text-sm sm:text-base font-bold text-slate-800">
                 Cartas
               </span>
               <button className="text-xs text-pink-600 font-semibold hover:underline">
@@ -206,11 +204,10 @@ export const ProfileView: React.FC = () => {
            ======================================================== */}
         <div className="lg:col-span-6 space-y-4">
           
-          {/* Bubblepops Tray (Ephemeral Stories) */}
+          {/* Bubblepops Tray */}
           <div className="panel-classic">
             <div className="panel-classic-header">
-              <span className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-800">
-                <Clock className="w-4 h-4 text-pink-500" />
+              <span className="text-sm sm:text-base font-bold text-slate-800">
                 Bubblepops
               </span>
               <button 
@@ -234,12 +231,11 @@ export const ProfileView: React.FC = () => {
             </div>
           </div>
 
-          {/* Bubblegrams Mural (Interactive Arena) */}
+          {/* Bubblegrams Mural */}
           <div className="panel-classic flex flex-col">
             <div className="panel-classic-header">
               <div className="flex items-center gap-2">
-                <span className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-800">
-                  <Layers className="w-4 h-4 text-pink-500" />
+                <span className="text-sm sm:text-base font-bold text-slate-800">
                   Mural de bolhas
                 </span>
                 <span className="text-xs font-normal text-slate-400">
@@ -284,11 +280,11 @@ export const ProfileView: React.FC = () => {
                   {/* Subtle hint */}
                   <div className="absolute inset-x-0 bottom-2 text-center pointer-events-none select-none">
                     <span className="text-[10px] text-slate-400 font-medium bg-white/80 px-2 py-0.5 border border-slate-200 rounded-sm">
-                      Arraste as bolhas de fotos e retângulos de texto pela tela
+                      Arraste as bolhas de fotos e cartões de texto pela tela
                     </span>
                   </div>
 
-                  {/* Draggable Bubblegrams: Round photos + Rounded rectangular texts */}
+                  {/* Draggable Bubblegrams: Round photos + Straight text cards */}
                   {MOCK_BUBBLEGRAMS.map((post) => (
                     <BubblegramBall
                       key={post.id}
@@ -320,7 +316,7 @@ export const ProfileView: React.FC = () => {
                           </p>
                         )}
                         <span className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-slate-900/80 text-white text-[10px] font-bold rounded-sm flex items-center gap-1">
-                          <SoapIcon size={11} />
+                          <SoapIcon size={12} />
                           {post.soap_count}
                         </span>
                       </div>
@@ -343,11 +339,11 @@ export const ProfileView: React.FC = () => {
           {/* 1. Carteira de Soap (Primeiro elemento da direita) */}
           <div className="panel-classic">
             <div className="panel-classic-header">
-              <span className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-800">
-                <SoapIcon size={18} />
+              <span className="text-sm sm:text-base font-bold text-slate-800">
                 Carteira de soap
               </span>
-              <span className="font-bold text-pink-600 text-sm">
+              <span className="font-bold text-pink-600 text-sm flex items-center gap-1">
+                <SoapIcon size={16} />
                 {MOCK_USER.soap_balance} soap
               </span>
             </div>
@@ -362,11 +358,10 @@ export const ProfileView: React.FC = () => {
             </div>
           </div>
 
-          {/* 2. Amigos (6 fotos: 2 colunas x 3 linhas, borderless) */}
+          {/* 2. Amigos (6 fotos: 2 colunas x 3 linhas) */}
           <div className="panel-classic">
             <div className="panel-classic-header">
-              <span className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-800">
-                <Users className="w-4 h-4 text-purple-600" />
+              <span className="text-sm sm:text-base font-bold text-slate-800">
                 Amigos ({MOCK_USER.followers_count})
               </span>
               <a href="#amigos" className="text-xs text-pink-600 font-semibold hover:underline">
@@ -395,11 +390,10 @@ export const ProfileView: React.FC = () => {
             </div>
           </div>
 
-          {/* 3. Comunidades (Borderless photos) */}
+          {/* 3. Comunidades */}
           <div className="panel-classic">
             <div className="panel-classic-header">
-              <span className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-800">
-                <Compass className="w-4 h-4 text-pink-500" />
+              <span className="text-sm sm:text-base font-bold text-slate-800">
                 Comunidades ({MOCK_COMMUNITIES.length})
               </span>
               <a href="#comunidades" className="text-xs text-pink-600 font-semibold hover:underline">
