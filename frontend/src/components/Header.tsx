@@ -5,13 +5,13 @@ import { BrandLogo } from "./BrandLogo";
 import { SoapIcon } from "./SoapIcon";
 
 interface HeaderProps {
-  currentView?: "profile" | "login" | "register";
-  onNavigate?: (view: "profile" | "login" | "register") => void;
+  currentView?: "feed" | "profile" | "login" | "register";
+  onNavigate?: (view: "feed" | "profile" | "login" | "register") => void;
   onSearchChange?: (term: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  currentView = "profile",
+  currentView = "feed",
   onNavigate,
   onSearchChange,
 }) => {
@@ -19,9 +19,9 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="sticky top-0 z-40 w-full bg-white border-b border-slate-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
         
-        {/* Brand Logo with Official SVG (Click goes to Profile) */}
+        {/* Brand Logo with Official SVG (Click goes to Feed) */}
         <div 
-          onClick={() => onNavigate?.("profile")}
+          onClick={() => onNavigate?.("feed")}
           className="flex items-center cursor-pointer"
         >
           <BrandLogo height={32} />
@@ -45,6 +45,16 @@ export const Header: React.FC<HeaderProps> = ({
           
           {/* Section Switcher Tabs */}
           <div className="flex items-center bg-slate-100 p-0.5 border border-slate-200 rounded-sm text-xs font-semibold">
+            <button
+              onClick={() => onNavigate?.("feed")}
+              className={`px-2.5 py-1 rounded-sm transition-all ${
+                currentView === "feed"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Início
+            </button>
             <button
               onClick={() => onNavigate?.("profile")}
               className={`px-2.5 py-1 rounded-sm transition-all ${
@@ -80,8 +90,13 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Quick Nav Icons */}
           <nav className="hidden lg:flex items-center gap-1">
             <button 
-              title="Explorar"
-              className="p-1.5 text-slate-600 hover:text-pink-600 hover:bg-slate-100 rounded-sm transition-colors"
+              onClick={() => onNavigate?.("feed")}
+              title="Feed / Início"
+              className={`p-1.5 rounded-sm transition-colors ${
+                currentView === "feed"
+                  ? "text-pink-600 bg-pink-50"
+                  : "text-slate-600 hover:text-pink-600 hover:bg-slate-100"
+              }`}
             >
               <Compass className="w-4 h-4" />
             </button>

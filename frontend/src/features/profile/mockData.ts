@@ -246,3 +246,240 @@ export const MOCK_LETTERS: MockLetter[] = [
     read_at: null,
   },
 ];
+
+export const MOCK_CAROL: User = {
+  id: 3,
+  username: "carol_ocean",
+  name: "Carol Diniz",
+  description: "Fotógrafa aquática e bióloga marinha em formação. Registrando a vida e as cores sob a superfície.",
+  profile_photo: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80",
+  customization_json: {},
+  is_active: true,
+  created_at: "2026-02-10T12:00:00Z",
+  followers_count: 312,
+  following_count: 145,
+  soap_balance: 64,
+  is_following: true,
+};
+
+export const MOCK_LUCAS: User = {
+  id: 2,
+  username: "lucas_sky",
+  name: "Lucas Melo",
+  description: "Arquiteto de software e nostálgico de sistemas operacionais clássicos.",
+  profile_photo: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80",
+  customization_json: {},
+  is_active: true,
+  created_at: "2026-01-18T10:00:00Z",
+  followers_count: 240,
+  following_count: 88,
+  soap_balance: 50,
+  is_following: true,
+};
+
+export const MOCK_DIEGO: User = {
+  id: 4,
+  username: "diego_aero",
+  name: "Diego Farias",
+  description: "Artista 3D focado em aerodinâmica, vidro líquido e iluminação realista.",
+  profile_photo: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=200&q=80",
+  customization_json: {},
+  is_active: true,
+  created_at: "2026-03-01T15:00:00Z",
+  followers_count: 420,
+  following_count: 110,
+  soap_balance: 112,
+  is_following: true,
+};
+
+export const MOCK_BIANCA: User = {
+  id: 5,
+  username: "bianca_soap",
+  name: "Bianca Luz",
+  description: "Pesquisadora de física óptica e dinâmica de fluidos. Bolhas são laboratórios de luz.",
+  profile_photo: "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=200&q=80",
+  customization_json: {},
+  is_active: true,
+  created_at: "2026-02-28T09:00:00Z",
+  followers_count: 580,
+  following_count: 170,
+  soap_balance: 185,
+  is_following: false,
+};
+
+export const MOCK_GABRIEL: User = {
+  id: 8,
+  username: "gabriel_tech",
+  name: "Gabriel Vaz",
+  description: "Desenvolvedor de sistemas distribuídos e admirador do design de interfaces dos anos 2000.",
+  profile_photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80",
+  customization_json: {},
+  is_active: true,
+  created_at: "2026-03-12T11:00:00Z",
+  followers_count: 165,
+  following_count: 94,
+  soap_balance: 38,
+  is_following: false,
+};
+
+export const MOCK_FEED_BUBBLEPOPS: Bubblepop[] = [
+  {
+    id: 201,
+    user: MOCK_USER,
+    image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=400&q=80",
+    description: "Reflexos de sol na superfície da água.",
+    created_at: "2026-11-15T16:00:00Z",
+    expires_at: "2026-11-15T22:00:00Z",
+  },
+  {
+    id: 202,
+    user: MOCK_CAROL,
+    image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=80",
+    description: "Mergulho em águas cristalinas ao amanhecer.",
+    created_at: "2026-11-15T17:30:00Z",
+    expires_at: "2026-11-16T01:30:00Z",
+  },
+  {
+    id: 203,
+    user: MOCK_DIEGO,
+    image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80",
+    description: "Estudo de refração em esferas vítreas.",
+    created_at: "2026-11-15T18:15:00Z",
+    expires_at: "2026-11-16T08:00:00Z",
+  },
+  {
+    id: 204,
+    user: MOCK_BIANCA,
+    image: "https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=400&q=80",
+    description: "Filme fino de sabão gerando arco-íris natural.",
+    created_at: "2026-11-15T19:00:00Z",
+    expires_at: "2026-11-16T12:00:00Z",
+  },
+  {
+    id: 205,
+    user: MOCK_LUCAS,
+    image: "https://images.unsplash.com/photo-1520038410233-7141be7e6f97?auto=format&fit=crop&w=400&q=80",
+    description: "Testando novas janelas com transparência Aero.",
+    created_at: "2026-11-15T19:40:00Z",
+    expires_at: "2026-11-16T14:00:00Z",
+  },
+];
+
+export const MOCK_FEED_BUBBLEGRAMS: Bubblegram[] = [
+  {
+    id: 1001,
+    user: MOCK_CAROL,
+    community: null,
+    text: "Ensaio fotográfico subaquático em Bonito. A luz natural ao meio-dia produz reflexos em formato de prisma na rocha calcária e destaca partículas em suspensão.",
+    type: "MEDIA",
+    media: [
+      { id: 101, media: "https://images.unsplash.com/photo-1498855926480-d98e83099315?auto=format&fit=crop&w=800&q=80", position: 0 },
+    ],
+    soap_count: 42,
+    published_at: "2026-11-15T18:30:00Z",
+    is_suggested: false,
+    suggestion_reason: null,
+  },
+  {
+    id: 1002,
+    user: MOCK_DIEGO,
+    community: MOCK_COMMUNITIES[0], // Frutiger Aero Club
+    text: "Nova textura de vidro com aberração cromática e reflexo especular concluída para os temas da comunidade Frutiger Aero. Renderizado com traçado de raios em tempo real.",
+    type: "MEDIA",
+    media: [
+      { id: 102, media: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80", position: 0 },
+    ],
+    soap_count: 58,
+    published_at: "2026-11-15T17:15:00Z",
+    is_suggested: false,
+    suggestion_reason: null,
+  },
+  {
+    id: 1003,
+    user: MOCK_BIANCA,
+    community: null,
+    text: "A espessura ideal de uma película de sabão para produzir interferência construtiva de luz visível varia entre 400nm e 700nm. Quanto mais fina a camada fica antes de estourar, mais escura ela se torna porque a luz refletida cancela a si mesma por oposição de fase.",
+    type: "TEXT",
+    media: [],
+    soap_count: 94,
+    published_at: "2026-11-15T15:00:00Z",
+    is_suggested: true,
+    suggestion_reason: "popular",
+  },
+  {
+    id: 1004,
+    user: MOCK_LUCAS,
+    community: MOCK_COMMUNITIES[2], // Nostalgia Anos 2000
+    text: "A hierarquia visual do Windows 7 e do Orkut clássico com painéis retos, densos e bem delimitados permitia encontrar qualquer informação em menos de dois cliques. Hoje em dia interfaces escondem tudo atrás de menus desnecessários.",
+    type: "MEDIA",
+    media: [
+      { id: 103, media: "https://images.unsplash.com/photo-1520038410233-7141be7e6f97?auto=format&fit=crop&w=800&q=80", position: 0 },
+    ],
+    soap_count: 31,
+    published_at: "2026-11-15T13:45:00Z",
+    is_suggested: false,
+    suggestion_reason: null,
+  },
+  {
+    id: 1005,
+    user: MOCK_GABRIEL,
+    community: null,
+    text: "Configurando meu novo ambiente com fontes Segoe UI e layout de 3 colunas. O contraste com tons neutros e toques suaves de rosa dá uma identidade única sem cansar a visão.",
+    type: "TEXT",
+    media: [],
+    soap_count: 18,
+    published_at: "2026-11-15T11:20:00Z",
+    is_suggested: true,
+    suggestion_reason: "network",
+  },
+  {
+    id: 1006,
+    user: MOCK_USER,
+    community: null,
+    text: "Fotografia em alta velocidade de gotas de chuva formando micro-bolhas no lago. A tensão superficial cria esferas quase perfeitas.",
+    type: "MEDIA",
+    media: [
+      { id: 104, media: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80", position: 0 },
+    ],
+    soap_count: 34,
+    published_at: "2026-11-14T14:20:00Z",
+    is_suggested: false,
+    suggestion_reason: null,
+  },
+];
+
+export interface SuggestedUser {
+  id: number;
+  user: User;
+  mutualInfo: string;
+}
+
+export const MOCK_SUGGESTED_USERS: SuggestedUser[] = [
+  {
+    id: 1,
+    user: MOCK_BIANCA,
+    mutualInfo: "Seguida por Carol Diniz e Lucas Melo",
+  },
+  {
+    id: 2,
+    user: MOCK_GABRIEL,
+    mutualInfo: "Membro de Frutiger Aero Club",
+  },
+  {
+    id: 3,
+    user: {
+      id: 9,
+      username: "larissa_glow",
+      name: "Larissa Dias",
+      description: "Entusiasta de fotografia e interfaces translúcidas.",
+      profile_photo: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80",
+      customization_json: {},
+      is_active: true,
+      created_at: "2026-03-20T10:00:00Z",
+      followers_count: 98,
+      following_count: 62,
+      soap_balance: 24,
+    },
+    mutualInfo: "Seguida por Diego Farias",
+  },
+];
