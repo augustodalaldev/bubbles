@@ -5,12 +5,13 @@ import { FeedView } from "@/features/feed/FeedView";
 import { CommunityListView } from "@/features/communities/CommunityListView";
 import { CommunityDetailView } from "@/features/communities/CommunityDetailView";
 import { StoreView } from "@/features/customization/StoreView";
+import { LettersInboxView } from "@/features/letters/LettersInboxView";
 import { LoginView } from "@/features/auth/LoginView";
 import { RegisterView } from "@/features/auth/RegisterView";
 import { MOCK_COMMUNITIES, MOCK_USER } from "@/features/profile/mockData";
 import { Community } from "@/types";
 
-type View = "feed" | "profile" | "communities" | "community-detail" | "store" | "login" | "register";
+type View = "feed" | "profile" | "communities" | "community-detail" | "store" | "letters" | "login" | "register";
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>("feed");
@@ -67,6 +68,7 @@ export default function App() {
               else if (v === "feed") setCurrentView("feed");
               else if (v === "communities") setCurrentView("communities");
               else if (v === "store") setCurrentView("store");
+              else if (v === "letters") setCurrentView("letters");
             }}
             onSelectCommunity={(comm) => {
               setSelectedCommunity(comm);
@@ -110,6 +112,14 @@ export default function App() {
           />
         )}
 
+        {currentView === "letters" && (
+          <LettersInboxView
+            currentUser={MOCK_USER}
+            onNavigateToView={(v) => setCurrentView(v as View)}
+            onNavigateToProfile={() => setCurrentView("profile")}
+          />
+        )}
+
         {currentView === "profile" && <ProfileView />}
 
         {currentView === "login" && (
@@ -127,8 +137,8 @@ export default function App() {
         )}
       </div>
 
-      {/* Footer (Rendered on Profile, Hub, Auth, while Feed, CommunityDetail & Store have internal stream note) */}
-      {currentView !== "feed" && currentView !== "community-detail" && currentView !== "store" && (
+      {/* Footer (Rendered on Profile, Hub, Auth, while Feed, CommunityDetail, Store & Letters have internal stream note) */}
+      {currentView !== "feed" && currentView !== "community-detail" && currentView !== "store" && currentView !== "letters" && (
         <footer className="py-6 text-center text-xs text-slate-400 border-t border-slate-200 mt-8">
           Bubbles • Rede Social
         </footer>

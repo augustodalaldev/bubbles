@@ -267,46 +267,6 @@ export const MOCK_COMMUNITIES: Community[] = [
   },
 ];
 
-export interface MockLetter {
-  id: number;
-  sender: {
-    id: number;
-    username: string;
-    name: string;
-    avatar: string;
-  };
-  text: string;
-  sent_at: string;
-  read_at: string | null;
-}
-
-export const MOCK_LETTERS: MockLetter[] = [
-  {
-    id: 1,
-    sender: {
-      id: 3,
-      username: "carol_ocean",
-      name: "Carol Diniz",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80",
-    },
-    text: "Marina, apoiei sua publicação das micro-bolhas com 2 soap. A nitidez ficou excelente.",
-    sent_at: "14:32",
-    read_at: "14:40",
-  },
-  {
-    id: 2,
-    sender: {
-      id: 2,
-      username: "lucas_sky",
-      name: "Lucas Melo",
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80",
-    },
-    text: "Olá! Vamos alinhar o novo layout da comunidade Frutiger Aero quando puder?",
-    sent_at: "Ontem às 20:10",
-    read_at: null,
-  },
-];
-
 export const MOCK_CAROL: User = {
   id: 3,
   username: "carol_ocean",
@@ -381,6 +341,60 @@ export const MOCK_GABRIEL: User = {
   soap_balance: 38,
   is_following: false,
 };
+
+import { Letter } from "@/types";
+
+export const MOCK_INBOX_LETTERS: Letter[] = [
+  {
+    id: 1,
+    sender: MOCK_CAROL,
+    recipient: MOCK_USER,
+    reply_to: null,
+    text: "Marina, apoiei sua publicação das micro-bolhas com 2 soap. A nitidez ficou excelente. Estou testando uma nova lente de refração aquática, dê uma olhada no registro em anexo!",
+    image: "https://images.unsplash.com/photo-1498855926480-d98e83099315?auto=format&fit=crop&w=800&q=80",
+    sent_at: "2026-11-15T14:32:00Z",
+    read_at: "2026-11-15T14:40:00Z",
+    is_read: true,
+  },
+  {
+    id: 2,
+    sender: MOCK_LUCAS,
+    recipient: MOCK_USER,
+    reply_to: null,
+    text: "Olá Marina! Vamos alinhar os novos temas translúcidos para a comunidade Frutiger Aero quando você estiver livre? Quero ajustar o reflexo especular das janelas.",
+    image: null,
+    sent_at: "2026-11-15T18:10:00Z",
+    read_at: null,
+    is_read: false,
+  },
+  {
+    id: 3,
+    sender: MOCK_DIEGO,
+    recipient: MOCK_USER,
+    reply_to: null,
+    text: "Concluí os testes de aberração cromática no shader de vidro líquido. Enviei 1 soap de apoio na sua última bolha. Veja como ficou o reflexo no anexo!",
+    image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80",
+    sent_at: "2026-11-15T19:25:00Z",
+    read_at: null,
+    is_read: false,
+  },
+];
+
+export const MOCK_SENT_LETTERS: Letter[] = [
+  {
+    id: 4,
+    sender: MOCK_USER,
+    recipient: MOCK_LUCAS,
+    reply_to: null,
+    text: "Com certeza Lucas! A estética Aero fica muito mais autêntica quando usamos painéis retos e sombras internas sutis, sem aquele aspecto artificial.",
+    image: null,
+    sent_at: "2026-11-14T11:00:00Z",
+    read_at: "2026-11-14T11:15:00Z",
+    is_read: true,
+  },
+];
+
+export const MOCK_LETTERS = MOCK_INBOX_LETTERS;
 
 export const MOCK_FEED_BUBBLEPOPS: Bubblepop[] = [
   {

@@ -94,6 +94,18 @@ export interface Bubblepop {
   expires_at: string;
 }
 
+export interface Letter {
+  id: number;
+  sender: User;
+  recipient: User;
+  reply_to: number | null;
+  text: string;
+  image: string | null;
+  sent_at: string;
+  read_at: string | null;
+  is_read: boolean;
+}
+
 export interface CustomizationItem {
   id: number;
   name: string;

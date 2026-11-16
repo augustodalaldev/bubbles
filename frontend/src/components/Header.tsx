@@ -1,12 +1,12 @@
 import React from "react";
-import { Search, Compass, Users, Store, Bell } from "lucide-react";
+import { Search, Compass, Users, Store, Mail, Bell } from "lucide-react";
 import { MOCK_USER } from "@/features/profile/mockData";
 import { BrandLogo } from "./BrandLogo";
 import { SoapIcon } from "./SoapIcon";
 
 interface HeaderProps {
-  currentView?: "feed" | "profile" | "communities" | "store" | "login" | "register";
-  onNavigate?: (view: "feed" | "profile" | "communities" | "store" | "login" | "register") => void;
+  currentView?: "feed" | "profile" | "communities" | "store" | "letters" | "login" | "register";
+  onNavigate?: (view: "feed" | "profile" | "communities" | "store" | "letters" | "login" | "register") => void;
   onSearchChange?: (term: string) => void;
 }
 
@@ -86,6 +86,16 @@ export const Header: React.FC<HeaderProps> = ({
               Loja
             </button>
             <button
+              onClick={() => onNavigate?.("letters")}
+              className={`px-2.5 py-1 rounded-sm transition-all ${
+                currentView === "letters"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Cartas
+            </button>
+            <button
               onClick={() => onNavigate?.("login")}
               className={`px-2.5 py-1 rounded-sm transition-all ${
                 currentView === "login"
@@ -141,6 +151,17 @@ export const Header: React.FC<HeaderProps> = ({
               }`}
             >
               <Store className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={() => onNavigate?.("letters")}
+              title="Cartas (Mensagens)"
+              className={`p-1.5 rounded-sm transition-colors ${
+                currentView === "letters"
+                  ? "text-pink-600 bg-pink-50"
+                  : "text-slate-600 hover:text-pink-600 hover:bg-slate-100"
+              }`}
+            >
+              <Mail className="w-4 h-4" />
             </button>
             <button 
               title="Notificações"

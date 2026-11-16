@@ -174,7 +174,7 @@ export const ProfileView: React.FC = () => {
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-1.5">
                       <img
-                        src={letter.sender.avatar}
+                        src={letter.sender.profile_photo || ""}
                         alt={letter.sender.name}
                         className="w-5 h-5 rounded-full object-cover"
                       />
@@ -183,7 +183,7 @@ export const ProfileView: React.FC = () => {
                       </span>
                     </div>
                     <span className="text-[10px] text-slate-400">
-                      {letter.sent_at}
+                      {new Date(letter.sent_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </div>
                   <p className="text-xs text-slate-600 leading-snug">
