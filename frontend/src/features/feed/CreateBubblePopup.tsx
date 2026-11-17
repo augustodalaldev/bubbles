@@ -1,23 +1,27 @@
 import React, { useState, useRef } from "react";
-import { Bubblegram, User } from "@/types";
+import { Bubblegram } from "@/types";
 import { SoapIcon } from "@/components/SoapIcon";
+import { useAuthStore } from "@/features/auth/authStore";
+import { createBubblegram } from "@/services/content";
+import { errorMessage } from "@/services/errors";
 import { Plus, X, Image as ImageIcon, FileText, UploadCloud, AlertCircle, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface CreateBubblePopupProps {
-  currentUser: User;
   onPostCreated: (post: Bubblegram) => void;
-  onDeductSoap?: (amount: number) => void;
 }
 
-export const CreateBubblePopup: React.FC<CreateBubblePopupProps> = ({
-  currentUser,
-  onPostCreated,
-  onDeductSoap,
-}) => {
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // mirrors the server limit, only to fail fast
+
+export const CreateBubblePopup: React.FC<CreateBubblePopupProps> = ({ onPostCreated }) => {
+  const userSoap = useAuthStore((s) => s.user?.soap_balance ?? 0);
+  const cost = useAuthStore((s) => s.economy?.bubblegram_profile_cost);
+  const refreshUser = useAuthStore((s) => s.refreshUser);
+
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"text" | "photo">("text");
   const [text, setText] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileSizeStr, setFileSizeStr] = useState<string | null>(null);
@@ -27,92 +31,69 @@ export const CreateBubblePopup: React.FC<CreateBubblePopupProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const COST = 10;
-  const userSoap = currentUser.soap_balance ?? 0;
-  const canAfford = userSoap >= COST;
-  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 Megabytes strictly supported
+  const COST = cost ?? "...";
+  const canAfford = cost === undefined || userSoap >= cost;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setError(null);
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const picked = e.target.files?.[0];
+    if (!picked) return;
 
-    // Validate 10MB file limit
-    if (file.size > MAX_FILE_SIZE) {
-      setError(`O arquivo possui ${(file.size / (1024 * 1024)).toFixed(1)} MB e ultrapassa o limite máximo permitido de 10 MB.`);
+    if (picked.size > MAX_FILE_SIZE) {
+      setError(`O arquivo possui ${(picked.size / (1024 * 1024)).toFixed(1)} MB e ultrapassa o limite de 10 MB.`);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
-    setFileName(file.name);
-    setFileSizeStr((file.size / (1024 * 1024)).toFixed(2) + " MB");
-
+    setFile(picked);
+    setFileName(picked.name);
+    setFileSizeStr((picked.size / (1024 * 1024)).toFixed(2) + " MB");
     const reader = new FileReader();
-    reader.onload = () => {
-      setImageDataUrl(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    reader.onload = () => setImageDataUrl(reader.result as string);
+    reader.readAsDataURL(picked);
   };
 
   const handleRemoveImage = () => {
+    setFile(null);
     setImageDataUrl(null);
     setFileName(null);
     setFileSizeStr(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!text.trim() && !imageDataUrl) {
+    if (activeTab === "photo" && !file) {
+      setError("Selecione uma imagem de até 10 MB para publicar na aba Foto.");
+      return;
+    }
+    if (!text.trim() && !file) {
       setError("Escreva algo ou anexe uma imagem para publicar sua bolha.");
       return;
     }
 
-    if (activeTab === "photo" && !imageDataUrl) {
-      setError("Selecione uma imagem de até 10 MB para publicar na aba Foto.");
-      return;
-    }
-
-    if (!canAfford) {
-      setError(`Saldo insuficiente (${userSoap} soap). São necessários 10 soap para fixar no mural.`);
-      return;
-    }
-
     setLoading(true);
-
-    setTimeout(() => {
-      const newPost: Bubblegram = {
-        id: Date.now(),
-        user: currentUser,
-        community: null, // Posts from feed are strictly for user's profile mural
+    try {
+      const created = await createBubblegram({
         text: text.trim(),
-        type: activeTab === "photo" && imageDataUrl ? "MEDIA" : "TEXT",
-        media: imageDataUrl ? [
-          { id: Date.now() + 1, media: imageDataUrl, position: 0 }
-        ] : [],
-        soap_count: 0,
-        published_at: new Date().toISOString(),
-        is_suggested: false,
-        suggestion_reason: null,
-        can_delete: true,
-      };
-
-      if (onDeductSoap) {
-        onDeductSoap(COST);
-      }
-
-      onPostCreated(newPost);
+        files: activeTab === "photo" && file ? [file] : [],
+      });
+      await refreshUser();
+      onPostCreated(created);
       setText("");
       handleRemoveImage();
-      setLoading(false);
       setSuccessNotice(true);
-      setTimeout(() => {
+      window.setTimeout(() => {
         setSuccessNotice(false);
         setIsOpen(false);
       }, 1000);
-    }, 400);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

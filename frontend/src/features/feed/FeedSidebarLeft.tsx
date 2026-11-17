@@ -1,6 +1,8 @@
 import React from "react";
 import { User } from "@/types";
+import { Avatar } from "@/components/Avatar";
 import { SoapIcon } from "@/components/SoapIcon";
+import { useAuthStore } from "@/features/auth/authStore";
 import { Compass, User as UserIcon, Users, Store, Mail } from "lucide-react";
 
 interface FeedSidebarLeftProps {
@@ -14,8 +16,9 @@ export const FeedSidebarLeft: React.FC<FeedSidebarLeftProps> = ({
   currentUser,
   onNavigateToProfile,
   onNavigateToView,
-  unreadLettersCount = 2,
+  unreadLettersCount = 0,
 }) => {
+  const economy = useAuthStore((s) => s.economy);
   return (
     <aside className="space-y-4">
       
@@ -28,10 +31,9 @@ export const FeedSidebarLeft: React.FC<FeedSidebarLeftProps> = ({
             onClick={onNavigateToProfile}
             className="cursor-pointer inline-block mx-auto mb-2 relative"
           >
-            <img
-              src={currentUser.profile_photo || ""}
-              alt={currentUser.name}
-              className="w-16 h-16 rounded-full object-cover border-2 border-slate-200 mx-auto hover:border-pink-500 transition-colors"
+            <Avatar
+              user={currentUser}
+              className="w-16 h-16 mx-auto hover:border-pink-500 transition-colors"
             />
           </div>
 
@@ -48,12 +50,12 @@ export const FeedSidebarLeft: React.FC<FeedSidebarLeftProps> = ({
           {/* Followers / Following Row */}
           <div className="flex items-center justify-center gap-3 py-1.5 border-t border-b border-slate-100 text-[11px] text-slate-600 mb-2.5">
             <div>
-              <span className="font-bold text-slate-900">{currentUser.followers_count ?? 148}</span>
+              <span className="font-bold text-slate-900">{currentUser.followers_count ?? 0}</span>
               <span className="text-slate-400 ml-1">seguidores</span>
             </div>
             <span className="text-slate-300">•</span>
             <div>
-              <span className="font-bold text-slate-900">{currentUser.following_count ?? 92}</span>
+              <span className="font-bold text-slate-900">{currentUser.following_count ?? 0}</span>
               <span className="text-slate-400 ml-1">seguindo</span>
             </div>
           </div>
@@ -64,7 +66,7 @@ export const FeedSidebarLeft: React.FC<FeedSidebarLeftProps> = ({
               <SoapIcon size={18} />
               <div className="text-left">
                 <span className="text-xs font-bold text-pink-900 block leading-tight">
-                  {currentUser.soap_balance ?? 78} soap
+                  {currentUser.soap_balance ?? 0} soap
                 </span>
                 <span className="text-[9px] text-slate-500 leading-tight">
                   saldo atual
@@ -72,7 +74,9 @@ export const FeedSidebarLeft: React.FC<FeedSidebarLeftProps> = ({
               </div>
             </div>
             <span className="text-[10px] font-semibold text-pink-700 bg-white px-1.5 py-0.5 rounded-sm border border-pink-200 shadow-2xs">
-              +5/dia
+              {economy
+                ? `+${economy.default_passive_earn_rate}/${economy.passive_interval_minutes} min`
+                : ""}
             </span>
           </div>
 

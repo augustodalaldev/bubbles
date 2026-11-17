@@ -2,6 +2,7 @@ import React from "react";
 import { Bubblepop } from "@/types";
 import { Clock } from "lucide-react";
 import { BubbleOverlay } from "@/components/BubbleOverlay";
+import { hoursLeft } from "@/utils/time";
 
 interface BubblepopStoryProps {
   story: Bubblepop;
@@ -9,18 +10,7 @@ interface BubblepopStoryProps {
 }
 
 export const BubblepopStory: React.FC<BubblepopStoryProps> = ({ story, onClick }) => {
-  const calculateHoursLeft = () => {
-    try {
-      const expires = new Date(story.expires_at).getTime();
-      const now = new Date("2026-11-15T19:00:00Z").getTime();
-      const diffHours = Math.max(1, Math.round((expires - now) / (1000 * 60 * 60)));
-      return `${diffHours}h`;
-    } catch {
-      return "4h";
-    }
-  };
-
-  const hoursLeft = calculateHoursLeft();
+  const hoursLeftLabel = hoursLeft(story.expires_at);
 
   return (
     <div 
@@ -41,7 +31,7 @@ export const BubblepopStory: React.FC<BubblepopStoryProps> = ({ story, onClick }
       {/* Countdown Label */}
       <div className="flex items-center gap-1 text-[10px] font-medium text-slate-500 group-hover:text-pink-600 transition-colors">
         <Clock className="w-2.5 h-2.5 text-slate-400" />
-        <span>{hoursLeft}</span>
+        <span>{hoursLeftLabel}</span>
       </div>
     </div>
   );

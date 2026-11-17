@@ -520,17 +520,9 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({
                   <FeedItemCard
                     key={post.id}
                     post={post}
-                    currentUser={currentUser}
                     onOpenDetail={(p) => setSelectedPost(p)}
-                    onDeletePost={(postId) =>
+                    onDeleted={(postId) =>
                       setCommunityPosts((prev) => prev.filter((p) => p.id !== postId))
-                    }
-                    onSupportPost={(postId) =>
-                      setCommunityPosts((prev) =>
-                        prev.map((p) =>
-                          p.id === postId ? { ...p, soap_count: p.soap_count + 1 } : p
-                        )
-                      )
                     }
                   />
                 ))
@@ -829,7 +821,6 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({
         <PostDetailModal
           post={selectedPost}
           story={null}
-          currentUser={currentUser}
           onClose={() => setSelectedPost(null)}
         />
       )}

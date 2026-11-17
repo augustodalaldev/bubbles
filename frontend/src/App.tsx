@@ -57,6 +57,7 @@ function AuthenticatedApp() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [communities, setCommunities] = useState<Community[]>(MOCK_COMMUNITIES);
   const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
+  const [profileUsername, setProfileUsername] = useState<string | null>(null);
 
   const handleJoinToggleCommunity = (communityId: number) => {
     setCommunities((prev) =>
@@ -88,6 +89,7 @@ function AuthenticatedApp() {
             if (view === "communities") {
               setSelectedCommunity(null);
             }
+            if (view === "profile") setProfileUsername(null);
             setCurrentView(view);
           }}
           onSearchChange={(term) => {
@@ -101,7 +103,14 @@ function AuthenticatedApp() {
         {/* Dynamic Section Render according to Plan */}
         {currentView === "feed" && (
           <FeedView
-            onNavigateToProfile={() => setCurrentView("profile")}
+            onNavigateToProfile={() => {
+              setProfileUsername(null);
+              setCurrentView("profile");
+            }}
+            onOpenProfile={(username) => {
+              setProfileUsername(username === user.username ? null : username);
+              setCurrentView("profile");
+            }}
             onNavigateToView={(v) => {
               if (v === "profile") setCurrentView("profile");
               else if (v === "feed") setCurrentView("feed");
@@ -159,7 +168,17 @@ function AuthenticatedApp() {
           />
         )}
 
-        {currentView === "profile" && <ProfileView />}
+        {currentView === "profile" && (
+          <ProfileView
+            username={profileUsername}
+            onOpenProfile={(username) => setProfileUsername(username === user.username ? null : username)}
+            onNavigateToView={(v) => setCurrentView(v as View)}
+            onSelectCommunity={(comm) => {
+              setSelectedCommunity(comm);
+              setCurrentView("community-detail");
+            }}
+          />
+        )}
       </div>
 
       {/* Footer (Rendered on Profile, Hub, Auth, while Feed, CommunityDetail, Store & Letters have internal stream note) */}
