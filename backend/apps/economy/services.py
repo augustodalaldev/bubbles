@@ -20,6 +20,24 @@ from apps.economy.models import (
 )
 
 
+def ensure_user_wallet(user: Any) -> Wallet:
+    """Return the user's wallet, creating it with the configured passive rate if missing."""
+    wallet, _ = Wallet.objects.get_or_create(
+        user=user,
+        defaults={
+            "soap_balance": 0,
+            "passive_earn_rate": EconomySettings.load().default_passive_earn_rate,
+        },
+    )
+    return wallet
+
+
+def ensure_community_wallet(community: Any) -> Wallet:
+    """Return the community's wallet, creating an empty one if missing."""
+    wallet, _ = Wallet.objects.get_or_create(community=community, defaults={"soap_balance": 0})
+    return wallet
+
+
 @dataclass(frozen=True)
 class Movement:
     wallet: Wallet
@@ -261,13 +279,7 @@ def distribute_passive_soap(*, now: datetime | None = None) -> int:
     credited_count = 0
 
     for user in eligible_users:
-        wallet, _ = Wallet.objects.get_or_create(
-            user=user,
-            defaults={
-                "soap_balance": 0,
-                "passive_earn_rate": default_rate,
-            },
-        )
+        wallet = ensure_user_wallet(user)
         rate = wallet.passive_earn_rate if wallet.passive_earn_rate is not None else default_rate
         if rate <= 0:
             continue

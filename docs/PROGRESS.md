@@ -37,7 +37,7 @@
 - [x] Phase 0 — Plan registered
 - [x] Phase 1 — Backend blockers: image upload validation (type + 10 MB, `images` bypass removed), banned members cannot leave, only ACTIVE members can support community content, user throttle 10000/day, auth endpoints ignore stale Bearer header (397 tests)
 - [x] Phase 2 — Backend business rules: bubblepop suspension/limits/expiry, concurrent purchase, non-numeric ids, report audit, `*_username` null fields, letter read via service (404 for outsiders), community row lock + blocked checks, community customization blocked until purchases exist, logout/refresh hardening, passive cap in local time, zero-cost settings, absolute image URLs (435 tests)
-- [ ] Phase 3 — API contract and error handling
+- [x] Phase 3 — API contract and error handling: Http404/PermissionDenied/ValidationError/IntegrityError mapped to the envelope, nested errors flattened (`media_files[1]`), headers preserved, JSON 404/500 for `/api/` (effective with DEBUG=False), shared `StandardPagination`, `ensure_user_wallet`/`ensure_community_wallet`, `is_staff` on `/users/me/` (449 tests)
 - [ ] Phase 4 — Frontend foundation (session, services, types)
 - [ ] Phase 5 — Screen-by-screen integration
 - [ ] Phase 6 — Loading / error / empty states

@@ -7,6 +7,7 @@ from django.db.models import F
 from django.utils import timezone
 
 from apps.core.exceptions import DomainError
+from apps.economy.services import ensure_user_wallet
 
 from .models import Community, CommunityMember, MemberRole, MemberState
 from .validators import (
@@ -172,13 +173,7 @@ def create_community(
 
     economy_settings = EconomySettings.load()
 
-    creator_wallet, _ = Wallet.objects.get_or_create(
-        user=creator,
-        defaults={
-            "soap_balance": 0,
-            "passive_earn_rate": economy_settings.default_passive_earn_rate,
-        },
-    )
+    creator_wallet = ensure_user_wallet(creator)
 
     community_wallet = Wallet.objects.create(
         community=community,

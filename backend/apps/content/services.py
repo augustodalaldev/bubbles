@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from apps.communities.models import Community, CommunityMember, MemberRole, MemberState
 from apps.core.exceptions import DomainError
+from apps.economy.services import ensure_community_wallet, ensure_user_wallet
 
 from .models import (
     Bubblegram,
@@ -113,7 +114,7 @@ def create_bubblegram(
 
     # Debit publishing cost from author
     import apps.economy.services as economy_services
-    from apps.economy.models import EconomySettings, Wallet
+    from apps.economy.models import EconomySettings
 
     settings_obj = EconomySettings.load()
     if community:
@@ -121,13 +122,7 @@ def create_bubblegram(
     else:
         cost = settings_obj.bubblegram_profile_cost
 
-    author_wallet, _ = Wallet.objects.get_or_create(
-        user=author,
-        defaults={
-            "soap_balance": 0,
-            "passive_earn_rate": settings_obj.default_passive_earn_rate,
-        },
-    )
+    author_wallet = ensure_user_wallet(author)
 
     if cost > 0:
         economy_services.debit_bubblegram(author_wallet, cost)
@@ -366,18 +361,12 @@ def support_bubblegram(*, donor: User, bubblegram: Bubblegram) -> BubblegramSupp
                 http_status=403,
             )
 
-    from apps.economy.models import ActionType, EconomySettings, Wallet
+    from apps.economy.models import ActionType, EconomySettings
     from apps.economy.services import Movement, apply_movements
 
     settings_obj = EconomySettings.load()
-    donor_wallet, _ = Wallet.objects.get_or_create(
-        user=donor,
-        defaults={"soap_balance": 0, "passive_earn_rate": settings_obj.default_passive_earn_rate},
-    )
-    author_wallet, _ = Wallet.objects.get_or_create(
-        user=bubblegram.user,
-        defaults={"soap_balance": 0, "passive_earn_rate": settings_obj.default_passive_earn_rate},
-    )
+    donor_wallet = ensure_user_wallet(donor)
+    author_wallet = ensure_user_wallet(bubblegram.user)
 
     try:
         support = BubblegramSupport.objects.create(bubblegram=bubblegram, donor=donor)
@@ -402,10 +391,7 @@ def support_bubblegram(*, donor: User, bubblegram: Bubblegram) -> BubblegramSupp
     ]
 
     if bubblegram.community_id:
-        community_wallet, _ = Wallet.objects.get_or_create(
-            community=bubblegram.community,
-            defaults={"soap_balance": 0},
-        )
+        community_wallet = ensure_community_wallet(bubblegram.community)
         movements.append(
             Movement(
                 wallet=community_wallet,
@@ -479,18 +465,12 @@ def support_comment(*, donor: User, comment: Comment) -> CommentSupport:
                 http_status=403,
             )
 
-    from apps.economy.models import ActionType, EconomySettings, Wallet
+    from apps.economy.models import ActionType, EconomySettings
     from apps.economy.services import Movement, apply_movements
 
     settings_obj = EconomySettings.load()
-    donor_wallet, _ = Wallet.objects.get_or_create(
-        user=donor,
-        defaults={"soap_balance": 0, "passive_earn_rate": settings_obj.default_passive_earn_rate},
-    )
-    author_wallet, _ = Wallet.objects.get_or_create(
-        user=comment.user,
-        defaults={"soap_balance": 0, "passive_earn_rate": settings_obj.default_passive_earn_rate},
-    )
+    donor_wallet = ensure_user_wallet(donor)
+    author_wallet = ensure_user_wallet(comment.user)
 
     try:
         support = CommentSupport.objects.create(comment=comment, donor=donor)
@@ -515,10 +495,7 @@ def support_comment(*, donor: User, comment: Comment) -> CommentSupport:
     ]
 
     if community:
-        community_wallet, _ = Wallet.objects.get_or_create(
-            community=community,
-            defaults={"soap_balance": 0},
-        )
+        community_wallet = ensure_community_wallet(community)
         movements.append(
             Movement(
                 wallet=community_wallet,
@@ -577,7 +554,7 @@ def create_bubblepop(
         )
 
     import apps.economy.services as economy_services
-    from apps.economy.models import EconomySettings, Wallet
+    from apps.economy.models import EconomySettings
 
     settings_obj = EconomySettings.load()
 
@@ -593,13 +570,7 @@ def create_bubblepop(
 
     cost = math.ceil(duration_hours / settings_obj.bubblepop_hours_per_soap)
 
-    author_wallet, _ = Wallet.objects.get_or_create(
-        user=author,
-        defaults={
-            "soap_balance": 0,
-            "passive_earn_rate": settings_obj.default_passive_earn_rate,
-        },
-    )
+    author_wallet = ensure_user_wallet(author)
 
     economy_services.debit_bubblepop(author_wallet, cost)
 

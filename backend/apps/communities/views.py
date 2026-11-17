@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.exceptions import DomainError
-from apps.economy.models import Wallet
+from apps.economy.services import ensure_community_wallet
 
 from .models import CommunityMember, MemberRole, MemberState
 from .selectors import (
@@ -235,8 +235,5 @@ class CommunityWalletView(APIView):
                     http_status=403,
                 )
 
-        wallet, _ = Wallet.objects.get_or_create(
-            community=community,
-            defaults={"soap_balance": 0, "passive_earn_rate": None},
-        )
+        wallet = ensure_community_wallet(community)
         return Response({"soap_balance": wallet.soap_balance})

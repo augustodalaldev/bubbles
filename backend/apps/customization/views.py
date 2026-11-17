@@ -2,11 +2,11 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.generics import get_object_or_404
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.pagination import StandardPagination
 from apps.customization.models import CustomizationItem
 from apps.customization.selectors import list_catalog_items, list_user_inventory
 from apps.customization.serializers import (
@@ -17,12 +17,6 @@ from apps.customization.serializers import (
     UserInventoryItemSerializer,
 )
 from apps.customization.services import equip_customization, purchase_customization_item
-
-
-class StandardPagination(PageNumberPagination):
-    page_size = 20
-    page_size_query_param = "page_size"
-    max_page_size = 100
 
 
 class CustomizationCatalogView(APIView):

@@ -3,13 +3,13 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.generics import get_object_or_404
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.communities.models import Community
 from apps.core.exceptions import DomainError
+from apps.core.pagination import StandardPagination
 from apps.economy.models import Wallet
 from apps.moderation.models import Report
 from apps.moderation.selectors import list_audit_logs, list_reports
@@ -35,12 +35,6 @@ from apps.moderation.services import (
 )
 
 User = get_user_model()
-
-
-class StandardPagination(PageNumberPagination):
-    page_size = 20
-    page_size_query_param = "page_size"
-    max_page_size = 100
 
 
 class ReportCreateView(APIView):

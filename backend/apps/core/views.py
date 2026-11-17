@@ -1,5 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Q
+from django.http import JsonResponse
+from django.views.defaults import page_not_found, server_error
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
@@ -65,3 +67,29 @@ class SearchView(APIView):
             ).data,
         }
         return Response(data, status=status.HTTP_200_OK)
+
+
+def api_not_found(request, exception=None):
+    """JSON 404 for unknown /api/ routes (HTML for everything else)."""
+    if request.path.startswith("/api/"):
+        return JsonResponse(
+            {"error": {"code": "not_found", "message": "Not found.", "fields": None}},
+            status=404,
+        )
+    return page_not_found(request, exception)
+
+
+def api_server_error(request):
+    """JSON 500 for /api/ routes (HTML for everything else)."""
+    if request.path.startswith("/api/"):
+        return JsonResponse(
+            {
+                "error": {
+                    "code": "server_error",
+                    "message": "Internal server error.",
+                    "fields": None,
+                }
+            },
+            status=500,
+        )
+    return server_error(request)

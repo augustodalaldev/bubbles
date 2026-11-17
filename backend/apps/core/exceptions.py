@@ -1,5 +1,10 @@
 from typing import Any
 
+from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import IntegrityError
+from django.http import Http404
+from rest_framework import status
 from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
@@ -41,10 +46,53 @@ class DomainError(Exception):
         return data
 
 
+def _flatten_errors(detail: Any, prefix: str = "") -> dict[str, list[str]]:
+    """Flatten DRF error details (nested dicts/lists, ListField indexes) into field -> messages.
+
+    Keys use dotted paths for nested serializers and `[n]` for list items, e.g.
+    `media_files[0]` or `slots.avatar_frame`.
+    """
+    out: dict[str, list[str]] = {}
+    if isinstance(detail, dict):
+        for key, value in detail.items():
+            if isinstance(key, int):
+                path = f"{prefix}[{key}]"
+            else:
+                path = f"{prefix}.{key}" if prefix else str(key)
+            out.update(_flatten_errors(value, path))
+    elif isinstance(detail, list | tuple):
+        messages = [str(item) for item in detail if not isinstance(item, dict | list | tuple)]
+        if messages:
+            out[prefix or "non_field_errors"] = messages
+        for index, item in enumerate(detail):
+            if isinstance(item, dict | list | tuple):
+                out.update(_flatten_errors(item, f"{prefix}[{index}]"))
+    else:
+        out[prefix or "non_field_errors"] = [str(detail)]
+    return out
+
+
+def _envelope(code: str, message: str, fields: dict[str, list[str]] | None = None) -> dict:
+    return {"error": {"code": code, "message": message, "fields": fields or None}}
+
+
+def _validation_envelope(detail: Any) -> dict:
+    flat = _flatten_errors(detail)
+    message = "Invalid input."
+    for key in ("non_field_errors", "detail"):
+        messages = flat.pop(key, None)
+        if messages:
+            message = messages[0]
+    return _envelope("validation_error", message, flat)
+
+
 def custom_exception_handler(exc: Exception, context: dict[str, Any]) -> Response | None:
     """DRF exception handler producing uniform error envelopes:
 
     {"error": {"code": "...", "message": "...", "fields": ...}}
+
+    Anything that is not handled here returns None and becomes a 500 (rendered as JSON for
+    /api/ paths by `apps.core.views.api_server_error`).
     """
     if isinstance(exc, DomainError):
         fields = exc.extra.get("fields") if exc.extra else None
@@ -59,63 +107,43 @@ def custom_exception_handler(exc: Exception, context: dict[str, Any]) -> Respons
                     error_payload[k] = v
         return Response({"error": error_payload}, status=exc.http_status)
 
+    if isinstance(exc, DjangoValidationError):
+        detail = exc.message_dict if hasattr(exc, "error_dict") else list(exc.messages)
+        return Response(_validation_envelope(detail), status=status.HTTP_400_BAD_REQUEST)
+
+    if isinstance(exc, IntegrityError):
+        return Response(
+            _envelope("conflict", "The request conflicts with existing data."),
+            status=status.HTTP_409_CONFLICT,
+        )
+
     response = exception_handler(exc, context)
     if response is None:
         return None
 
-    code = "api_error"
-    message = "An error occurred."
-    fields = None
-
+    # Mutate the response (instead of building a new one) so headers such as
+    # Retry-After and WWW-Authenticate survive.
     if isinstance(exc, ValidationError):
-        code = "validation_error"
-        message = "Invalid input."
-        detail = exc.detail
-        if isinstance(detail, dict):
-            fields = {}
-            for k, v in detail.items():
-                if k in ("non_field_errors", "detail"):
-                    if isinstance(v, list) and v:
-                        message = str(v[0])
-                    elif isinstance(v, str):
-                        message = v
-                else:
-                    fields[k] = [str(item) for item in v] if isinstance(v, list) else [str(v)]
-            if not fields:
-                fields = None
-        elif isinstance(detail, list):
-            message = str(detail[0]) if detail else "Invalid input."
-        else:
-            message = str(detail)
-
+        response.data = _validation_envelope(exc.detail)
+    elif isinstance(exc, Http404):
+        response.data = _envelope("not_found", "Not found.")
+    elif isinstance(exc, DjangoPermissionDenied):
+        response.data = _envelope(
+            "permission_denied", "You do not have permission to perform this action."
+        )
     elif isinstance(exc, APIException):
-        code = getattr(exc, "default_code", "api_error")
         detail = exc.detail
-        if hasattr(detail, "code") and detail.code:
-            code = str(detail.code)
-        if isinstance(detail, str):
-            message = detail
-        elif isinstance(detail, list) and detail:
-            message = str(detail[0])
-        elif isinstance(detail, dict):
-            message = str(detail.get("detail", "An error occurred."))
-            fields = {
-                k: [str(i) for i in v] if isinstance(v, list) else [str(v)]
-                for k, v in detail.items()
-                if k != "detail"
-            } or None
+        code = str(getattr(detail, "code", None) or exc.default_code)
+        if isinstance(detail, dict):
+            flat = _flatten_errors({k: v for k, v in detail.items() if k != "detail"})
+            main = detail.get("detail")
+            message = str(main) if main else "An error occurred."
+            response.data = _envelope(code, message, flat)
+        elif isinstance(detail, list):
+            response.data = _envelope(code, str(detail[0]) if detail else "An error occurred.")
         else:
-            message = str(detail)
+            response.data = _envelope(code, str(detail))
     else:
-        message = str(exc)
+        response.data = _envelope("api_error", str(exc))
 
-    return Response(
-        {
-            "error": {
-                "code": code,
-                "message": message,
-                "fields": fields,
-            }
-        },
-        status=response.status_code,
-    )
+    return response

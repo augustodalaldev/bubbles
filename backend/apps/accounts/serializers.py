@@ -48,6 +48,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "profile_photo",
             "customization_json",
             "created_at",
+            "is_staff",
             "status",
             "is_suspended",
             "suspended_until",

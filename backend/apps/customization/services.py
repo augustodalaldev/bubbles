@@ -4,8 +4,7 @@ from django.db import IntegrityError, transaction
 
 from apps.core.exceptions import DomainError
 from apps.customization.models import CustomizationItem, UserInventoryItem
-from apps.economy.models import Wallet
-from apps.economy.services import spend_customization
+from apps.economy.services import ensure_user_wallet, spend_customization
 
 
 @transaction.atomic
@@ -27,7 +26,7 @@ def purchase_customization_item(*, user: Any, item: CustomizationItem) -> UserIn
 
     tx = None
     if item.price > 0:
-        wallet, _ = Wallet.objects.get_or_create(user=user, defaults={"soap_balance": 0})
+        wallet = ensure_user_wallet(user)
         tx = spend_customization(wallet=wallet, cost=item.price)
 
     try:
