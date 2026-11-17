@@ -136,3 +136,92 @@ def test_admin_soap_adjustment_and_audit_log_api():
     assert res_audit.status_code == status.HTTP_200_OK
     assert res_audit.data["count"] >= 1
     assert res_audit.data["results"][0]["action"] == "ECONOMY_ADJUSTMENT"
+
+
+def test_report_with_non_numeric_target_id_is_a_400_not_a_500():
+    client = APIClient()
+    client.force_authenticate(user=UserFactory())
+    payload = {
+        "target_type": ReportTargetType.BUBBLEGRAM,
+        "target_id": "abc",
+        "reason": ReportReason.SPAM,
+    }
+    res = client.post("/api/v1/reports/", payload)
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert res.data["error"]["code"] == "invalid_target_id"
+
+
+def test_report_on_community_still_uses_commname():
+    community = CommunityFactory(commname="some_comm")
+    client = APIClient()
+    client.force_authenticate(user=UserFactory())
+    payload = {
+        "target_type": ReportTargetType.COMMUNITY,
+        "target_id": "some_comm",
+        "reason": ReportReason.SPAM,
+    }
+    assert community.commname == "some_comm"
+    assert client.post("/api/v1/reports/", payload).status_code == status.HTTP_201_CREATED
+
+
+def test_admin_delete_content_with_non_numeric_id_is_a_400():
+    client = APIClient()
+    client.force_authenticate(user=UserFactory(is_staff=True))
+    res = client.post(
+        "/api/v1/admin/content/delete/?type=bubblegram&id=abc", {"reason": "x"}, format="json"
+    )
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert res.data["error"]["code"] == "invalid_content_id"
+
+
+def test_investigating_report_does_not_write_a_dismiss_audit_entry():
+    from apps.moderation.models import AuditLog
+
+    staff = UserFactory(is_staff=True)
+    report = ReportFactory(status=ReportStatus.PENDING)
+    client = APIClient()
+    client.force_authenticate(user=staff)
+    res = client.patch(
+        f"/api/v1/admin/reports/{report.id}/", {"status": ReportStatus.INVESTIGATING}
+    )
+    assert res.status_code == status.HTTP_200_OK
+    assert res.data["status"] == ReportStatus.INVESTIGATING
+    assert not AuditLog.objects.exists()
+
+
+def test_report_json_keeps_reviewed_by_username_key_as_null_when_unreviewed():
+    staff = UserFactory(is_staff=True)
+    ReportFactory(status=ReportStatus.PENDING)
+    client = APIClient()
+    client.force_authenticate(user=staff)
+    res = client.get("/api/v1/admin/reports/")
+    assert res.status_code == status.HTTP_200_OK
+    assert "reviewed_by_username" in res.data["results"][0]
+    assert res.data["results"][0]["reviewed_by_username"] is None
+
+
+def test_soap_adjustment_audit_records_balance_before_and_after():
+    from apps.moderation.models import AuditLog
+
+    staff = UserFactory(is_staff=True)
+    target = UserFactory()
+    wallet = Wallet.objects.create(user=target, soap_balance=15)
+    client = APIClient()
+    client.force_authenticate(user=staff)
+    res = client.post(
+        f"/api/v1/admin/wallets/{wallet.id}/adjust/", {"amount": 5, "reason": "gift"}, format="json"
+    )
+    assert res.status_code == status.HTTP_200_OK
+    metadata = AuditLog.objects.get().metadata
+    assert metadata["balance_before"] == 15
+    assert metadata["balance_after"] == 20
+
+
+def test_audit_log_actor_username_is_null_not_missing():
+    from apps.moderation.tests.factories import AuditLogFactory
+
+    AuditLogFactory(actor=None)
+    client = APIClient()
+    client.force_authenticate(user=UserFactory(is_staff=True))
+    res = client.get("/api/v1/admin/audit-logs/")
+    assert res.data["results"][0]["actor_username"] is None

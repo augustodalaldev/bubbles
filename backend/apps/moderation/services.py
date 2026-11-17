@@ -48,6 +48,14 @@ def file_report(
     User = get_user_model()
     target_id_str = str(target_id).strip()
 
+    if target_type != ReportTargetType.COMMUNITY and not target_id_str.isdigit():
+        raise DomainError(
+            "Target id must be a number.",
+            code="invalid_target_id",
+            http_status=400,
+            extra={"fields": {"target_id": ["Target id must be a number."]}},
+        )
+
     if target_type == ReportTargetType.USER:
         if str(reporter.id) == target_id_str:
             raise DomainError("You cannot report yourself.", code="self_report", http_status=400)
@@ -122,6 +130,9 @@ def review_report(
     report.reviewed_at = timezone.now()
     report.resolution_notes = resolution_notes
     report.save()
+
+    if status == ReportStatus.INVESTIGATING:
+        return report
 
     audit_action = (
         AuditAction.REPORT_RESOLVE
@@ -413,6 +424,7 @@ def admin_adjust_soap(
         metadata={
             "target": target_desc,
             "amount": amount,
+            "balance_before": tx.balance_after - amount,
             "balance_after": tx.balance_after,
         },
     )

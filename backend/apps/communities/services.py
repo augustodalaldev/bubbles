@@ -17,9 +17,30 @@ from .validators import (
 User = get_user_model()
 
 
+def _lock_community(community: Community) -> None:
+    """Serialize membership changes of one community and refresh the instance.
+
+    Locking the community row (not the member rows) keeps `member_count` and the
+    one-leader invariant consistent when two requests touch the same community.
+    Must run inside `transaction.atomic()`.
+    """
+    Community.objects.select_for_update().only("pk").get(pk=community.pk)
+    community.refresh_from_db()
+
+
+def _reject_if_blocked(community: Community) -> None:
+    if community.is_blocked:
+        raise DomainError(
+            "This community is blocked.",
+            code="community_blocked",
+            http_status=403,
+        )
+
+
 def _check_admin_or_leader_permission(actor: User, community: Community) -> CommunityMember | None:
     if actor.is_staff:
         return None
+    _reject_if_blocked(community)
     membership = CommunityMember.objects.filter(community=community, user=actor).first()
     if (
         not membership
@@ -37,6 +58,7 @@ def _check_admin_or_leader_permission(actor: User, community: Community) -> Comm
 def _check_leader_permission(actor: User, community: Community) -> CommunityMember | None:
     if actor.is_staff:
         return None
+    _reject_if_blocked(community)
     membership = CommunityMember.objects.filter(community=community, user=actor).first()
     if (
         not membership
@@ -115,6 +137,16 @@ def create_community(
             extra={"fields": {"guidelines": ["Guidelines cannot exceed 2000 characters."]}},
         )
 
+    if customization_json:
+        raise DomainError(
+            "Community customization is not available yet.",
+            code="customization_not_available",
+            http_status=400,
+            extra={
+                "fields": {"customization_json": ["Community customization is not available yet."]}
+            },
+        )
+
     try:
         community = Community.objects.create(
             commname=clean_commname,
@@ -159,7 +191,8 @@ def create_community(
         (creator_wallet, -economy_settings.founding_cost, ActionType.DEBIT_FOUNDING),
         (community_wallet, economy_settings.founding_cost, ActionType.CREDIT_FOUNDING),
     ]
-    economy_services.apply_movements(movements)
+    if economy_settings.founding_cost > 0:
+        economy_services.apply_movements(movements)
 
     CommunityMember.objects.create(
         community=community,
@@ -171,6 +204,7 @@ def create_community(
     return community
 
 
+@transaction.atomic
 def update_community(
     *,
     actor: User,
@@ -182,6 +216,7 @@ def update_community(
     customization_json: dict[str, Any] | None = None,
 ) -> Community:
     """Update community details (RF013). Allowed for COMM_ADMIN and LEADER."""
+    _lock_community(community)
     _check_admin_or_leader_permission(actor, community)
 
     if community.is_archived:
@@ -229,7 +264,18 @@ def update_community(
                 code="invalid_customization",
                 extra={"fields": {"customization_json": ["Must be a valid object."]}},
             )
-        community.customization_json = customization_json
+        if customization_json:
+            raise DomainError(
+                "Community customization is not available yet.",
+                code="customization_not_available",
+                http_status=400,
+                extra={
+                    "fields": {
+                        "customization_json": ["Community customization is not available yet."]
+                    }
+                },
+            )
+        community.customization_json = {}
         update_fields.append("customization_json")
 
     if update_fields:
@@ -238,6 +284,7 @@ def update_community(
     return community
 
 
+@transaction.atomic
 def update_guidelines(
     *,
     actor: User,
@@ -245,6 +292,7 @@ def update_guidelines(
     guidelines: str,
 ) -> Community:
     """Update community guidelines (RF015). Allowed for LEADER only."""
+    _lock_community(community)
     _check_leader_permission(actor, community)
 
     if community.is_archived:
@@ -318,6 +366,7 @@ def join_community(*, user: User, community: Community) -> CommunityMember:
 @transaction.atomic
 def leave_community(*, user: User, community: Community) -> None:
     """Leave a community. Leader cannot leave."""
+    _lock_community(community)
     membership = CommunityMember.objects.filter(community=community, user=user).first()
     if not membership:
         raise DomainError(
@@ -356,6 +405,7 @@ def moderate_member(
     new_state: str,
 ) -> CommunityMember:
     """Silence/unsilence or ban/unban a member (RF013)."""
+    _lock_community(community)
     _check_admin_or_leader_permission(actor, community)
 
     target_membership = (
@@ -426,8 +476,10 @@ def moderate_member(
     return target_membership
 
 
+@transaction.atomic
 def promote_member(*, actor: User, community: Community, target_username: str) -> CommunityMember:
     """Appoint a regular member as COMM_ADMIN (RF015). Leader only."""
+    _lock_community(community)
     _check_leader_permission(actor, community)
 
     target_membership = (
@@ -461,8 +513,10 @@ def promote_member(*, actor: User, community: Community, target_username: str) -
     return target_membership
 
 
+@transaction.atomic
 def demote_member(*, actor: User, community: Community, target_username: str) -> CommunityMember:
     """Demote a COMM_ADMIN back to regular MEMBER (RF015). Leader only."""
+    _lock_community(community)
     _check_leader_permission(actor, community)
 
     target_membership = (
@@ -497,6 +551,7 @@ def transfer_leadership(
     new_leader_username: str,
 ) -> CommunityMember:
     """Transfer community leadership to an active member. Old leader becomes COMM_ADMIN."""
+    _lock_community(community)
     _check_leader_permission(actor, community)
 
     if community.is_archived:
@@ -545,8 +600,10 @@ def transfer_leadership(
     return new_leader
 
 
+@transaction.atomic
 def archive_community(*, actor: User, community: Community) -> Community:
     """Permanently archive community (RF015). Leader only."""
+    _lock_community(community)
     _check_leader_permission(actor, community)
 
     if community.is_archived:

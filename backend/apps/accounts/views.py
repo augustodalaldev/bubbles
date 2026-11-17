@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, get_user_model
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
@@ -78,7 +78,7 @@ class RegisterView(APIView):
 
         response_data = {
             "access": str(refresh.access_token),
-            "user": CurrentUserSerializer(user).data,
+            "user": CurrentUserSerializer(user, context={"request": request}).data,
         }
         response = Response(response_data, status=status.HTTP_201_CREATED)
         set_refresh_cookie(response, str(refresh))
@@ -110,7 +110,7 @@ class LoginView(APIView):
         refresh = RefreshToken.for_user(user)
         response_data = {
             "access": str(refresh.access_token),
-            "user": CurrentUserSerializer(user).data,
+            "user": CurrentUserSerializer(user, context={"request": request}).data,
         }
         response = Response(response_data, status=status.HTTP_200_OK)
         set_refresh_cookie(response, str(refresh))
@@ -120,6 +120,7 @@ class LoginView(APIView):
 class RefreshTokenView(APIView):
     authentication_classes: list = []
     permission_classes = [AllowAny]
+    throttle_scope = "auth"
 
     @extend_schema(request=RefreshTokenInputSerializer, responses={200: OpenApiTypes.OBJECT})
     def post(self, request):
@@ -133,15 +134,22 @@ class RefreshTokenView(APIView):
 
         try:
             refresh = RefreshToken(token_str)
+            if (
+                not get_user_model()
+                .objects.filter(pk=refresh["user_id"], is_active=True, deleted_at__isnull=True)
+                .exists()
+            ):
+                raise DomainError(
+                    "Invalid or expired refresh token.",
+                    code="token_invalid",
+                    http_status=401,
+                )
             access_token = str(refresh.access_token)
             new_refresh = None
 
             if settings.SIMPLE_JWT.get("ROTATE_REFRESH_TOKENS", True):
                 if settings.SIMPLE_JWT.get("BLACKLIST_AFTER_ROTATION", True):
-                    try:
-                        refresh.blacklist()
-                    except AttributeError:
-                        pass
+                    refresh.blacklist()
                 refresh.set_jti()
                 refresh.set_exp()
                 refresh.set_iat()
@@ -160,7 +168,9 @@ class RefreshTokenView(APIView):
 
 
 class LogoutView(APIView):
-    permission_classes = [IsAuthenticated]
+    # No access token required: it may have expired, and the cookie must still be cleared.
+    authentication_classes: list = []
+    permission_classes = [AllowAny]
 
     @extend_schema(request=RefreshTokenInputSerializer, responses={200: OpenApiTypes.OBJECT})
     def post(self, request):
@@ -182,14 +192,14 @@ class CurrentUserView(APIView):
 
     @extend_schema(responses={200: CurrentUserSerializer})
     def get(self, request):
-        return Response(CurrentUserSerializer(request.user).data)
+        return Response(CurrentUserSerializer(request.user, context={"request": request}).data)
 
     @extend_schema(request=UpdateProfileSerializer, responses={200: CurrentUserSerializer})
     def patch(self, request):
         serializer = UpdateProfileSerializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         user = update_profile(user=request.user, **serializer.validated_data)
-        return Response(CurrentUserSerializer(user).data)
+        return Response(CurrentUserSerializer(user, context={"request": request}).data)
 
     @extend_schema(request=DeleteAccountSerializer, responses={204: None})
     def delete(self, request):

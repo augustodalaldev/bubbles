@@ -255,7 +255,8 @@ def distribute_passive_soap(*, now: datetime | None = None) -> int:
         .order_by("pk")
     )
 
-    today_start = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
+    local_now = timezone.localtime(current_time)
+    today_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
     window_bucket = int(current_time.timestamp() // (interval_mins * 60))
     credited_count = 0
 
@@ -285,7 +286,7 @@ def distribute_passive_soap(*, now: datetime | None = None) -> int:
             continue
 
         grant = min(rate, remaining_cap)
-        idempotency_key = f"passive:{user.id}:{current_time.date().isoformat()}:{window_bucket}"
+        idempotency_key = f"passive:{user.id}:{local_now.date().isoformat()}:{window_bucket}"
 
         if SoapTransaction.objects.filter(idempotency_key=idempotency_key).exists():
             continue

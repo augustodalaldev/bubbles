@@ -69,7 +69,11 @@ def list_bubblegram_comments(*, bubblegram_id: int) -> QuerySet[Comment]:
 
 def get_bubblepop_by_id(*, bubblepop_id: int) -> Bubblepop:
     """Retrieve a Bubblepop by ID."""
-    bubblepop = Bubblepop.objects.select_related("user").filter(pk=bubblepop_id).first()
+    bubblepop = (
+        Bubblepop.objects.select_related("user")
+        .filter(pk=bubblepop_id, expires_at__gt=timezone.now())
+        .first()
+    )
     if not bubblepop:
         raise DomainError("Bubblepop not found.", code="bubblepop_not_found", http_status=404)
     return bubblepop

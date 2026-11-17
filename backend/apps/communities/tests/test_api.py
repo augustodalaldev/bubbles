@@ -255,3 +255,17 @@ def test_community_blocked_listing_and_permissions():
     assert res_detail.status_code == status.HTTP_200_OK
     assert res_detail.data["permissions"]["can_join"] is False
     assert res_detail.data["permissions"]["can_edit"] is False
+
+
+def test_members_list_returns_absolute_profile_photo_urls():
+    from apps.accounts.models import User
+
+    viewer = UserFactory()
+    member = UserFactory()
+    User.objects.filter(pk=member.pk).update(profile_photo="profile_photos/m.png")
+    community = CommunityFactory()
+    CommunityMemberFactory(community=community, user=member)
+
+    res = auth_client(viewer).get(f"/api/v1/communities/{community.commname}/members/")
+    assert res.status_code == status.HTTP_200_OK
+    assert res.data["results"][0]["user"]["profile_photo"].startswith("http://testserver/media/")

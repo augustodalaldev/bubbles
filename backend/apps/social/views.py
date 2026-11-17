@@ -10,7 +10,7 @@ from apps.accounts.selectors import get_user_by_username
 
 from .selectors import get_letter_by_id, list_inbox_letters, list_sent_letters
 from .serializers import LetterCreateSerializer, LetterSerializer
-from .services import send_letter
+from .services import mark_letter_as_read, send_letter
 
 
 class LetterListCreateView(APIView):
@@ -39,7 +39,10 @@ class LetterListCreateView(APIView):
             image=image,
             reply_to=reply_to,
         )
-        return Response(LetterSerializer(letter).data, status=status.HTTP_201_CREATED)
+        return Response(
+            LetterSerializer(letter, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class LetterInboxView(APIView):
@@ -50,7 +53,7 @@ class LetterInboxView(APIView):
         qs = list_inbox_letters(user=request.user)
         paginator = PageNumberPagination()
         page = paginator.paginate_queryset(qs, request)
-        serializer = LetterSerializer(page, many=True)
+        serializer = LetterSerializer(page, many=True, context={"request": request})
         return paginator.get_paginated_response(serializer.data)
 
 
@@ -62,7 +65,7 @@ class LetterSentView(APIView):
         qs = list_sent_letters(user=request.user)
         paginator = PageNumberPagination()
         page = paginator.paginate_queryset(qs, request)
-        serializer = LetterSerializer(page, many=True)
+        serializer = LetterSerializer(page, many=True, context={"request": request})
         return paginator.get_paginated_response(serializer.data)
 
 
@@ -72,4 +75,6 @@ class LetterDetailView(APIView):
     @extend_schema(responses={200: LetterSerializer})
     def get(self, request, pk: int):
         letter = get_letter_by_id(letter_id=pk, user=request.user)
-        return Response(LetterSerializer(letter).data)
+        if letter.recipient_id == request.user.id:
+            letter = mark_letter_as_read(actor=request.user, letter=letter)
+        return Response(LetterSerializer(letter, context={"request": request}).data)

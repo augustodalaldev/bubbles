@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.communities.models import Community
+from apps.core.exceptions import DomainError
 from apps.economy.models import Wallet
 from apps.moderation.models import Report
 from apps.moderation.selectors import list_audit_logs, list_reports
@@ -59,7 +60,10 @@ class ReportCreateView(APIView):
             reason=serializer.validated_data["reason"],
             description=serializer.validated_data.get("description", ""),
         )
-        return Response(ReportSerializer(report).data, status=status.HTTP_201_CREATED)
+        return Response(
+            ReportSerializer(report, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class AdminReportListView(APIView):
@@ -79,7 +83,7 @@ class AdminReportListView(APIView):
 
         paginator = StandardPagination()
         page = paginator.paginate_queryset(reports, request)
-        serializer = ReportSerializer(page, many=True)
+        serializer = ReportSerializer(page, many=True, context={"request": request})
         return paginator.get_paginated_response(serializer.data)
 
 
@@ -89,7 +93,7 @@ class AdminReportDetailView(APIView):
     @extend_schema(responses={200: ReportSerializer})
     def get(self, request, pk: int):
         report = get_object_or_404(Report, pk=pk)
-        return Response(ReportSerializer(report).data)
+        return Response(ReportSerializer(report, context={"request": request}).data)
 
     @extend_schema(
         request=ReportReviewSerializer,
@@ -105,7 +109,7 @@ class AdminReportDetailView(APIView):
             status=serializer.validated_data["status"],
             resolution_notes=serializer.validated_data.get("resolution_notes", ""),
         )
-        return Response(ReportSerializer(updated).data)
+        return Response(ReportSerializer(updated, context={"request": request}).data)
 
 
 class AdminUserSuspendView(APIView):
@@ -252,8 +256,15 @@ class AdminDeleteContentView(APIView):
         responses={200: OpenApiTypes.OBJECT},
     )
     def post(self, request):
-        content_type = request.query_params.get("type")
-        content_id = request.query_params.get("id")
+        content_type = (request.query_params.get("type") or "").upper()
+        try:
+            content_id = int(request.query_params.get("id", ""))
+        except ValueError:
+            raise DomainError(
+                "Content id must be a number.",
+                code="invalid_content_id",
+                http_status=400,
+            ) from None
         serializer = ReasonRequiredInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -311,5 +322,5 @@ class AdminAuditLogListView(APIView):
 
         paginator = StandardPagination()
         page = paginator.paginate_queryset(logs, request)
-        serializer = AuditLogSerializer(page, many=True)
+        serializer = AuditLogSerializer(page, many=True, context={"request": request})
         return paginator.get_paginated_response(serializer.data)

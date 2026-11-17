@@ -171,3 +171,28 @@ def test_update_profile_validates_inventory():
     UserInventoryItemFactory(user=user, item=item)
     updated = update_profile(user=user, customization_json=payload)
     assert updated.customization_json == payload
+
+
+def test_concurrent_purchase_integrity_error_becomes_already_owned_and_refunds(monkeypatch):
+    """Simulates losing the race on uniq_user_inventory_item after the debit."""
+    from django.db import IntegrityError
+
+    user = UserFactory()
+    wallet, _ = Wallet.objects.get_or_create(user=user, defaults={"soap_balance": 30})
+    wallet.soap_balance = 30
+    wallet.save()
+    item = CustomizationItemFactory(price=10)
+
+    def boom(*args, **kwargs):
+        raise IntegrityError("uniq_user_inventory_item")
+
+    monkeypatch.setattr(UserInventoryItem.objects, "create", boom)
+
+    from django.db import transaction
+
+    with pytest.raises(DomainError) as exc, transaction.atomic():
+        purchase_customization_item(user=user, item=item)
+
+    assert exc.value.code == "already_owned"
+    wallet.refresh_from_db()
+    assert wallet.soap_balance == 30

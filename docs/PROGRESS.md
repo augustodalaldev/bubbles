@@ -36,7 +36,7 @@
 ## Review & integration (see docs/REVIEW_PLAN.md)
 - [x] Phase 0 — Plan registered
 - [x] Phase 1 — Backend blockers: image upload validation (type + 10 MB, `images` bypass removed), banned members cannot leave, only ACTIVE members can support community content, user throttle 10000/day, auth endpoints ignore stale Bearer header (397 tests)
-- [ ] Phase 2 — Backend business rules
+- [x] Phase 2 — Backend business rules: bubblepop suspension/limits/expiry, concurrent purchase, non-numeric ids, report audit, `*_username` null fields, letter read via service (404 for outsiders), community row lock + blocked checks, community customization blocked until purchases exist, logout/refresh hardening, passive cap in local time, zero-cost settings, absolute image URLs (435 tests)
 - [ ] Phase 3 — API contract and error handling
 - [ ] Phase 4 — Frontend foundation (session, services, types)
 - [ ] Phase 5 — Screen-by-screen integration

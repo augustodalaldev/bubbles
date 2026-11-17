@@ -1,6 +1,6 @@
 from typing import Any
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
 from apps.core.exceptions import DomainError
 from apps.customization.models import CustomizationItem, UserInventoryItem
@@ -30,11 +30,20 @@ def purchase_customization_item(*, user: Any, item: CustomizationItem) -> UserIn
         wallet, _ = Wallet.objects.get_or_create(user=user, defaults={"soap_balance": 0})
         tx = spend_customization(wallet=wallet, cost=item.price)
 
-    inventory_item = UserInventoryItem.objects.create(
-        user=user,
-        item=item,
-        transaction=tx,
-    )
+    try:
+        with transaction.atomic():
+            inventory_item = UserInventoryItem.objects.create(
+                user=user,
+                item=item,
+                transaction=tx,
+            )
+    except IntegrityError:
+        # A concurrent purchase won the race; the outer atomic block rolls back the debit.
+        raise DomainError(
+            "You already own this customization item.",
+            code="already_owned",
+            http_status=400,
+        ) from None
     return inventory_item
 
 

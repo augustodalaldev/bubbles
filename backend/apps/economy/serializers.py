@@ -4,7 +4,7 @@ from apps.economy.models import EconomySettings
 
 
 class EconomySettingsSerializer(serializers.ModelSerializer):
-    updated_by_username = serializers.CharField(source="updated_by.username", read_only=True)
+    updated_by_username = serializers.SerializerMethodField()
 
     class Meta:
         model = EconomySettings
@@ -28,6 +28,9 @@ class EconomySettingsSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "updated_by", "updated_by_username", "updated_at"]
+
+    def get_updated_by_username(self, obj: EconomySettings) -> str | None:
+        return obj.updated_by.username if obj.updated_by_id else None
 
 
 class EconomySettingsUpdateSerializer(serializers.ModelSerializer):

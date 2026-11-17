@@ -129,7 +129,8 @@ def create_bubblegram(
         },
     )
 
-    economy_services.debit_bubblegram(author_wallet, cost)
+    if cost > 0:
+        economy_services.debit_bubblegram(author_wallet, cost)
 
     bubblegram = Bubblegram.objects.create(
         user=author,
@@ -413,7 +414,9 @@ def support_bubblegram(*, donor: User, bubblegram: Bubblegram) -> BubblegramSupp
             )
         )
 
-    apply_movements(movements, origin=support)
+    movements = [m for m in movements if m.amount != 0]
+    if movements:
+        apply_movements(movements, origin=support)
 
     Bubblegram.objects.filter(pk=bubblegram.pk).update(soap_count=F("soap_count") + 1)
     bubblegram.soap_count += 1
@@ -524,7 +527,9 @@ def support_comment(*, donor: User, comment: Comment) -> CommentSupport:
             )
         )
 
-    apply_movements(movements, origin=support)
+    movements = [m for m in movements if m.amount != 0]
+    if movements:
+        apply_movements(movements, origin=support)
 
     Comment.objects.filter(pk=comment.pk).update(soap_count=F("soap_count") + 1)
     comment.soap_count += 1
@@ -549,6 +554,13 @@ def create_bubblepop(
     4. Cost = ceil(duration_hours / hours_per_soap) soap via DEBIT_BUBBLEPOP.
     5. expires_at is set to timezone.now() + timedelta(hours=duration_hours).
     """
+    if getattr(author, "is_suspended", False):
+        raise DomainError(
+            "Suspended accounts cannot publish bubblepops.",
+            code="account_suspended",
+            http_status=403,
+        )
+
     if not image:
         raise DomainError(
             "An image is required for a bubblepop.",

@@ -428,3 +428,76 @@ def test_refresh_endpoint_ignores_stale_bearer_header(api_client):
     response = api_client.post("/api/v1/auth/refresh/")
     assert response.status_code == status.HTTP_200_OK
     assert "access" in response.data
+
+
+def _login(client, username):
+    return client.post(
+        "/api/v1/auth/login/",
+        data={"identifier": username, "password": DEFAULT_PASSWORD},
+        format="json",
+    )
+
+
+def test_logout_works_without_valid_access_token_and_blacklists_refresh(api_client):
+    user = UserFactory(username="logout_user")
+    Wallet.objects.create(user=user, soap_balance=20)
+    assert _login(api_client, "logout_user").status_code == status.HTTP_200_OK
+    refresh_cookie = api_client.cookies["refresh_token"].value
+
+    api_client.credentials(HTTP_AUTHORIZATION="Bearer expired.or.garbage")
+    response = api_client.post("/api/v1/auth/logout/")
+    assert response.status_code == status.HTTP_200_OK
+    assert response.cookies["refresh_token"].value == ""
+
+    api_client.credentials()
+    api_client.cookies["refresh_token"] = refresh_cookie
+    reuse = api_client.post("/api/v1/auth/refresh/")
+    assert reuse.status_code == status.HTTP_401_UNAUTHORIZED
+    assert reuse.data["error"]["code"] == "token_invalid"
+
+
+def test_refresh_token_cannot_be_reused_after_rotation(api_client):
+    user = UserFactory(username="rotate_user")
+    Wallet.objects.create(user=user, soap_balance=20)
+    _login(api_client, "rotate_user")
+    old_cookie = api_client.cookies["refresh_token"].value
+
+    first = api_client.post("/api/v1/auth/refresh/")
+    assert first.status_code == status.HTTP_200_OK
+    assert api_client.cookies["refresh_token"].value != old_cookie
+
+    api_client.cookies["refresh_token"] = old_cookie
+    second = api_client.post("/api/v1/auth/refresh/")
+    assert second.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.parametrize("change", ["inactive", "deleted"])
+def test_refresh_is_refused_for_inactive_or_deleted_users(api_client, change):
+    user = UserFactory(username="gone_user")
+    Wallet.objects.create(user=user, soap_balance=20)
+    _login(api_client, "gone_user")
+
+    if change == "inactive":
+        user.is_active = False
+    else:
+        user.deleted_at = timezone.now()
+    user.save()
+
+    response = api_client.post("/api/v1/auth/refresh/")
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.data["error"]["code"] == "token_invalid"
+
+
+def test_me_and_login_return_absolute_profile_photo_url(api_client):
+    from apps.accounts.models import User
+
+    user = UserFactory(username="photo_user")
+    Wallet.objects.create(user=user, soap_balance=20)
+    User.objects.filter(pk=user.pk).update(profile_photo="profile_photos/me.png")
+
+    login = _login(api_client, "photo_user")
+    assert login.data["user"]["profile_photo"].startswith("http://testserver/media/")
+
+    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['access']}")
+    me = api_client.get("/api/v1/users/me/")
+    assert me.data["profile_photo"].startswith("http://testserver/media/")

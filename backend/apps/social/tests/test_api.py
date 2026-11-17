@@ -69,5 +69,44 @@ def test_unrelated_user_blocked_from_letter_detail():
 
     carol_client = auth_client(carol)
     resp = carol_client.get(f"/api/v1/letters/{letter.id}/")
-    assert resp.status_code == status.HTTP_403_FORBIDDEN
-    assert resp.data["error"]["code"] == "permission_denied"
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+    assert resp.data["error"]["code"] == "letter_not_found"
+
+
+def test_recipient_opening_letter_sets_read_at_once():
+    alice, bob = UserFactory(), UserFactory()
+    letter = Letter.objects.create(sender=alice, recipient=bob, text="hello")
+
+    first = auth_client(bob).get(f"/api/v1/letters/{letter.id}/")
+    assert first.status_code == status.HTTP_200_OK
+    letter.refresh_from_db()
+    stamp = letter.read_at
+    assert stamp is not None
+
+    auth_client(bob).get(f"/api/v1/letters/{letter.id}/")
+    letter.refresh_from_db()
+    assert letter.read_at == stamp
+
+
+def test_sender_opening_letter_does_not_mark_it_read():
+    alice, bob = UserFactory(), UserFactory()
+    letter = Letter.objects.create(sender=alice, recipient=bob, text="hello")
+
+    assert auth_client(alice).get(f"/api/v1/letters/{letter.id}/").status_code == 200
+    letter.refresh_from_db()
+    assert letter.read_at is None
+
+
+def test_replying_does_not_mark_the_original_as_read():
+    alice, bob = UserFactory(), UserFactory()
+    UserConnection.objects.create(follower=alice, followed=bob)
+    original = Letter.objects.create(sender=bob, recipient=alice, text="first")
+
+    res = auth_client(alice).post(
+        "/api/v1/letters/",
+        {"recipient_username": bob.username, "text": "re", "reply_to_id": original.id},
+        format="json",
+    )
+    assert res.status_code == status.HTTP_201_CREATED
+    original.refresh_from_db()
+    assert original.read_at is None

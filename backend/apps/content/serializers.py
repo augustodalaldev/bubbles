@@ -191,7 +191,7 @@ class BubblepopSerializer(serializers.ModelSerializer):
 
 class BubblepopCreateSerializer(serializers.Serializer):
     image = SafeImageField(required=True)
-    duration_hours = serializers.IntegerField(min_value=1, max_value=48, default=24)
+    duration_hours = serializers.IntegerField(default=24)
     description = serializers.CharField(
         max_length=500, required=False, allow_blank=True, default=""
     )

@@ -21,7 +21,7 @@ class ReportCreateSerializer(serializers.ModelSerializer):
 
 class ReportSerializer(serializers.ModelSerializer):
     reporter = PublicUserSerializer(read_only=True)
-    reviewed_by_username = serializers.CharField(source="reviewed_by.username", read_only=True)
+    reviewed_by_username = serializers.SerializerMethodField()
 
     class Meta:
         model = Report
@@ -40,6 +40,9 @@ class ReportSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
+    def get_reviewed_by_username(self, obj: Report) -> str | None:
+        return obj.reviewed_by.username if obj.reviewed_by_id else None
+
 
 class ReportReviewSerializer(serializers.Serializer):
     status = serializers.ChoiceField(
@@ -54,7 +57,7 @@ class ReportReviewSerializer(serializers.Serializer):
 
 
 class AuditLogSerializer(serializers.ModelSerializer):
-    actor_username = serializers.CharField(source="actor.username", read_only=True)
+    actor_username = serializers.SerializerMethodField()
 
     class Meta:
         model = AuditLog
@@ -69,6 +72,9 @@ class AuditLogSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = fields
+
+    def get_actor_username(self, obj: AuditLog) -> str | None:
+        return obj.actor.username if obj.actor_id else None
 
 
 class SuspendUserInputSerializer(serializers.Serializer):

@@ -127,12 +127,13 @@ def register_user(
         soap_balance=0,
         passive_earn_rate=economy_settings.default_passive_earn_rate,
     )
-    economy_services.credit(
-        wallet,
-        economy_settings.signup_grant,
-        action_type=ActionType.SIGNUP_GRANT,
-        idempotency_key=f"signup:{user.id}",
-    )
+    if economy_settings.signup_grant > 0:
+        economy_services.credit(
+            wallet,
+            economy_settings.signup_grant,
+            action_type=ActionType.SIGNUP_GRANT,
+            idempotency_key=f"signup:{user.id}",
+        )
     return user
 
 

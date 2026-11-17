@@ -110,7 +110,7 @@ class CommunityJoinView(APIView):
     def post(self, request, commname: str):
         community = get_community_by_commname(commname=commname)
         membership = join_community(user=request.user, community=community)
-        serializer = CommunityMemberSerializer(membership)
+        serializer = CommunityMemberSerializer(membership, context={"request": request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
@@ -135,7 +135,7 @@ class CommunityMemberListView(APIView):
 
         paginator = PageNumberPagination()
         page = paginator.paginate_queryset(members, request)
-        serializer = CommunityMemberSerializer(page, many=True)
+        serializer = CommunityMemberSerializer(page, many=True, context={"request": request})
         return paginator.get_paginated_response(serializer.data)
 
 
@@ -153,7 +153,7 @@ class CommunityMemberModerateView(APIView):
             target_username=username,
             new_state=serializer.validated_data["current_state"],
         )
-        return Response(CommunityMemberSerializer(membership).data)
+        return Response(CommunityMemberSerializer(membership, context={"request": request}).data)
 
 
 class CommunityMemberPromoteView(APIView):
@@ -167,7 +167,7 @@ class CommunityMemberPromoteView(APIView):
             community=community,
             target_username=username,
         )
-        return Response(CommunityMemberSerializer(membership).data)
+        return Response(CommunityMemberSerializer(membership, context={"request": request}).data)
 
 
 class CommunityMemberDemoteView(APIView):
@@ -181,7 +181,7 @@ class CommunityMemberDemoteView(APIView):
             community=community,
             target_username=username,
         )
-        return Response(CommunityMemberSerializer(membership).data)
+        return Response(CommunityMemberSerializer(membership, context={"request": request}).data)
 
 
 class CommunityTransferLeadershipView(APIView):
@@ -197,7 +197,7 @@ class CommunityTransferLeadershipView(APIView):
             community=community,
             new_leader_username=serializer.validated_data["new_leader_username"],
         )
-        return Response(CommunityMemberSerializer(new_leader).data)
+        return Response(CommunityMemberSerializer(new_leader, context={"request": request}).data)
 
 
 class CommunityArchiveView(APIView):
