@@ -1,0 +1,313 @@
+import io
+import urllib.request
+from datetime import timedelta
+
+import pytest
+from django.contrib.auth import authenticate
+from django.core.files.storage import default_storage
+from django.core.management import CommandError, call_command
+from django.db import connection
+from django.db.models import Count, Q, Sum
+from django.utils import timezone
+from PIL import Image
+
+from apps.accounts.models import User, UserConnection
+from apps.accounts.tests.factories import UserFactory
+from apps.communities.models import Community, CommunityMember, MemberRole
+from apps.content.models import Bubblegram, BubblegramMedia, BubblegramSupport, Bubblepop, Comment
+from apps.core.demo import seeder
+from apps.customization.models import CommunityInventoryItem, CustomizationItem, UserInventoryItem
+from apps.economy.models import SoapTransaction, Wallet
+from apps.moderation.models import AuditLog, Report
+from apps.social.models import Letter
+
+pytestmark = pytest.mark.django_db
+
+SMALL = [
+    "--users", "6",
+    "--communities", "3",
+    "--posts-per-user", "2",
+    "--images", "3",
+]  # fmt: skip
+
+
+class FakeProvider:
+    """Stands in for the Cat/Dog APIs: generates tiny PNGs, never touches the network."""
+
+    def urls(self, species, count):
+        return [f"fake://{species}/{i}" for i in range(count)]
+
+    def download(self, url):
+        buffer = io.BytesIO()
+        color = "orange" if "cat" in url else "saddlebrown"
+        Image.new("RGB", (24, 24), color).save(buffer, "PNG")
+        return buffer.getvalue()
+
+
+@pytest.fixture
+def demo(settings, tmp_path, monkeypatch):
+    """Demo environment: DEBUG on, 'the demo database' = the test database, offline images."""
+    settings.DEBUG = True
+    settings.DEMO_DB_NAME = connection.settings_dict["NAME"]
+    settings.DEMO_CACHE_DIR = tmp_path / "demo_cache"
+    monkeypatch.setattr("apps.core.demo.images.WebImageProvider", FakeProvider)
+
+    def no_network(*args, **kwargs):
+        raise AssertionError("the seed must not touch the network in tests")
+
+    monkeypatch.setattr(urllib.request, "urlopen", no_network)
+    return settings.DEMO_CACHE_DIR
+
+
+def seed(*extra, **kwargs):
+    out = io.StringIO()
+    err = io.StringIO()
+    call_command("seed_demo", *SMALL, *extra, stdout=out, stderr=err, **kwargs)
+    return out.getvalue(), err.getvalue()
+
+
+def table_counts():
+    models = (
+        User, UserConnection, Community, CommunityMember, Bubblegram, BubblegramMedia,
+        Comment, BubblegramSupport, Bubblepop, Letter, Report, AuditLog, SoapTransaction,
+        CustomizationItem, UserInventoryItem, CommunityInventoryItem, Wallet,
+    )  # fmt: skip
+    return [m.objects.count() for m in models]
+
+
+# ------------------------------------------------------------------------- safety
+
+
+def test_refuses_to_run_without_the_demo_settings():
+    with pytest.raises(CommandError, match="demo settings"):
+        call_command("seed_demo")
+    assert User.objects.count() == 0
+
+
+def test_refuses_when_debug_is_off(demo, settings):
+    settings.DEBUG = False
+    with pytest.raises(CommandError, match="demo settings"):
+        call_command("seed_demo")
+
+
+def test_refuses_any_database_other_than_the_demo_one(demo, settings):
+    settings.DEMO_DB_NAME = "some_other_database"
+    with pytest.raises(CommandError, match="Refusing to run"):
+        call_command("seed_demo", "--reset")
+    with pytest.raises(CommandError, match="Refusing to run"):
+        call_command("seed_demo")
+    assert User.objects.count() == 0
+
+
+# ------------------------------------------------------------------------- content
+
+
+def test_seeds_every_kind_of_entity_through_the_services(demo):
+    out, _err = seed()
+
+    assert "Demo data ready." in out
+    counts = dict(zip(
+        ["users", "follows", "communities", "members", "posts", "media", "comments", "supports",
+         "pops", "letters", "reports", "audit", "ledger", "items", "user items", "comm items",
+         "wallets"],
+        table_counts(), strict=True,
+    ))  # fmt: skip
+    for name, value in counts.items():
+        assert value > 0, f"nothing was created for {name}"
+    assert counts["communities"] == 3
+
+
+def test_people_and_credentials(demo):
+    out, _err = seed()
+
+    admin = User.objects.get(username="admin_demo")
+    assert admin.is_staff and admin.is_superuser
+    assert authenticate(username="admin_demo", password="DemoPets2026!") == admin
+    moderator = User.objects.get(username="moderador_demo")
+    assert not moderator.is_staff
+    assert CommunityMember.objects.filter(user=moderator, role=MemberRole.COMM_ADMIN).exists()
+    assert "admin_demo" in out and "moderador_demo" in out and "DemoPets2026!" in out
+    assert all(u.email.endswith("@demo.bubbles.test") for u in User.objects.all())
+
+
+def test_soap_ledger_and_counters_stay_consistent(demo):
+    seed()
+
+    # Every wallet's balance equals the sum of its ledger: all movements went through economy.
+    for wallet in Wallet.objects.all():
+        ledger = SoapTransaction.objects.filter(wallet=wallet).aggregate(t=Sum("amount"))["t"] or 0
+        assert ledger == wallet.soap_balance
+    # Cached counters match the rows they summarize.
+    for post in Bubblegram.objects.all():
+        assert post.soap_count == BubblegramSupport.objects.filter(bubblegram=post).count()
+    for community in Community.objects.all():
+        members = CommunityMember.objects.filter(community=community).exclude(
+            current_state="BANNED"
+        )
+        assert community.member_count == members.count()
+    # Founding put soap in the community wallets and they bought customization.
+    assert CommunityInventoryItem.objects.exists()
+    assert all(Wallet.objects.get(community=c).soap_balance >= 0 for c in Community.objects.all())
+
+
+def test_content_covers_the_interesting_cases(demo):
+    seed("--users", "10", "--comments-per-post", "5")
+
+    assert Bubblegram.objects.filter(community__isnull=True).exists()
+    assert Bubblegram.objects.filter(community__isnull=False).exists()
+    assert Comment.objects.filter(parent__isnull=False).exists()
+    assert Bubblepop.objects.filter(expires_at__gt=timezone.now()).exists()
+    assert Bubblepop.objects.filter(expires_at__lte=timezone.now()).count() == 2
+    assert Letter.objects.filter(reply_to__isnull=False).exists()
+    assert Letter.objects.filter(read_at__isnull=True).exists()
+    assert Report.objects.filter(status="PENDING").exists()
+    assert Report.objects.exclude(status="PENDING").exists()
+    states = set(CommunityMember.objects.values_list("current_state", flat=True))
+    assert {"ACTIVE", "SILENCED", "BANNED"} <= states
+
+
+def test_dates_are_spread_over_the_recent_past(demo):
+    seed("--days", "20")
+    now = timezone.now()
+
+    times = list(Bubblegram.objects.values_list("published_at", flat=True))
+    assert max(times) <= now
+    assert (max(times) - min(times)).days >= 2  # not all "just now"
+    assert min(times) >= now - timedelta(days=21)
+    for comment in Comment.objects.select_related("bubblegram"):
+        assert comment.published_at >= comment.bubblegram.published_at
+    for post in Bubblegram.objects.filter(community__isnull=False).select_related("community"):
+        assert post.published_at >= post.community.created_at
+    for community in Community.objects.all():
+        assert community.created_at < now - timedelta(days=2)
+
+
+# ------------------------------------------------------------------------- images
+
+
+def test_images_are_saved_through_the_models_and_cached(demo):
+    seed()
+
+    assert BubblegramMedia.objects.exists()
+    assert User.objects.exclude(profile_photo="").exists()
+    assert Community.objects.exclude(community_photo="").exists()
+    for item in BubblegramMedia.objects.all():
+        assert default_storage.exists(item.media.name)
+    cache = demo / "images"
+    assert len(list((cache / "cat").iterdir())) == 3
+    assert len(list((cache / "dog").iterdir())) == 3
+
+
+def test_no_images_flag_creates_everything_without_them(demo):
+    seed("--no-images")
+
+    assert Bubblegram.objects.exists() and User.objects.count() >= 6
+    assert not BubblegramMedia.objects.exists()
+    assert not User.objects.exclude(profile_photo="").exists()
+    assert not Bubblepop.objects.exists()  # bubblepops require an image
+    assert not (demo / "images").exists()
+
+
+def test_offline_falls_back_to_the_cache_or_to_no_images_with_a_warning(demo, monkeypatch):
+    class Offline(FakeProvider):
+        def urls(self, species, count):
+            raise OSError("network unreachable")
+
+    monkeypatch.setattr("apps.core.demo.images.WebImageProvider", Offline)
+    _out, err = seed()
+
+    assert "Could not download" in err
+    assert "created without images" in err
+    assert Bubblegram.objects.exists()
+    assert not BubblegramMedia.objects.exists()
+
+    # With photos already cached the next run uses them without any download.
+    monkeypatch.setattr("apps.core.demo.images.WebImageProvider", FakeProvider)
+    seed("--reset")
+    seed("--no-download")  # cache is empty and downloads are disabled: still works
+    assert Bubblegram.objects.exists()
+
+
+# ------------------------------------------------------------------------- idempotency and reset
+
+
+def test_running_twice_does_not_duplicate_anything(demo):
+    seed()
+    first = table_counts()
+    out, _err = seed()
+
+    assert table_counts() == first
+    assert "nothing new" in out
+
+
+def test_same_seed_gives_the_same_people_and_a_different_seed_differs(demo):
+    seed("--seed", "7")
+    names = sorted(User.objects.values_list("username", flat=True))
+    seed("--reset")
+    seed("--seed", "7")
+    assert sorted(User.objects.values_list("username", flat=True)) == names
+    seed("--reset")
+    seed("--seed", "8")
+    assert sorted(User.objects.values_list("username", flat=True)) != names
+
+
+def test_reset_removes_only_what_the_seed_created(demo):
+    manual = UserFactory(username="manual_user")
+    Wallet.objects.create(user=manual, soap_balance=5)
+    SoapTransaction.objects.create(
+        wallet=manual.wallet, amount=5, action_type="SIGNUP_GRANT", balance_after=5
+    )
+    seed()
+    files = [m.media.name for m in BubblegramMedia.objects.all()]
+    assert files and User.objects.count() > 2
+
+    out = io.StringIO()
+    call_command("seed_demo", "--reset", stdout=out)
+
+    assert "Removed:" in out.getvalue()
+    assert list(User.objects.values_list("username", flat=True)) == ["manual_user"]
+    assert Wallet.objects.filter(user=manual).exists()
+    assert SoapTransaction.objects.filter(wallet__user=manual).count() == 1
+    assert not Community.objects.exists()
+    assert not Bubblegram.objects.exists()
+    assert not CustomizationItem.objects.exists()
+    assert not Report.objects.exists() and not AuditLog.objects.exists()
+    assert not SoapTransaction.objects.exclude(wallet__user=manual).exists()
+    assert not any(default_storage.exists(name) for name in files)
+    assert not (demo / seeder.MANIFEST_NAME).exists()
+
+
+def test_reset_keeps_manual_activity_on_other_accounts_and_is_repeatable(demo):
+    seed()
+    out = io.StringIO()
+    call_command("seed_demo", "--reset", stdout=out)
+    out = io.StringIO()
+    call_command("seed_demo", "--reset", stdout=out)
+    assert "Nothing to reset" in out.getvalue()
+
+    # After a reset the seed can run again from scratch.
+    seed()
+    assert User.objects.filter(username="admin_demo").exists()
+
+
+def test_reset_does_not_delete_catalog_items_someone_else_owns(demo):
+    seed()
+    item = CustomizationItem.objects.filter(scope__in=("USER", "BOTH")).first()
+    manual = UserFactory(username="collector")
+    Wallet.objects.create(user=manual, soap_balance=100)
+    UserInventoryItem.objects.create(user=manual, item=item)
+
+    call_command("seed_demo", "--reset", stdout=io.StringIO())
+
+    assert CustomizationItem.objects.filter(pk=item.pk).exists()  # PROTECTed by a manual holder
+    assert User.objects.filter(username="collector").exists()
+
+
+def test_community_posts_come_only_from_active_members(demo):
+    seed()
+    for post in Bubblegram.objects.filter(community__isnull=False):
+        assert CommunityMember.objects.filter(community=post.community, user=post.user).exists()
+    totals = Bubblegram.objects.aggregate(
+        n=Count("id"), personal=Count("id", filter=Q(community__isnull=True))
+    )
+    assert totals["personal"] > 0 and totals["n"] > totals["personal"]

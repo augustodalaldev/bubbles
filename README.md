@@ -22,6 +22,35 @@ Create a staff user with `cd backend && uv run python manage.py createsuperuser`
 ## Useful commands
 `make test` · `make lint` · `make format` · `make check-migrations` · `make frontend-build`
 
+## Demo environment (sample data)
+A separate database (`bubbles_teste`, never the development one) filled with pet communities:
+```bash
+make demo             # creates the DB if needed, migrates, fills it, serves the backend on :8001
+make demo-frontend    # second terminal: Vite pointed at the demo backend (VITE_API_TARGET)
+make demo-reset       # drop and recreate the demo database from scratch, then `make demo`
+make demo-scheduler   # optional: run the periodic jobs against the demo database
+```
+`make demo` prints the credentials; every account uses the password `DemoPets2026!`:
+`admin_demo` (staff, opens `/admin/`), `moderador_demo` (admin of several communities) and a few regular users.
+Open http://localhost:5173 after `make demo-frontend`.
+
+What it creates (all through the application's services, so rules, counters and the soap ledger are real):
+users with avatars, follows, communities with photos/banners, memberships and roles (leader, admins, a silenced
+and a banned member), posts with cat/dog photos, threaded comments, supports, bubblepops (active and expired ones for
+the cleanup job), letters and replies, reports (some reviewed, with audit entries), the customization catalog,
+purchases by users and by communities (community wallets are funded), and soap balances to found communities.
+Dates are spread over the last 30 days. Photos come from The Cat API and Dog CEO (free, no key), are downloaded once to
+`backend/.demo_cache/` (git-ignored) and reused; offline it uses the cache or skips images with a warning.
+Photos are stored through the normal upload fields in `backend/media/`.
+
+Run it directly with `DJANGO_SETTINGS_MODULE=config.settings.demo uv run python manage.py seed_demo` (from `backend/`):
+`--seed 42`, `--users 12`, `--communities 6` (max 8), `--posts-per-user 3`, `--comments-per-post 3`,
+`--expired-bubblepops 2`, `--days 30`, `--images 12` (photos cached per species), `--no-images`, `--no-download`.
+Running it again adds nothing (same seed, same choices). `--reset` deletes only what the seed created (tracked in
+`backend/.demo_cache/seed_manifest.json`), including its media files and the ledger rows of the accounts it made,
+and keeps anything you created by hand. The command refuses to run outside `config.settings.demo`, with `DEBUG` off, or
+on any database other than the demo one.
+
 ## Frontend URLs
 | URL | Screen |
 |---|---|

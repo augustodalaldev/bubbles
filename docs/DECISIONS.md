@@ -202,3 +202,18 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 | Servers that serve `frontend/dist` must fall back to `index.html` (README has the nginx snippet) | SPA routing; Vite dev/preview already do it |
 | `VITE_API_TARGET` selects the backend the dev proxy talks to | Lets the demo backend run on another port |
 
+## Demo data (2026-11-17)
+| Decision | Reason |
+|---|---|
+| `config.settings.demo` (dev settings + `DEMO_DB_NAME`, default `bubbles_teste`, must differ from `POSTGRES_DB`) and `seed_demo` refuses to run unless the settings are the demo ones, `DEBUG` is on and the connected database is the demo one | The seed must never be able to touch the development database |
+| The Makefile refuses `DEMO_DB` equal to the `.env` development database or `postgres` before dropping anything | `make demo-reset` drops a database |
+| The seed calls the services (`register_user`, `create_community`, `create_bubblegram`, `support_*`, `send_letter`, purchases, `file_report`, ...) | Business rules, cached counters and the soap ledger stay correct and consistent |
+| ORM directly only for: the customization catalog (admin-maintained table, no service), back-dated timestamps (services always stamp "now"), expired bubblepops (no service creates them), staff flag of the admin | There is no service for these; every use is commented in the code |
+| Soap comes from audited `admin_adjust_soap` (admin actor) once per newly created account, and for community wallets | Mirrors how soap enters the system; running again does not give more soap |
+| Ledger rows keep today's date; everything else is spread over the last 30 days | The ledger is append-only (`created_at` is not editable) |
+| Randomness comes from an independent stream per user/post/community (`seed|step|key`) and DB-driven choices are ordered by pk | Re-running makes the same decisions and finds what it created: idempotent, with the same row counts |
+| `--reset` uses a manifest (`backend/.demo_cache/seed_manifest.json`) of the primary keys the seed created and deletes them in dependency order, including their media files; catalog items still owned by someone else are kept | Only seed data is removed; hand-made data survives. The append-only ledger of the seed's own wallets is removed with `_raw_delete`, and only for those wallets in the demo database |
+| Photos from The Cat API and Dog CEO via `urllib` (no new dependency), cached in `backend/.demo_cache/images/`, validated with the upload validator | Free, no key, downloaded once; offline falls back to the cache or no images |
+| `faker` (pt_BR) as a dev dependency; Portuguese content lives in `apps/core/demo/content.py` | Natural names and texts; fixed seed keeps them reproducible |
+| Accounts share the password `DemoPets2026!`; emails use `@demo.bubbles.test` | Demo credentials only; the reserved domain cannot receive mail |
+

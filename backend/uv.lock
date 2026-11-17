@@ -39,6 +39,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "factory-boy" },
+    { name = "faker" },
     { name = "pytest" },
     { name = "pytest-django" },
     { name = "ruff" },
@@ -60,6 +61,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "factory-boy", specifier = ">=3.3.3" },
+    { name = "faker", specifier = ">=40.44.0" },
     { name = "pytest", specifier = ">=9.2.0" },
     { name = "pytest-django", specifier = ">=4.14.0" },
     { name = "ruff", specifier = ">=0.17.3" },
