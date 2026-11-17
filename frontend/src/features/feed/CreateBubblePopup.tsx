@@ -136,8 +136,8 @@ export const CreateBubblePopup: React.FC<CreateBubblePopupProps> = ({ onPostCrea
             <div className="panel-classic-header flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <Plus className="w-3.5 h-3.5 text-pink-600" />
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-                  Publicar no Mural
+                <h3 className="text-xs font-bold text-slate-900">
+                  Publicar no mural
                 </h3>
               </div>
               <button

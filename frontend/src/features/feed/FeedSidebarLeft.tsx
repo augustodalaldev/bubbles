@@ -86,7 +86,7 @@ export const FeedSidebarLeft: React.FC<FeedSidebarLeftProps> = ({
       {/* Classic Menu Navigation Links */}
       <div className="panel-classic">
         <div className="panel-classic-header">
-          <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+          <span className="text-xs font-bold text-slate-800">
             Navegação
           </span>
         </div>
@@ -97,7 +97,7 @@ export const FeedSidebarLeft: React.FC<FeedSidebarLeftProps> = ({
             className="w-full flex items-center gap-2.5 px-3 py-2 text-pink-700 font-semibold bg-pink-50/60 rounded-sm transition-colors text-left"
           >
             <Compass className="w-4 h-4 text-pink-600" />
-            <span>Início (Feed)</span>
+            <span>Início (feed)</span>
           </button>
 
           <button
@@ -105,7 +105,7 @@ export const FeedSidebarLeft: React.FC<FeedSidebarLeftProps> = ({
             className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left"
           >
             <UserIcon className="w-4 h-4 text-slate-400" />
-            <span>Meu Perfil</span>
+            <span>Meu perfil</span>
           </button>
 
           <button
@@ -121,7 +121,7 @@ export const FeedSidebarLeft: React.FC<FeedSidebarLeftProps> = ({
             className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left"
           >
             <Store className="w-4 h-4 text-slate-400" />
-            <span>Loja de Soap</span>
+            <span>Loja de soap</span>
           </button>
 
           <button

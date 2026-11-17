@@ -117,8 +117,8 @@ export const LetterComposeModal: React.FC<LetterComposeModalProps> = ({
         <div className="panel-classic-header flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <Mail className="w-4 h-4 text-pink-600" />
-            <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-              {isReply ? `Responder Carta de ${replyToLetter.sender.name}` : "Redigir Nova Carta"}
+            <h2 className="text-xs font-bold text-slate-900">
+              {isReply ? `Responder carta de ${replyToLetter.sender.name}` : "Redigir nova carta"}
             </h2>
           </div>
           <button

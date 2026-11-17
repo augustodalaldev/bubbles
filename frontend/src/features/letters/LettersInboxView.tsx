@@ -156,14 +156,14 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
             className="w-full flex items-center justify-center gap-2 py-2.5 bg-pink-600 hover:bg-pink-700 text-white text-xs font-bold rounded-sm shadow-xs transition-all cursor-pointer active:scale-95"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>Escrever Nova Carta</span>
+            <span>Escrever nova carta</span>
           </button>
 
           {/* Mailbox Status Box */}
           <div className="panel-classic">
             <div className="panel-classic-header">
-              <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-                Pastas de Correspondência
+              <span className="text-xs font-bold text-slate-900">
+                Pastas de correspondência
               </span>
             </div>
             <div className="p-1 text-xs">
@@ -220,7 +220,7 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
           {/* Quick Navigation */}
           <div className="panel-classic">
             <div className="panel-classic-header">
-              <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+              <span className="text-xs font-bold text-slate-900">
                 Navegação
               </span>
             </div>
@@ -230,14 +230,14 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left cursor-pointer"
               >
                 <Compass className="w-4 h-4 text-slate-400" />
-                <span>Início (Feed)</span>
+                <span>Início (feed)</span>
               </button>
               <button
                 onClick={onNavigateToProfile}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left cursor-pointer"
               >
                 <UserIcon className="w-4 h-4 text-slate-400" />
-                <span>Meu Perfil</span>
+                <span>Meu perfil</span>
               </button>
               <button
                 onClick={() => onNavigateToView?.("communities")}
@@ -251,7 +251,7 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left cursor-pointer"
               >
                 <Store className="w-4 h-4 text-slate-400" />
-                <span>Loja de Soap</span>
+                <span>Loja de soap</span>
               </button>
             </div>
           </div>
@@ -312,7 +312,7 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
                         : "bg-pink-50 border border-pink-200 text-pink-700 hover:bg-pink-100"
                     }`}
                   >
-                    Não Lidas ({unreadCount})
+                    Não lidas ({unreadCount})
                   </button>
                 )}
 
@@ -479,7 +479,7 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
           {/* Quick Contacts to Send Letter */}
           <div className="panel-classic">
             <div className="panel-classic-header">
-              <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+              <span className="text-xs font-bold text-slate-900">
                 Quem você segue
               </span>
             </div>

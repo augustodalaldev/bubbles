@@ -123,8 +123,8 @@ export const StoreView: React.FC<StoreViewProps> = ({
           {/* Soap Wallet Box */}
           <div className="panel-classic">
             <div className="panel-classic-header flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-                Minha Carteira
+              <span className="text-xs font-bold text-slate-900">
+                Minha carteira
               </span>
               <span className="text-[10px] font-semibold text-pink-700 bg-pink-50 px-1.5 py-0.2 rounded-sm border border-pink-200">
                 {passiveHint}
@@ -157,7 +157,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
           {/* Quick Navigation Panel */}
           <div className="panel-classic">
             <div className="panel-classic-header">
-              <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+              <span className="text-xs font-bold text-slate-900">
                 Navegação
               </span>
             </div>
@@ -167,14 +167,14 @@ export const StoreView: React.FC<StoreViewProps> = ({
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left cursor-pointer"
               >
                 <Compass className="w-4 h-4 text-slate-400" />
-                <span>Início (Feed)</span>
+                <span>Início (feed)</span>
               </button>
               <button
                 onClick={onNavigateToProfile}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left cursor-pointer"
               >
                 <UserIcon className="w-4 h-4 text-slate-400" />
-                <span>Meu Perfil</span>
+                <span>Meu perfil</span>
               </button>
               <button
                 onClick={() => onNavigateToView?.("communities")}
@@ -245,7 +245,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
               </div>
             </div>
 
-            {/* Main Tabs: Catálogo vs Meu Inventário */}
+            {/* Main Tabs: Catálogo vs Meu inventário */}
             <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2">
               <div className="flex items-center gap-1">
                 <button
@@ -256,7 +256,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-200"
                   }`}
                 >
-                  Catálogo da Loja ({items.length})
+                  Catálogo da loja ({items.length})
                 </button>
                 <button
                   onClick={() => setActiveTab("inventory")}
@@ -266,7 +266,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-200"
                   }`}
                 >
-                  Meu Inventário ({ownedCount})
+                  Meu inventário ({ownedCount})
                 </button>
               </div>
 
@@ -345,8 +345,8 @@ export const StoreView: React.FC<StoreViewProps> = ({
           {/* How Soap Works Box */}
           <div className="panel-classic bg-slate-50/50">
             <div className="panel-classic-header">
-              <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-                Como Conseguir Soap
+              <span className="text-xs font-bold text-slate-900">
+                Como conseguir soap
               </span>
             </div>
             <div className="p-3 text-xs text-slate-600 space-y-2">

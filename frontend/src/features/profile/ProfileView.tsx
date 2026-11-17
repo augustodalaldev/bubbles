@@ -442,7 +442,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 <div className="grid grid-cols-2 gap-3">
                   {followers.slice(0, 6).map(({ id, user }) => (
                     <button key={id} onClick={() => onOpenProfile(user.username)} className="flex flex-col items-center group">
-                      <Avatar user={user} className="w-14 h-14 rounded-md group-hover:opacity-90" />
+                      <Avatar user={user} className="w-14 h-14 group-hover:opacity-90" />
                       <span className="text-[11px] font-medium text-slate-700 mt-1 truncate max-w-[65px] text-center group-hover:text-pink-600">
                         {user.name.split(" ")[0]}
                       </span>

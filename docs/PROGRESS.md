@@ -41,7 +41,7 @@
 - [x] Phase 4 — Frontend foundation: in-memory access token + single-flight refresh, no Bearer on `/auth/*`, typed per-domain `services/`, pt-BR error mapping by API `code`, session bootstrap/login/register/logout, heartbeat every 5 min, session gate in `App.tsx`, real balance/avatar in the Header (mock login removed). Verified against a throwaway database (migrate from scratch + auth flow). `mockData.ts` is temporarily `@ts-nocheck` until phase 5
 - [x] Phase 5 — Screen-by-screen integration: feed, post modal + threaded comments, profile (own/others, follow), communities (hub/detail/create), store (purchase/equip via `slots`), letters (inbox/sent/compose/reply), bubblepop creation form. `mockData.ts`, dead components and `canvas-confetti` removed. Verified with a 43-check script that runs the real `services/` against a throwaway backend (all passed). Backend: members list ordered leader/admins/members (450 tests)
 - [x] Phase 6 — Loading / error / empty states: every data screen uses `LoadingState`/`ErrorState`/`EmptyState`; `insufficient_soap` shows cost and balance (pt-BR)
-- [ ] Phase 7 — Visual polish
+- [x] Phase 7 — Visual polish: no all-caps labels (sentence case), only bubble shapes are rounded, no emojis/continuous animations, real avatars with initial fallback, bundle 488 kB (no >500 kB warning); official SVGs in `public/` verified identical to `references/`
 - [ ] Phase 8 — Repository hygiene
 - [ ] Phase 9 — Docs
 

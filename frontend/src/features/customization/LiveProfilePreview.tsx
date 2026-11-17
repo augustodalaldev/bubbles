@@ -27,8 +27,8 @@ export const LiveProfilePreview: React.FC<LiveProfilePreviewProps> = ({
       <div className="panel-classic-header flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <Eye className="w-3.5 h-3.5 text-pink-600" />
-          <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-            Pré-visualização ao Vivo
+          <h2 className="text-xs font-bold text-slate-900">
+            Pré-visualização ao vivo
           </h2>
         </div>
         <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-sm border border-emerald-200 font-semibold">
@@ -44,8 +44,8 @@ export const LiveProfilePreview: React.FC<LiveProfilePreviewProps> = ({
             background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
           }}
         >
-          <span className="text-[10px] font-bold text-white tracking-wide uppercase">
-            {profileTheme?.name || "Tema Padrão"}
+          <span className="text-[10px] font-bold text-white">
+            {profileTheme?.name || "Tema padrão"}
           </span>
           <div className="flex items-center gap-1 bg-white/20 px-1.5 py-0.5 rounded-sm backdrop-blur-xs text-[10px] text-white">
             <SoapIcon size={12} />

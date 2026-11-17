@@ -43,7 +43,7 @@ export const LetterDetailModal: React.FC<LetterDetailModalProps> = ({
         <div className="panel-classic-header flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Mail className="w-4 h-4 text-pink-600" />
-            <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+            <h2 className="text-xs font-bold text-slate-900">
               {isSender ? `Carta enviada para ${otherPerson.name}` : `Carta de ${otherPerson.name}`}
             </h2>
           </div>
@@ -101,8 +101,8 @@ export const LetterDetailModal: React.FC<LetterDetailModalProps> = ({
           {/* Attached Image if present */}
           {letter.image && (
             <div className="mt-4 pt-3 border-t border-slate-100">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-2">
-                Anexo da Carta
+              <span className="text-[10px] font-bold text-slate-400 block mb-2">
+                Anexo da carta
               </span>
               <div className="rounded-sm overflow-hidden border border-slate-200 bg-slate-900">
                 <img
@@ -131,7 +131,7 @@ export const LetterDetailModal: React.FC<LetterDetailModalProps> = ({
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-pink-600 text-white hover:bg-pink-700 text-xs font-bold rounded-sm shadow-xs transition-all active:scale-95 cursor-pointer"
               >
                 <Reply className="w-3.5 h-3.5" />
-                <span>Responder Carta</span>
+                <span>Responder carta</span>
               </button>
             )}
 

@@ -20,7 +20,7 @@ export const FeedBubblepopsTray: React.FC<FeedBubblepopsTrayProps> = ({
       <div className="panel-classic-header flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5 text-pink-600" />
-          <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+          <h2 className="text-xs font-bold text-slate-900">
             Bubblepops
           </h2>
         </div>
