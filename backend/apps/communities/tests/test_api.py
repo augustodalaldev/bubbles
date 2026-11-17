@@ -269,3 +269,34 @@ def test_members_list_returns_absolute_profile_photo_urls():
     res = auth_client(viewer).get(f"/api/v1/communities/{community.commname}/members/")
     assert res.status_code == status.HTTP_200_OK
     assert res.data["results"][0]["user"]["profile_photo"].startswith("http://testserver/media/")
+
+
+def test_members_list_puts_leader_and_admins_first_even_if_they_joined_earlier():
+    from datetime import timedelta
+
+    community = CommunityFactory()
+    now = timezone.now()
+    leader = UserFactory()
+    admin = UserFactory()
+    CommunityMemberFactory(
+        community=community, user=leader, role=MemberRole.LEADER, joined_at=now - timedelta(days=30)
+    )
+    CommunityMemberFactory(
+        community=community,
+        user=admin,
+        role=MemberRole.COMM_ADMIN,
+        joined_at=now - timedelta(days=20),
+    )
+    members = [
+        CommunityMemberFactory(community=community, joined_at=now - timedelta(days=i))
+        for i in range(1, 4)
+    ]
+
+    res = auth_client(UserFactory()).get(f"/api/v1/communities/{community.commname}/members/")
+
+    assert res.status_code == status.HTTP_200_OK
+    roles = [item["role"] for item in res.data["results"]]
+    assert roles == ["LEADER", "COMM_ADMIN", "MEMBER", "MEMBER", "MEMBER"]
+    assert res.data["results"][0]["user"]["username"] == leader.username
+    # Newest regular member first inside the group
+    assert res.data["results"][2]["user"]["username"] == members[0].user.username

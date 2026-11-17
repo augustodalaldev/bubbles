@@ -11,8 +11,6 @@ import { StoreView } from "@/features/customization/StoreView";
 import { LettersInboxView } from "@/features/letters/LettersInboxView";
 import { LoginView } from "@/features/auth/LoginView";
 import { RegisterView } from "@/features/auth/RegisterView";
-import { MOCK_COMMUNITIES } from "@/features/profile/mockData";
-import { Community } from "@/types";
 
 type View = AppView | "community-detail";
 
@@ -55,29 +53,8 @@ function AuthenticatedApp() {
   const user = useAuthStore((s) => s.user)!;
   const [currentView, setCurrentView] = useState<View>("feed");
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [communities, setCommunities] = useState<Community[]>(MOCK_COMMUNITIES);
-  const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
+  const [selectedCommname, setSelectedCommname] = useState<string | null>(null);
   const [profileUsername, setProfileUsername] = useState<string | null>(null);
-
-  const handleJoinToggleCommunity = (communityId: number) => {
-    setCommunities((prev) =>
-      prev.map((c) => {
-        if (c.id !== communityId) return c;
-        const isMember = !!c.my_membership;
-        return {
-          ...c,
-          member_count: isMember ? Math.max(1, c.member_count - 1) : c.member_count + 1,
-          my_membership: isMember
-            ? null
-            : {
-                role: "MEMBER",
-                current_state: "ACTIVE",
-                joined_at: new Date().toISOString(),
-              },
-        };
-      })
-    );
-  };
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col justify-between font-sans">
@@ -87,7 +64,7 @@ function AuthenticatedApp() {
           currentView={currentView === "community-detail" ? "communities" : currentView}
           onNavigate={(view) => {
             if (view === "communities") {
-              setSelectedCommunity(null);
+              setSelectedCommname(null);
             }
             if (view === "profile") setProfileUsername(null);
             setCurrentView(view);
@@ -119,7 +96,7 @@ function AuthenticatedApp() {
               else if (v === "letters") setCurrentView("letters");
             }}
             onSelectCommunity={(comm) => {
-              setSelectedCommunity(comm);
+              setSelectedCommname(comm.commname);
               setCurrentView("community-detail");
             }}
             searchTerm={searchTerm}
@@ -129,26 +106,20 @@ function AuthenticatedApp() {
 
         {currentView === "communities" && (
           <CommunityListView
-            communities={communities}
-            currentUser={user}
             onSelectCommunity={(comm) => {
-              setSelectedCommunity(comm);
+              setSelectedCommname(comm.commname);
               setCurrentView("community-detail");
-            }}
-            onJoinToggleCommunity={handleJoinToggleCommunity}
-            onCommunityCreated={(newComm) => {
-              setCommunities((prev) => [newComm, ...prev]);
             }}
           />
         )}
 
-        {currentView === "community-detail" && selectedCommunity && (
+        {currentView === "community-detail" && selectedCommname && (
           <CommunityDetailView
-            community={selectedCommunity}
-            currentUser={user}
+            commname={selectedCommname}
             onBackToHub={() => setCurrentView("communities")}
-            onSelectOtherCommunity={(other) => {
-              setSelectedCommunity(other);
+            onOpenProfile={(username) => {
+              setProfileUsername(username === user.username ? null : username);
+              setCurrentView("profile");
             }}
           />
         )}
@@ -174,7 +145,7 @@ function AuthenticatedApp() {
             onOpenProfile={(username) => setProfileUsername(username === user.username ? null : username)}
             onNavigateToView={(v) => setCurrentView(v as View)}
             onSelectCommunity={(comm) => {
-              setSelectedCommunity(comm);
+              setSelectedCommname(comm.commname);
               setCurrentView("community-detail");
             }}
           />

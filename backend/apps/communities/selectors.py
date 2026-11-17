@@ -1,5 +1,5 @@
 from django.contrib.auth import get_user_model
-from django.db.models import Q, QuerySet
+from django.db.models import Case, IntegerField, Q, QuerySet, When
 
 from apps.core.exceptions import DomainError
 
@@ -99,8 +99,22 @@ def list_community_members(
     community: Community,
     state: str | None = None,
 ) -> QuerySet[CommunityMember]:
-    """List members of a community, selecting user to avoid N+1."""
-    qs = community.memberships.select_related("user").order_by("-joined_at")
+    """List members of a community, selecting user to avoid N+1.
+
+    Leader first, then admins, then regular members (newest first inside each group), so the
+    moderation team is always on the first page.
+    """
+    role_rank = Case(
+        When(role=MemberRole.LEADER, then=0),
+        When(role=MemberRole.COMM_ADMIN, then=1),
+        default=2,
+        output_field=IntegerField(),
+    )
+    qs = (
+        community.memberships.select_related("user")
+        .annotate(role_rank=role_rank)
+        .order_by("role_rank", "-joined_at", "-id")
+    )
     if state:
         clean_state = state.strip().upper()
         if clean_state in MemberState.values:

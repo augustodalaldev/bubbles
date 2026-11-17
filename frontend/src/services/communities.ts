@@ -66,3 +66,9 @@ export async function listCommunityBubblegrams(commname: string, page = 1) {
   });
   return data;
 }
+
+/** Only available to the community's leader/admins (see `permissions.can_view_wallet`). */
+export async function getCommunityWallet(commname: string): Promise<{ soap_balance: number }> {
+  const { data } = await api.get<{ soap_balance: number }>(`/communities/${commname}/wallet/`);
+  return data;
+}
