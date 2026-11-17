@@ -38,7 +38,7 @@
 - [x] Phase 1 — Backend blockers: image upload validation (type + 10 MB, `images` bypass removed), banned members cannot leave, only ACTIVE members can support community content, user throttle 10000/day, auth endpoints ignore stale Bearer header (397 tests)
 - [x] Phase 2 — Backend business rules: bubblepop suspension/limits/expiry, concurrent purchase, non-numeric ids, report audit, `*_username` null fields, letter read via service (404 for outsiders), community row lock + blocked checks, community customization blocked until purchases exist, logout/refresh hardening, passive cap in local time, zero-cost settings, absolute image URLs (435 tests)
 - [x] Phase 3 — API contract and error handling: Http404/PermissionDenied/ValidationError/IntegrityError mapped to the envelope, nested errors flattened (`media_files[1]`), headers preserved, JSON 404/500 for `/api/` (effective with DEBUG=False), shared `StandardPagination`, `ensure_user_wallet`/`ensure_community_wallet`, `is_staff` on `/users/me/` (449 tests)
-- [ ] Phase 4 — Frontend foundation (session, services, types)
+- [x] Phase 4 — Frontend foundation: in-memory access token + single-flight refresh, no Bearer on `/auth/*`, typed per-domain `services/`, pt-BR error mapping by API `code`, session bootstrap/login/register/logout, heartbeat every 5 min, session gate in `App.tsx`, real balance/avatar in the Header (mock login removed). Verified against a throwaway database (migrate from scratch + auth flow). `mockData.ts` is temporarily `@ts-nocheck` until phase 5
 - [ ] Phase 5 — Screen-by-screen integration
 - [ ] Phase 6 — Loading / error / empty states
 - [ ] Phase 7 — Visual polish

@@ -1,3 +1,4 @@
+// @ts-nocheck -- TEMPORARY: mock data is removed screen by screen in phase 5 (docs/REVIEW_PLAN.md).
 import { User, Community, Bubblegram, Bubblepop } from "@/types";
 
 export const MOCK_USER: User = {

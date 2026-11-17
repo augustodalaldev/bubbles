@@ -67,6 +67,7 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
 
     setTimeout(() => {
       const newCommunity: Community = {
+        is_archived: false,
         id: Date.now(),
         commname: cleanCommname,
         name: name.trim(),

@@ -1,5 +1,8 @@
-import { useState } from "react";
-import { Header } from "@/components/Header";
+import { useEffect, useState } from "react";
+import { Header, AppView } from "@/components/Header";
+import { LoadingState } from "@/components/StateViews";
+import { useAuthStore } from "@/features/auth/authStore";
+import { useHeartbeat } from "@/features/auth/useHeartbeat";
 import { ProfileView } from "@/features/profile/ProfileView";
 import { FeedView } from "@/features/feed/FeedView";
 import { CommunityListView } from "@/features/communities/CommunityListView";
@@ -8,12 +11,48 @@ import { StoreView } from "@/features/customization/StoreView";
 import { LettersInboxView } from "@/features/letters/LettersInboxView";
 import { LoginView } from "@/features/auth/LoginView";
 import { RegisterView } from "@/features/auth/RegisterView";
-import { MOCK_COMMUNITIES, MOCK_USER } from "@/features/profile/mockData";
+import { MOCK_COMMUNITIES } from "@/features/profile/mockData";
 import { Community } from "@/types";
 
-type View = "feed" | "profile" | "communities" | "community-detail" | "store" | "letters" | "login" | "register";
+type View = AppView | "community-detail";
 
 export default function App() {
+  const status = useAuthStore((s) => s.status);
+  const user = useAuthStore((s) => s.user);
+  const bootstrap = useAuthStore((s) => s.bootstrap);
+  const [authScreen, setAuthScreen] = useState<"login" | "register">("login");
+
+  useEffect(() => {
+    void bootstrap();
+  }, [bootstrap]);
+
+  useHeartbeat(status === "authenticated");
+
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
+        <LoadingState label="Entrando..." />
+      </div>
+    );
+  }
+
+  if (status === "anonymous" || !user) {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans">
+        {authScreen === "login" ? (
+          <LoginView onNavigateToRegister={() => setAuthScreen("register")} />
+        ) : (
+          <RegisterView onNavigateToLogin={() => setAuthScreen("login")} />
+        )}
+      </div>
+    );
+  }
+
+  return <AuthenticatedApp />;
+}
+
+function AuthenticatedApp() {
+  const user = useAuthStore((s) => s.user)!;
   const [currentView, setCurrentView] = useState<View>("feed");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [communities, setCommunities] = useState<Community[]>(MOCK_COMMUNITIES);
@@ -82,7 +121,7 @@ export default function App() {
         {currentView === "communities" && (
           <CommunityListView
             communities={communities}
-            currentUser={MOCK_USER}
+            currentUser={user}
             onSelectCommunity={(comm) => {
               setSelectedCommunity(comm);
               setCurrentView("community-detail");
@@ -97,7 +136,7 @@ export default function App() {
         {currentView === "community-detail" && selectedCommunity && (
           <CommunityDetailView
             community={selectedCommunity}
-            currentUser={MOCK_USER}
+            currentUser={user}
             onBackToHub={() => setCurrentView("communities")}
             onSelectOtherCommunity={(other) => {
               setSelectedCommunity(other);
@@ -114,35 +153,21 @@ export default function App() {
 
         {currentView === "letters" && (
           <LettersInboxView
-            currentUser={MOCK_USER}
+            currentUser={user}
             onNavigateToView={(v) => setCurrentView(v as View)}
             onNavigateToProfile={() => setCurrentView("profile")}
           />
         )}
 
         {currentView === "profile" && <ProfileView />}
-
-        {currentView === "login" && (
-          <LoginView
-            onNavigateToRegister={() => setCurrentView("register")}
-            onLoginSuccess={() => setCurrentView("feed")}
-          />
-        )}
-
-        {currentView === "register" && (
-          <RegisterView
-            onNavigateToLogin={() => setCurrentView("login")}
-            onRegisterSuccess={() => setCurrentView("feed")}
-          />
-        )}
       </div>
 
       {/* Footer (Rendered on Profile, Hub, Auth, while Feed, CommunityDetail, Store & Letters have internal stream note) */}
-      {currentView !== "feed" && currentView !== "community-detail" && currentView !== "store" && currentView !== "letters" && (
+      {currentView === "profile" || currentView === "communities" ? (
         <footer className="py-6 text-center text-xs text-slate-400 border-t border-slate-200 mt-8">
           Bubbles • Rede Social
         </footer>
-      )}
+      ) : null}
     </div>
   );
 }
