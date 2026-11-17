@@ -27,3 +27,28 @@ export async function equipSlots(slots: Record<string, number | null>) {
   const { data } = await api.post<User["customization_json"]>("/customization/equip/", { slots });
   return data;
 }
+
+/** Community store: `is_owned`/`is_equipped` refer to the community, not to the user. */
+export async function listCommunityItems(commname: string) {
+  const { data } = await api.get<Paginated<CustomizationItem>>("/customization/items/", {
+    params: { community: commname, page_size: 100 },
+  });
+  return data;
+}
+
+/** Spends the community's own soap; only its leader/admins are allowed (`permissions.can_customize`). */
+export async function purchaseCommunityItem(
+  commname: string,
+  id: number
+): Promise<{ inventory_item: UserInventoryItem; remaining_soap: number }> {
+  const { data } = await api.post(`/communities/${commname}/customization/items/${id}/purchase/`);
+  return data;
+}
+
+export async function equipCommunitySlots(commname: string, slots: Record<string, number | null>) {
+  const { data } = await api.post<Record<string, any>>(`/communities/${commname}/customization/equip/`, {
+    slots,
+  });
+  return data;
+}
+

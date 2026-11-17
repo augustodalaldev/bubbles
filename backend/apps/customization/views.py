@@ -6,17 +6,31 @@ from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.communities.selectors import get_community_by_commname
 from apps.core.pagination import StandardPagination
 from apps.customization.models import CustomizationItem
-from apps.customization.selectors import list_catalog_items, list_user_inventory
+from apps.customization.selectors import (
+    list_catalog_items,
+    list_community_inventory,
+    list_user_inventory,
+)
 from apps.customization.serializers import (
+    CommunityInventoryItemSerializer,
+    CommunityPurchaseResponseSerializer,
     CustomizationItemCreateUpdateSerializer,
     CustomizationItemSerializer,
+    EquipCommunityCustomizationInputSerializer,
     EquipCustomizationInputSerializer,
     PurchaseResponseSerializer,
     UserInventoryItemSerializer,
 )
-from apps.customization.services import equip_customization, purchase_customization_item
+from apps.customization.services import (
+    equip_community_customization,
+    equip_customization,
+    purchase_community_item,
+    purchase_customization_item,
+)
+from apps.economy.services import ensure_community_wallet
 
 
 class CustomizationCatalogView(APIView):
@@ -29,17 +43,27 @@ class CustomizationCatalogView(APIView):
         parameters=[
             OpenApiParameter("type", OpenApiTypes.STR, description="Filter by item type"),
             OpenApiParameter("search", OpenApiTypes.STR, description="Search by name or code"),
+            OpenApiParameter(
+                "community",
+                OpenApiTypes.STR,
+                description="Community handle: list the community store (owned/equipped by it)",
+            ),
         ],
         responses={200: CustomizationItemSerializer(many=True)},
     )
     def get(self, request):
         item_type = request.query_params.get("type")
         search = request.query_params.get("search")
-        items = list_catalog_items(item_type=item_type, search=search)
+        commname = request.query_params.get("community")
+        community = get_community_by_commname(commname=commname) if commname else None
+        items = list_catalog_items(
+            item_type=item_type, search=search, for_community=community is not None
+        )
 
         paginator = StandardPagination()
         page = paginator.paginate_queryset(items, request)
-        serializer = CustomizationItemSerializer(page, many=True, context={"request": request})
+        context = {"request": request, "community": community}
+        serializer = CustomizationItemSerializer(page, many=True, context=context)
         return paginator.get_paginated_response(serializer.data)
 
     @extend_schema(
@@ -162,3 +186,65 @@ class EquipCustomizationView(APIView):
             slots=slots,
         )
         return Response(equipped, status=status.HTTP_200_OK)
+
+
+class CommunityPurchaseCustomizationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(request=None, responses={201: CommunityPurchaseResponseSerializer})
+    def post(self, request, commname: str, pk: int):
+        community = get_community_by_commname(commname=commname)
+        item = get_object_or_404(CustomizationItem, pk=pk)
+        inventory_item = purchase_community_item(actor=request.user, community=community, item=item)
+
+        wallet = ensure_community_wallet(community)
+        wallet.refresh_from_db()
+        data = {
+            "inventory_item": CommunityInventoryItemSerializer(
+                inventory_item, context={"request": request}
+            ).data,
+            "remaining_soap": wallet.soap_balance,
+        }
+        return Response(data, status=status.HTTP_201_CREATED)
+
+
+class CommunityInventoryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("type", OpenApiTypes.STR, description="Filter by item type"),
+        ],
+        responses={200: CommunityInventoryItemSerializer(many=True)},
+    )
+    def get(self, request, commname: str):
+        community = get_community_by_commname(commname=commname)
+        items = list_community_inventory(
+            community=community, item_type=request.query_params.get("type")
+        )
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(items, request)
+        serializer = CommunityInventoryItemSerializer(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
+
+
+class CommunityEquipCustomizationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(responses={200: OpenApiTypes.OBJECT})
+    def get(self, request, commname: str):
+        community = get_community_by_commname(commname=commname)
+        return Response(community.customization_json or {})
+
+    @extend_schema(
+        request=EquipCommunityCustomizationInputSerializer,
+        responses={200: OpenApiTypes.OBJECT},
+    )
+    def post(self, request, commname: str):
+        community = get_community_by_commname(commname=commname)
+        serializer = EquipCommunityCustomizationInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        equipped = equip_community_customization(
+            actor=request.user, community=community, slots=serializer.validated_data["slots"]
+        )
+        return Response(equipped)

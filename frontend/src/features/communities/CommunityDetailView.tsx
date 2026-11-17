@@ -7,6 +7,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { useAuthStore } from "@/features/auth/authStore";
 import { FeedItemCard } from "@/features/feed/FeedItemCard";
 import { PostDetailModal } from "@/features/profile/PostDetailModal";
+import { CommunityCustomizationPanel } from "@/features/customization/CommunityCustomizationPanel";
 import { createBubblegram } from "@/services/content";
 import {
   getCommunity,
@@ -78,7 +79,7 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
   const [community, setCommunity] = useState<Community | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"posts" | "guidelines" | "members">("posts");
+  const [activeTab, setActiveTab] = useState<"posts" | "guidelines" | "members" | "customization">("posts");
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
   const [posts, setPosts] = useState<Bubblegram[]>([]);
@@ -191,6 +192,11 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
   const canPost = myState === "ACTIVE" && !community.is_archived;
   const postCost = economy?.bubblegram_community_cost;
 
+  // Equipped avatar frame (a design token bought with the community's soap)
+  const frame = community.customization_json?.avatar_frame?.metadata as
+    | { border_color?: string; glow?: string }
+    | undefined;
+
   const leader = members.find((m) => m.role === "LEADER");
   const admins = members.filter((m) => m.role === "COMM_ADMIN");
   const regular = members.filter((m) => m.role === "MEMBER");
@@ -282,6 +288,7 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
     { id: "posts" as const, label: `Mural de bolhas (${postsCount})` },
     { id: "guidelines" as const, label: "Diretrizes" },
     { id: "members" as const, label: `Membros (${membersCount})` },
+    ...(permissions?.can_customize ? [{ id: "customization" as const, label: "Personalização" }] : []),
   ];
 
   return (
@@ -299,7 +306,14 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
 
           <div className="panel-classic">
             <div className="p-4 text-center">
-              <div className="relative w-20 h-20 rounded-full overflow-hidden mx-auto mb-2.5 border-2 border-slate-200 shadow-sm bg-purple-50 flex items-center justify-center text-purple-700 text-xl font-bold">
+              <div
+                className="relative w-20 h-20 rounded-full overflow-hidden mx-auto mb-2.5 border-2 border-slate-200 shadow-sm bg-purple-50 flex items-center justify-center text-purple-700 text-xl font-bold"
+                style={
+                  frame
+                    ? { border: `3px solid ${frame.border_color ?? "#F465AC"}`, boxShadow: frame.glow ?? "none" }
+                    : undefined
+                }
+              >
                 {community.community_photo ? (
                   <img src={community.community_photo} alt={community.name} className="w-full h-full object-cover" />
                 ) : (
@@ -626,6 +640,14 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
                 )}
               </div>
             </div>
+          )}
+
+          {activeTab === "customization" && permissions?.can_customize && (
+            <CommunityCustomizationPanel
+              community={community}
+              walletBalance={walletBalance}
+              onChanged={loadCommunity}
+            />
           )}
 
           {activeTab === "members" && (

@@ -166,3 +166,15 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 | Frontend: costs and balances come from `GET /economy/settings/` and the API responses; supports/purchases update from server data, never optimistically | Rule 6 of the project guide: the frontend never decides economics |
 | Frontend: removed fake features without backend (notifications bell, forgot-password link, share link, suggested users, "popular" tab, fake counters) and `canvas-confetti` | `docs/frontend/PLAN.md` principles (100% faithful to the API, no useless animation) |
 
+## Community customization (2026-11-17)
+| Decision | Reason |
+|---|---|
+| `CustomizationItem.scope` (USER / COMMUNITY / BOTH, default USER); the user store lists USER+BOTH, a community store COMMUNITY+BOTH | A community and a profile need different catalogs; existing items stay user-only |
+| `CommunityInventoryItem` (unique community+item, `purchased_by`, ledger link) | Ownership by the community, one purchase per item, audit of who spent the soap |
+| Only the ACTIVE leader or an ACTIVE admin can buy and equip; system staff cannot spend a community's soap | RF014/S4: it is the community's money; staff keep the Django Admin |
+| Purchases debit the **community wallet** (`SPEND_CUSTOMIZATION`); the buyer's personal wallet is never touched | Soap rule S4 |
+| `purchase_community_item` locks the community wallet row first, re-checks ownership under the lock and keeps the unique constraint as backstop | Concurrent purchases are serialized: soap for one item never buys two, the same item is charged once |
+| Blocked/archived communities cannot buy or equip | Consistent with the other management rules |
+| Equipping uses `slots` (item id or null) through `POST /communities/{c}/customization/equip/`; writing `customization_json` directly stays rejected | Ownership is always validated; other slots are untouched |
+| New endpoints: `POST /communities/{c}/customization/items/{id}/purchase/`, `GET /communities/{c}/customization/inventory/`, `GET|POST /communities/{c}/customization/equip/`, `GET /customization/items/?community={c}`; new `permissions.can_customize` | The frontend renders what the API reports |
+

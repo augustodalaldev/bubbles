@@ -308,7 +308,9 @@ export const StoreView: React.FC<StoreViewProps> = ({
                 <CustomizationCard
                   key={item.id}
                   item={item}
-                  currentUser={currentUser}
+                  balance={currentUser.soap_balance ?? 0}
+                  previewPhoto={currentUser.profile_photo}
+                  previewName={currentUser.name}
                   busy={busyId === item.id}
                   onPurchase={(i) => void handlePurchase(i)}
                   onEquipToggle={(i) => void handleEquipToggle(i)}

@@ -1,6 +1,10 @@
 from rest_framework import serializers
 
-from apps.customization.models import CustomizationItem, UserInventoryItem
+from apps.customization.models import (
+    CommunityInventoryItem,
+    CustomizationItem,
+    UserInventoryItem,
+)
 
 
 class CustomizationItemSerializer(serializers.ModelSerializer):
@@ -14,6 +18,7 @@ class CustomizationItemSerializer(serializers.ModelSerializer):
             "name",
             "code",
             "item_type",
+            "scope",
             "description",
             "price",
             "metadata",
@@ -24,6 +29,10 @@ class CustomizationItemSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
+    def _get_community(self):
+        """When serializing a community store, ownership/equipped refer to that community."""
+        return self.context.get("community")
+
     def _get_user(self):
         request = self.context.get("request")
         if request and request.user.is_authenticated:
@@ -31,6 +40,13 @@ class CustomizationItemSerializer(serializers.ModelSerializer):
         return None
 
     def _get_owned_ids(self):
+        community = self._get_community()
+        if community is not None:
+            return set(
+                CommunityInventoryItem.objects.filter(community=community).values_list(
+                    "item_id", flat=True
+                )
+            )
         user = self._get_user()
         if not user:
             return set()
@@ -46,11 +62,12 @@ class CustomizationItemSerializer(serializers.ModelSerializer):
         return owned_ids
 
     def _get_equipped_ids(self):
-        user = self._get_user()
-        if not user or not user.customization_json:
+        community = self._get_community()
+        owner = community if community is not None else self._get_user()
+        if not owner or not owner.customization_json:
             return set()
         equipped_ids = set()
-        for _slot, data in user.customization_json.items():
+        for _slot, data in owner.customization_json.items():
             if isinstance(data, dict) and "id" in data:
                 equipped_ids.add(data["id"])
         return equipped_ids
@@ -69,6 +86,7 @@ class CustomizationItemCreateUpdateSerializer(serializers.ModelSerializer):
             "name",
             "code",
             "item_type",
+            "scope",
             "description",
             "price",
             "metadata",
@@ -120,4 +138,37 @@ class EquipCustomizationInputSerializer(serializers.Serializer):
 
 class PurchaseResponseSerializer(serializers.Serializer):
     inventory_item = UserInventoryItemSerializer()
+    remaining_soap = serializers.IntegerField()
+
+
+class CommunityInventoryItemSerializer(serializers.ModelSerializer):
+    item = serializers.SerializerMethodField()
+    is_equipped = serializers.SerializerMethodField()
+    purchased_by_username = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CommunityInventoryItem
+        fields = ["id", "item", "acquired_at", "is_equipped", "purchased_by_username"]
+        read_only_fields = fields
+
+    def get_item(self, obj) -> dict:
+        context = {**self.context, "community": obj.community}
+        return CustomizationItemSerializer(obj.item, context=context).data
+
+    def get_is_equipped(self, obj) -> bool:
+        for data in (obj.community.customization_json or {}).values():
+            if isinstance(data, dict) and data.get("id") == obj.item_id:
+                return True
+        return False
+
+    def get_purchased_by_username(self, obj) -> str | None:
+        return obj.purchased_by.username if obj.purchased_by_id else None
+
+
+class EquipCommunityCustomizationInputSerializer(serializers.Serializer):
+    slots = serializers.DictField(child=serializers.IntegerField(allow_null=True))
+
+
+class CommunityPurchaseResponseSerializer(serializers.Serializer):
+    inventory_item = CommunityInventoryItemSerializer()
     remaining_soap = serializers.IntegerField()

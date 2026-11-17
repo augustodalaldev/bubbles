@@ -1,11 +1,14 @@
 import React from "react";
-import { CustomizationItem, User } from "@/types";
+import { CustomizationItem } from "@/types";
 import { SoapIcon } from "@/components/SoapIcon";
 import { Check, ShieldCheck, Sparkles } from "lucide-react";
 
 interface CustomizationCardProps {
   item: CustomizationItem;
-  currentUser: User;
+  /** Soap available to the buyer: the user's balance or, in a community store, the community's. */
+  balance: number;
+  previewPhoto?: string | null;
+  previewName?: string;
   onPurchase: (item: CustomizationItem) => void;
   onEquipToggle: (item: CustomizationItem) => void;
   busy?: boolean;
@@ -13,15 +16,16 @@ interface CustomizationCardProps {
 
 export const CustomizationCard: React.FC<CustomizationCardProps> = ({
   item,
-  currentUser,
+  balance,
+  previewPhoto = null,
+  previewName = "?",
   onPurchase,
   onEquipToggle,
   busy = false,
 }) => {
   const isOwned = item.is_owned;
   const isEquipped = item.is_equipped;
-  const userSoap = currentUser.soap_balance ?? 0;
-  const canAfford = userSoap >= item.price;
+  const canAfford = balance >= item.price;
 
   // Render Visual Mini Preview according to item type
   const renderPreview = () => {
@@ -38,11 +42,13 @@ export const CustomizationCard: React.FC<CustomizationCardProps> = ({
               boxShadow: glow,
             }}
           >
-            <img
-              src={currentUser.profile_photo || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"}
-              alt="Preview"
-              className="w-full h-full object-cover rounded-full"
-            />
+            {previewPhoto ? (
+              <img src={previewPhoto} alt="Prévia" className="w-full h-full object-cover rounded-full" />
+            ) : (
+              <span className="w-full h-full rounded-full bg-pink-50 text-pink-700 font-bold flex items-center justify-center text-sm">
+                {previewName.charAt(0).toUpperCase()}
+              </span>
+            )}
           </div>
         </div>
       );

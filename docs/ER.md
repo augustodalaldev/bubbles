@@ -37,6 +37,10 @@ erDiagram
     User ||--o{ UserInventoryItem : "owns in inventory"
     CustomizationItem ||--o{ UserInventoryItem : "held by user"
     SoapTransaction ||--o| UserInventoryItem : "payment link (optional)"
+    Community ||--o{ CommunityInventoryItem : "owns in inventory"
+    CustomizationItem ||--o{ CommunityInventoryItem : "held by community"
+    User ||--o{ CommunityInventoryItem : "purchased by (leader/admin)"
+    SoapTransaction ||--o| CommunityInventoryItem : "payment link (community wallet)"
 
     User ||--o{ Report : "files report"
     User ||--o| Report : "reviewed by (optional)"
@@ -198,6 +202,7 @@ erDiagram
         string name "max 100"
         string code UK "unique slug"
         string item_type "AVATAR_FRAME, PROFILE_THEME, CHAT_BUBBLE, BADGE, NAME_COLOR"
+        string scope "USER | COMMUNITY | BOTH (who may buy it)"
         text description
         integer price "cost in soap (0 for free/starter)"
         json metadata "design tokens / styles consumed by frontend"
@@ -211,6 +216,15 @@ erDiagram
         bigint item_id FK
         bigint transaction_id FK "nullable SPEND_CUSTOMIZATION transaction"
         datetime acquired_at
+    }
+
+    CommunityInventoryItem {
+        bigint id PK
+        bigint community_id FK
+        bigint item_id FK
+        bigint purchased_by_id FK "nullable, leader/admin who spent the community soap"
+        bigint transaction_id FK "nullable SPEND_CUSTOMIZATION on the community wallet"
+        datetime acquired_at "unique (community, item)"
     }
 
     Report {

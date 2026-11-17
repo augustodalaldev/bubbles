@@ -50,6 +50,7 @@ export interface CommunityPermissions {
   can_transfer_leadership: boolean;
   can_archive: boolean;
   can_view_wallet: boolean;
+  can_customize: boolean;
   can_join: boolean;
   can_leave: boolean;
 }
@@ -150,6 +151,7 @@ export interface CustomizationItem {
   name: string;
   code: string;
   item_type: CustomizationType;
+  scope: "USER" | "COMMUNITY" | "BOTH";
   description: string;
   price: number;
   metadata: Record<string, any>;

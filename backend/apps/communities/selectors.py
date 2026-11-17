@@ -56,6 +56,7 @@ def compute_community_permissions(
         ),
         "can_archive": bool((is_staff or is_leader) and not is_archived and not is_blocked),
         "can_view_wallet": bool(is_staff or is_leader or is_admin),
+        "can_customize": bool((is_leader or is_admin) and not is_archived and not is_blocked),
         "can_join": bool(
             is_authenticated
             and not is_member

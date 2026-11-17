@@ -22,7 +22,7 @@ Documented in the requirements but not available in the UI (backend exists unles
 - RF002: edit profile (name, description, photo, birth date) and delete account (`PATCH`/`DELETE /users/me/`).
 - Wallet statement (`GET /users/me/wallet/`).
 - RF013/RF015: member moderation (silence/ban), promote/demote admins, transfer leadership, archive and edit community info/photo (`/communities/{c}/members/...`, `transfer-leadership`, `archive`).
-- RF014 / S4: customizing a community with the community wallet (**backend missing**: the inventory is user-only; community `customization_json` is rejected for now).
+- ~~RF014 / S4: customizing a community with the community wallet~~ — implemented (see DECISIONS: Community customization).
 - RF016/RF017: reports (`POST /reports/`) and system administration (`/admin/*`) have no screens; use the Django Admin.
 - Email verification and password reset (Q6, deferred).
 - Scheduler for `distribute_passive_soap` and `cleanup_expired_bubblepops` (cron/CronJob/Celery).

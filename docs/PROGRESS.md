@@ -47,3 +47,12 @@
 
 ## Notes
 - Do NOT run `migrate` until the custom `User` exists and `AUTH_USER_MODEL` is set (first task of 1.2).
+
+## Batch 2 (customization, scheduler, URLs, cleanup, demo)
+- [x] Phase 1 — Community customization paid by the community wallet: `scope` on items, `CommunityInventoryItem`, purchase/equip services (wallet lock, ledger on the community wallet), endpoints, `can_customize`, community "Personalização" tab with real cost/balance; tests for success, insufficient soap, roles, missing/owned items, scopes, blocked/archived and concurrency
+- [ ] Phase 2 — Scheduler
+- [ ] Phase 3 — URL navigation
+- [ ] Phase 4 — Manual validation (owner) + automated gate
+- [ ] Phase 5 — Cleanup
+- [ ] Phase 6 — Demo data and demo server
+
