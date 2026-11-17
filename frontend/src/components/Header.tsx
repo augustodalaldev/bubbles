@@ -5,11 +5,12 @@ import { Avatar } from "./Avatar";
 import { BrandLogo } from "./BrandLogo";
 import { SoapIcon } from "./SoapIcon";
 
-export type AppView = "feed" | "profile" | "communities" | "store" | "letters";
+import type { AppView } from "@/routes";
 
 interface HeaderProps {
   currentView?: AppView;
   onNavigate?: (view: AppView) => void;
+  searchValue?: string;
   onSearchChange?: (term: string) => void;
 }
 
@@ -28,7 +29,7 @@ const ICONS: { view: AppView; title: string; Icon: typeof Compass }[] = [
   { view: "letters", title: "Cartas", Icon: Mail },
 ];
 
-export const Header: React.FC<HeaderProps> = ({ currentView = "feed", onNavigate, onSearchChange }) => {
+export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate, searchValue = "", onSearchChange }) => {
   const user = useAuthStore((s) => s.user);
   const economy = useAuthStore((s) => s.economy);
   const logout = useAuthStore((s) => s.logout);
@@ -55,6 +56,7 @@ export const Header: React.FC<HeaderProps> = ({ currentView = "feed", onNavigate
               type="search"
               aria-label="Buscar perfis e comunidades"
               placeholder="Buscar perfis e comunidades..."
+              value={searchValue}
               onChange={(e) => onSearchChange?.(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-pink-500 focus:bg-white transition-colors"
             />

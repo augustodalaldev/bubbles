@@ -28,6 +28,8 @@ interface LettersInboxViewProps {
   onNavigateToProfile?: () => void;
   /** Opens the composer addressed to this username (used by the profile "Carta" button). */
   composeTo?: string | null;
+  /** Called when the composer closes, so the route can drop `?to=`. */
+  onComposeClosed?: () => void;
 }
 
 type Box = {
@@ -42,6 +44,7 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
   onNavigateToView,
   onNavigateToProfile,
   composeTo,
+  onComposeClosed,
 }) => {
   const currentUser = useAuthStore((s) => s.user)!;
   const [inbox, setInbox] = useState<Box>(emptyBox);
@@ -542,6 +545,7 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
             setIsComposeOpen(false);
             setReplyToLetter(null);
             setInitialRecipient("");
+            if (composeTo) onComposeClosed?.();
           }}
           onLetterSent={handleLetterSent}
         />
