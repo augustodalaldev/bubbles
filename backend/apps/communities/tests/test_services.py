@@ -364,3 +364,27 @@ def test_archive_community():
     with pytest.raises(DomainError) as exc_info:
         join_community(user=other_user, community=community)
     assert exc_info.value.code == "community_archived"
+
+
+def test_banned_member_cannot_leave_and_ban_row_stays():
+    community = CommunityFactory(member_count=1)
+    user = UserFactory()
+    CommunityMemberFactory(community=community, user=user, current_state=MemberState.BANNED)
+
+    with pytest.raises(DomainError) as exc:
+        leave_community(user=user, community=community)
+
+    assert exc.value.code == "member_banned"
+    assert CommunityMember.objects.filter(community=community, user=user).exists()
+    community.refresh_from_db()
+    assert community.member_count == 1
+
+
+def test_banned_member_cannot_rejoin_after_failed_leave():
+    community = CommunityFactory()
+    user = UserFactory()
+    CommunityMemberFactory(community=community, user=user, current_state=MemberState.BANNED)
+    with pytest.raises(DomainError):
+        leave_community(user=user, community=community)
+    with pytest.raises(DomainError):
+        join_community(user=user, community=community)

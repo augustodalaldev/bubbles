@@ -53,11 +53,7 @@ class BubblegramListCreateView(APIView):
         commname = serializer.validated_data.get("commname")
         community = get_community_by_commname(commname=commname) if commname else None
 
-        media_files = (
-            request.FILES.getlist("media_files")
-            or request.FILES.getlist("images")
-            or serializer.validated_data.get("media_files", [])
-        )
+        media_files = serializer.validated_data.get("media_files", [])
 
         bubblegram = create_bubblegram(
             author=request.user,

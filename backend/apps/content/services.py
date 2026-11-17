@@ -358,9 +358,9 @@ def support_bubblegram(*, donor: User, bubblegram: Bubblegram) -> BubblegramSupp
         membership = CommunityMember.objects.filter(
             community_id=bubblegram.community_id, user=donor
         ).first()
-        if membership and membership.current_state in (MemberState.SILENCED, MemberState.BANNED):
+        if not membership or membership.current_state != MemberState.ACTIVE:
             raise DomainError(
-                "Silenced or banned members cannot interact in this community.",
+                "Only active members can interact in this community.",
                 code="permission_denied",
                 http_status=403,
             )
@@ -469,9 +469,9 @@ def support_comment(*, donor: User, comment: Comment) -> CommentSupport:
                 http_status=403,
             )
         membership = CommunityMember.objects.filter(community=community, user=donor).first()
-        if membership and membership.current_state in (MemberState.SILENCED, MemberState.BANNED):
+        if not membership or membership.current_state != MemberState.ACTIVE:
             raise DomainError(
-                "Silenced or banned members cannot interact in this community.",
+                "Only active members can interact in this community.",
                 code="permission_denied",
                 http_status=403,
             )

@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from apps.accounts.serializers import PublicUserSerializer
+from apps.core.fields import SafeImageField
 
 from .models import Community, CommunityMember, MemberState
 from .selectors import compute_community_permissions, get_community_membership
@@ -15,16 +16,16 @@ class CommunityCreateSerializer(serializers.Serializer):
     guidelines = serializers.CharField(
         max_length=2000, required=False, allow_blank=True, default=""
     )
-    community_photo = serializers.ImageField(required=False, allow_null=True, default=None)
-    banner_photo = serializers.ImageField(required=False, allow_null=True, default=None)
+    community_photo = SafeImageField(required=False, allow_null=True, default=None)
+    banner_photo = SafeImageField(required=False, allow_null=True, default=None)
     customization_json = serializers.JSONField(required=False, default=dict)
 
 
 class CommunityUpdateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=60, required=False)
     description = serializers.CharField(max_length=500, required=False, allow_blank=True)
-    community_photo = serializers.ImageField(required=False, allow_null=True)
-    banner_photo = serializers.ImageField(required=False, allow_null=True)
+    community_photo = SafeImageField(required=False, allow_null=True)
+    banner_photo = SafeImageField(required=False, allow_null=True)
     customization_json = serializers.JSONField(required=False)
 
 

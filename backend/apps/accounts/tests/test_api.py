@@ -399,3 +399,32 @@ def test_user_followers_and_following_lists_api(auth_client):
     assert resp_following.status_code == status.HTTP_200_OK
     assert resp_following.data["count"] == 1
     assert resp_following.data["results"][0]["user"]["username"] == "friend1"
+
+
+@pytest.mark.parametrize(
+    ("path", "expected_status"),
+    [("/api/v1/auth/login/", 200), ("/api/v1/auth/register/", 400)],
+)
+def test_auth_endpoints_ignore_stale_bearer_header(api_client, path, expected_status):
+    """An expired access token in the header must not turn login/register into a 401."""
+    user = UserFactory(username="stale_user")
+    Wallet.objects.create(user=user, soap_balance=20)
+    api_client.credentials(HTTP_AUTHORIZATION="Bearer expired.or.garbage")
+    payload = {"identifier": "stale_user", "password": DEFAULT_PASSWORD}
+    response = api_client.post(path, data=payload, format="json")
+    assert response.status_code == expected_status
+
+
+def test_refresh_endpoint_ignores_stale_bearer_header(api_client):
+    user = UserFactory(username="refresh_user")
+    Wallet.objects.create(user=user, soap_balance=20)
+    login = api_client.post(
+        "/api/v1/auth/login/",
+        data={"identifier": "refresh_user", "password": DEFAULT_PASSWORD},
+        format="json",
+    )
+    assert login.status_code == status.HTTP_200_OK
+    api_client.credentials(HTTP_AUTHORIZATION="Bearer expired.or.garbage")
+    response = api_client.post("/api/v1/auth/refresh/")
+    assert response.status_code == status.HTTP_200_OK
+    assert "access" in response.data

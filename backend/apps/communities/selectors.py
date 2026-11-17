@@ -63,7 +63,7 @@ def compute_community_permissions(
             and not is_archived
             and not is_blocked
         ),
-        "can_leave": bool(is_member and not is_leader and not is_blocked),
+        "can_leave": bool(is_member and not is_leader and not is_blocked and not is_banned),
     }
 
 

@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from apps.accounts.serializers import PublicUserSerializer
 from apps.communities.models import Community, CommunityMember, MemberRole, MemberState
+from apps.core.fields import SafeImageField
 
 from .models import (
     Bubblegram,
@@ -88,7 +89,7 @@ class BubblegramCreateSerializer(serializers.Serializer):
     type = serializers.ChoiceField(choices=BubblegramType.choices, default=BubblegramType.TEXT)
     commname = serializers.CharField(required=False, allow_null=True, default=None)
     media_files = serializers.ListField(
-        child=serializers.ImageField(),
+        child=SafeImageField(),
         required=False,
         max_length=4,
         default=list,
@@ -189,7 +190,7 @@ class BubblepopSerializer(serializers.ModelSerializer):
 
 
 class BubblepopCreateSerializer(serializers.Serializer):
-    image = serializers.ImageField(required=True)
+    image = SafeImageField(required=True)
     duration_hours = serializers.IntegerField(min_value=1, max_value=48, default=24)
     description = serializers.CharField(
         max_length=500, required=False, allow_blank=True, default=""

@@ -33,5 +33,17 @@
 ## Pillar 6 — Moderation & Governance
 - [x] 6.1 Content moderation, user reports (`Report`), administrative audit logging (`AuditLog`), account suspension/ban, community blocking & admin tooling
 
+## Review & integration (see docs/REVIEW_PLAN.md)
+- [x] Phase 0 — Plan registered
+- [x] Phase 1 — Backend blockers: image upload validation (type + 10 MB, `images` bypass removed), banned members cannot leave, only ACTIVE members can support community content, user throttle 10000/day, auth endpoints ignore stale Bearer header (397 tests)
+- [ ] Phase 2 — Backend business rules
+- [ ] Phase 3 — API contract and error handling
+- [ ] Phase 4 — Frontend foundation (session, services, types)
+- [ ] Phase 5 — Screen-by-screen integration
+- [ ] Phase 6 — Loading / error / empty states
+- [ ] Phase 7 — Visual polish
+- [ ] Phase 8 — Repository hygiene
+- [ ] Phase 9 — Docs
+
 ## Notes
 - Do NOT run `migrate` until the custom `User` exists and `AUTH_USER_MODEL` is set (first task of 1.2).

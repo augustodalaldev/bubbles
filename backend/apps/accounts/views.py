@@ -65,6 +65,7 @@ def clear_refresh_cookie(response: Response) -> None:
 
 
 class RegisterView(APIView):
+    authentication_classes: list = []
     permission_classes = [AllowAny]
     throttle_scope = "auth"
 
@@ -85,6 +86,7 @@ class RegisterView(APIView):
 
 
 class LoginView(APIView):
+    authentication_classes: list = []
     permission_classes = [AllowAny]
     throttle_scope = "auth"
 
@@ -116,6 +118,7 @@ class LoginView(APIView):
 
 
 class RefreshTokenView(APIView):
+    authentication_classes: list = []
     permission_classes = [AllowAny]
 
     @extend_schema(request=RefreshTokenInputSerializer, responses={200: OpenApiTypes.OBJECT})

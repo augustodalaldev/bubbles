@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from apps.accounts.serializers import PublicUserSerializer
+from apps.core.fields import SafeImageField
 
 from .models import Letter
 
@@ -30,4 +31,4 @@ class LetterCreateSerializer(serializers.Serializer):
     recipient_username = serializers.CharField(required=True)
     text = serializers.CharField(max_length=5000, required=True, allow_blank=False)
     reply_to_id = serializers.IntegerField(required=False, allow_null=True, default=None)
-    image = serializers.ImageField(required=False, allow_null=True, default=None)
+    image = SafeImageField(required=False, allow_null=True, default=None)

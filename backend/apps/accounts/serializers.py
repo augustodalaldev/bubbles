@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
+from apps.core.fields import SafeImageField
 from apps.economy.models import SoapTransaction
 
 from .models import UserConnection
@@ -17,7 +18,7 @@ class RegisterInputSerializer(serializers.Serializer):
     description = serializers.CharField(
         max_length=250, required=False, allow_blank=True, default=""
     )
-    profile_photo = serializers.ImageField(required=False, allow_null=True, default=None)
+    profile_photo = SafeImageField(required=False, allow_null=True, default=None)
 
 
 class LoginInputSerializer(serializers.Serializer):
@@ -81,7 +82,7 @@ class UpdateProfileSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=50, required=False)
     description = serializers.CharField(max_length=250, required=False, allow_blank=True)
     birth_date = serializers.DateField(required=False)
-    profile_photo = serializers.ImageField(required=False, allow_null=True)
+    profile_photo = SafeImageField(required=False, allow_null=True)
     customization_json = serializers.JSONField(required=False)
 
 

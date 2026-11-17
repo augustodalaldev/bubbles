@@ -333,10 +333,16 @@ def leave_community(*, user: User, community: Community) -> None:
             http_status=400,
         )
 
-    if membership.current_state != MemberState.BANNED:
-        Community.objects.filter(pk=community.pk, member_count__gt=0).update(
-            member_count=F("member_count") - 1
+    if membership.current_state == MemberState.BANNED:
+        raise DomainError(
+            "Banned members cannot leave the community.",
+            code="member_banned",
+            http_status=403,
         )
+
+    Community.objects.filter(pk=community.pk, member_count__gt=0).update(
+        member_count=F("member_count") - 1
+    )
 
     membership.delete()
 
