@@ -12,7 +12,8 @@ env = environ.Env()
 environ.Env.read_env(REPO_ROOT / ".env")
 
 SECRET_KEY = env("DJANGO_SECRET_KEY")
-DEBUG = True
+# Off unless an environment settings module (dev/test) turns it on.
+DEBUG = False
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 
 DJANGO_APPS = [

@@ -31,7 +31,7 @@ def list_user_bubblegrams(*, username: str) -> QuerySet[Bubblegram]:
     return (
         Bubblegram.objects.select_related("user", "community")
         .prefetch_related("media")
-        .filter(user__username__iexact=username.strip().lower(), community__isnull=True)
+        .filter(user__username=username.strip().lower(), community__isnull=True)
         .order_by("-published_at")
     )
 
@@ -41,7 +41,7 @@ def list_community_bubblegrams(*, commname: str) -> QuerySet[Bubblegram]:
     return (
         Bubblegram.objects.select_related("user", "community")
         .prefetch_related("media")
-        .filter(community__commname__iexact=commname.strip().lower())
+        .filter(community__commname=commname.strip().lower())
         .order_by("-published_at")
     )
 
@@ -84,7 +84,7 @@ def list_user_bubblepops(*, username: str) -> QuerySet[Bubblepop]:
     return (
         Bubblepop.objects.select_related("user")
         .filter(
-            user__username__iexact=username.strip().lower(),
+            user__username=username.strip().lower(),
             expires_at__gt=timezone.now(),
         )
         .order_by("created_at")

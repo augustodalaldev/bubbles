@@ -40,18 +40,6 @@ class MyMembershipSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class CommunityPermissionsSerializer(serializers.Serializer):
-    can_edit = serializers.BooleanField()
-    can_edit_guidelines = serializers.BooleanField()
-    can_manage_members = serializers.BooleanField()
-    can_manage_admins = serializers.BooleanField()
-    can_transfer_leadership = serializers.BooleanField()
-    can_archive = serializers.BooleanField()
-    can_view_wallet = serializers.BooleanField()
-    can_join = serializers.BooleanField()
-    can_leave = serializers.BooleanField()
-
-
 class CommunityListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Community

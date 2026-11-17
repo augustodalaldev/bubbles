@@ -42,7 +42,7 @@
 - [x] Phase 5 — Screen-by-screen integration: feed, post modal + threaded comments, profile (own/others, follow), communities (hub/detail/create), store (purchase/equip via `slots`), letters (inbox/sent/compose/reply), bubblepop creation form. `mockData.ts`, dead components and `canvas-confetti` removed. Verified with a 43-check script that runs the real `services/` against a throwaway backend (all passed). Backend: members list ordered leader/admins/members (450 tests)
 - [x] Phase 6 — Loading / error / empty states: every data screen uses `LoadingState`/`ErrorState`/`EmptyState`; `insufficient_soap` shows cost and balance (pt-BR)
 - [x] Phase 7 — Visual polish: no all-caps labels (sentence case), only bubble shapes are rounded, no emojis/continuous animations, real avatars with initial fallback, bundle 488 kB (no >500 kB warning); official SVGs in `public/` verified identical to `references/`
-- [ ] Phase 8 — Repository hygiene
+- [x] Phase 8 — Repository hygiene: `__init__.py~` renamed to `__init__.py` + `*~` ignored, `DEBUG=False` in base, env-driven prod hardening (rejects placeholder secret, HTTPS redirect, HSTS, CSRF origins, proxy header) with tests, files deleted only on commit (`delete_file_on_commit`), tests use a temp `MEDIA_ROOT`, exact lookups for lowercase usernames/commnames, dead permission code removed, AuditLog read-only in admin (457 tests)
 - [ ] Phase 9 — Docs
 
 ## Notes

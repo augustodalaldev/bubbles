@@ -11,7 +11,7 @@ User = get_user_model()
 def get_community_by_commname(*, commname: str) -> Community:
     """Retrieve community by its unique handle."""
     clean_commname = commname.strip().lower()
-    community = Community.objects.filter(commname__iexact=clean_commname).first()
+    community = Community.objects.filter(commname=clean_commname).first()
     if not community:
         raise DomainError("Community not found.", code="community_not_found", http_status=404)
     return community

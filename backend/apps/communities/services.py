@@ -110,7 +110,7 @@ def create_community(
             extra={"fields": {"commname": [exc.message]}},
         ) from exc
 
-    if Community.objects.filter(commname__iexact=clean_commname).exists():
+    if Community.objects.filter(commname=clean_commname).exists():
         raise DomainError(
             "This community handle is not available.",
             code="commname_already_registered",
@@ -405,7 +405,7 @@ def moderate_member(
 
     target_membership = (
         CommunityMember.objects.select_related("user")
-        .filter(community=community, user__username__iexact=target_username.strip())
+        .filter(community=community, user__username=target_username.strip().lower())
         .first()
     )
     if not target_membership:
@@ -479,7 +479,7 @@ def promote_member(*, actor: User, community: Community, target_username: str) -
 
     target_membership = (
         CommunityMember.objects.select_related("user")
-        .filter(community=community, user__username__iexact=target_username.strip())
+        .filter(community=community, user__username=target_username.strip().lower())
         .first()
     )
     if not target_membership:
@@ -516,7 +516,7 @@ def demote_member(*, actor: User, community: Community, target_username: str) ->
 
     target_membership = (
         CommunityMember.objects.select_related("user")
-        .filter(community=community, user__username__iexact=target_username.strip())
+        .filter(community=community, user__username=target_username.strip().lower())
         .first()
     )
     if not target_membership:
@@ -558,7 +558,7 @@ def transfer_leadership(
 
     new_leader = (
         CommunityMember.objects.select_related("user")
-        .filter(community=community, user__username__iexact=new_leader_username.strip())
+        .filter(community=community, user__username=new_leader_username.strip().lower())
         .first()
     )
     if not new_leader:

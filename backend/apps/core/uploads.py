@@ -2,6 +2,7 @@ import uuid
 from pathlib import PurePath
 
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.utils.deconstruct import deconstructible
 from PIL import Image
 
@@ -12,6 +13,18 @@ ALLOWED_IMAGE_FORMATS = {
     "WEBP": {".webp"},
     "GIF": {".gif"},
 }
+
+
+def delete_file_on_commit(file_field) -> None:
+    """Delete a stored file once the surrounding transaction commits.
+
+    Deleting inside `atomic()` is unsafe: if the transaction rolls back, the database
+    rows survive but the file is already gone. Outside a transaction it runs immediately.
+    """
+    if not file_field:
+        return
+    storage, name = file_field.storage, file_field.name
+    transaction.on_commit(lambda: storage.delete(name))
 
 
 def validate_image_upload(file) -> None:

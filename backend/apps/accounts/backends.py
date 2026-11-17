@@ -20,7 +20,8 @@ class UsernameOrEmailBackend(ModelBackend):
         if "@" in identifier:
             user = User.objects.filter(email__iexact=identifier).first()
         else:
-            user = User.objects.filter(username__iexact=identifier).first()
+            # Usernames are lowercase-only (DB CHECK), so an exact match can use the index.
+            user = User.objects.filter(username=identifier.lower()).first()
 
         if user and user.check_password(password):
             if not user.is_active or user.deleted_at is not None:

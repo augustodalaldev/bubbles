@@ -17,7 +17,7 @@ def get_user_by_username(*, username: str) -> User:
     """
     clean_username = username.strip().lower()
     user = User.objects.filter(
-        username__iexact=clean_username,
+        username=clean_username,
         is_active=True,
         deleted_at__isnull=True,
     ).first()

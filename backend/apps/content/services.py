@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from apps.communities.models import Community, CommunityMember, MemberRole, MemberState
 from apps.core.exceptions import DomainError
+from apps.core.uploads import delete_file_on_commit
 from apps.economy.services import ensure_community_wallet, ensure_user_wallet
 
 from .models import (
@@ -183,7 +184,7 @@ def delete_bubblegram(*, actor: User, bubblegram: Bubblegram) -> None:
     media_files = [m.media for m in bubblegram.media.all() if m.media]
     bubblegram.delete()
     for media in media_files:
-        media.delete(save=False)
+        delete_file_on_commit(media)
 
 
 @transaction.atomic
@@ -598,8 +599,7 @@ def delete_bubblepop(*, actor: User, bubblepop: Bubblepop) -> None:
 
     image_file = bubblepop.image
     bubblepop.delete()
-    if image_file:
-        image_file.delete(save=False)
+    delete_file_on_commit(image_file)
 
 
 @transaction.atomic
@@ -615,6 +615,6 @@ def cleanup_expired_bubblepops(*, now: Any = None) -> int:
     Bubblepop.objects.filter(id__in=[pop.id for pop in expired_pops]).delete()
 
     for image in image_files:
-        image.delete(save=False)
+        delete_file_on_commit(image)
 
     return count

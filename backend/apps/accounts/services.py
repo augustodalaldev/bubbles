@@ -9,6 +9,7 @@ from django.db.models import F
 from django.utils import timezone
 
 from apps.core.exceptions import DomainError
+from apps.core.uploads import delete_file_on_commit
 
 from .models import UserConnection
 from .validators import (
@@ -57,7 +58,7 @@ def register_user(
         ) from exc
 
     # Uniqueness checks (case-insensitive)
-    if User.objects.filter(username__iexact=clean_username).exists():
+    if User.objects.filter(username=clean_username).exists():
         raise DomainError(
             "This username is not available.",
             code="username_already_registered",
@@ -266,7 +267,7 @@ def delete_account(*, user: User, password: str) -> None:
     user.name = "Deleted User"
     user.description = ""
     if user.profile_photo:
-        user.profile_photo.delete(save=False)
+        delete_file_on_commit(user.profile_photo)
         user.profile_photo = ""
     user.customization_json = {}
     user.set_unusable_password()
