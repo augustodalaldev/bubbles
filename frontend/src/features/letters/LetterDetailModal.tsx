@@ -1,5 +1,6 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { Letter, User } from "@/types";
+import { Avatar } from "@/components/Avatar";
 import { X, Reply, Clock, CheckCheck, Mail } from "lucide-react";
 
 interface LetterDetailModalProps {
@@ -7,7 +8,6 @@ interface LetterDetailModalProps {
   currentUser: User;
   onClose: () => void;
   onReply: (letter: Letter) => void;
-  onMarkAsRead?: (letterId: number) => void;
 }
 
 export const LetterDetailModal: React.FC<LetterDetailModalProps> = ({
@@ -15,17 +15,9 @@ export const LetterDetailModal: React.FC<LetterDetailModalProps> = ({
   currentUser,
   onClose,
   onReply,
-  onMarkAsRead,
 }) => {
   const isSender = letter.sender.id === currentUser.id;
   const otherPerson = isSender ? letter.recipient : letter.sender;
-
-  // Mark letter as read on open if recipient is current user and letter is unread
-  useEffect(() => {
-    if (!isSender && !letter.is_read && onMarkAsRead) {
-      onMarkAsRead(letter.id);
-    }
-  }, [isSender, letter.id, letter.is_read, onMarkAsRead]);
 
   // Format precise date and time
   const formatDateTime = (dateStr: string) => {
@@ -66,11 +58,7 @@ export const LetterDetailModal: React.FC<LetterDetailModalProps> = ({
         {/* Sender / Recipient Info Bar */}
         <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <img
-              src={otherPerson.profile_photo || ""}
-              alt={otherPerson.name}
-              className="w-10 h-10 rounded-full object-cover border border-slate-200"
-            />
+            <Avatar user={otherPerson} className="w-10 h-10" />
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-bold text-slate-900">

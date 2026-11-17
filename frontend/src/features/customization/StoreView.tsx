@@ -1,9 +1,12 @@
-import React, { useState, useMemo } from "react";
-import { CustomizationItem, User } from "@/types";
-import { MOCK_STORE_ITEMS, MOCK_USER } from "@/features/profile/mockData";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { CustomizationItem } from "@/types";
 import { CustomizationCard } from "./CustomizationCard";
 import { LiveProfilePreview } from "./LiveProfilePreview";
 import { SoapIcon } from "@/components/SoapIcon";
+import { ErrorState, LoadingState } from "@/components/StateViews";
+import { useAuthStore } from "@/features/auth/authStore";
+import { equipSlots, listItems, purchaseItem } from "@/services/customization";
+import { errorMessage } from "@/services/errors";
 import { 
   Store, 
   Compass, 
@@ -13,7 +16,6 @@ import {
   Package,
   Layers
 } from "lucide-react";
-import confetti from "canvas-confetti";
 
 interface StoreViewProps {
   onNavigateToView?: (view: string) => void;
@@ -24,138 +26,90 @@ export const StoreView: React.FC<StoreViewProps> = ({
   onNavigateToView,
   onNavigateToProfile,
 }) => {
-  const [currentUser, setCurrentUser] = useState<User>(MOCK_USER);
-  const [items, setItems] = useState<CustomizationItem[]>(MOCK_STORE_ITEMS);
+  const currentUser = useAuthStore((s) => s.user)!;
+  const economy = useAuthStore((s) => s.economy);
+  const refreshUser = useAuthStore((s) => s.refreshUser);
+
+  const [items, setItems] = useState<CustomizationItem[]>([]);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"catalog" | "inventory">("catalog");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [notice, setNotice] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
-  // Trigger soap confetti / bubbles shower
-  const triggerConfetti = () => {
-    confetti({
-      particleCount: 20,
-      angle: 90,
-      spread: 60,
-      startVelocity: 16,
-      decay: 0.92,
-      gravity: -0.2, // Rising bubble effect
-      colors: ["#F465AC", "#7B63FF", "#FFFFFF", "#4BF521"],
-    });
+  const passiveHint = economy
+    ? `+${economy.default_passive_earn_rate} a cada ${economy.passive_interval_minutes} min`
+    : "";
+
+  const showNotice = (message: string, type: "success" | "error") => {
+    setNotice({ message, type });
+    window.setTimeout(() => setNotice(null), 3500);
   };
 
-  // Handle Purchase of item with soap
-  const handlePurchase = (item: CustomizationItem) => {
-    const userSoap = currentUser.soap_balance ?? 0;
-    if (userSoap < item.price) {
-      setNotice({
-        message: `Saldo insuficiente (${userSoap} soap). São necessários ${item.price} soap.`,
-        type: "error",
-      });
-      setTimeout(() => setNotice(null), 3000);
-      return;
+  const loadItems = useCallback(async () => {
+    try {
+      const data = await listItems();
+      setItems(data.results);
+      setStatus("ready");
+    } catch (err) {
+      setLoadError(errorMessage(err));
+      setStatus("error");
     }
+  }, []);
 
-    triggerConfetti();
+  useEffect(() => {
+    void loadItems();
+  }, [loadItems]);
 
-    // Deduct soap
-    setCurrentUser((prev) => ({
-      ...prev,
-      soap_balance: Math.max(0, (prev.soap_balance ?? 0) - item.price),
-    }));
-
-    // Mark as owned
-    setItems((prev) =>
-      prev.map((i) => (i.id === item.id ? { ...i, is_owned: true } : i))
-    );
-
-    setNotice({
-      message: `Você adquiriu "${item.name}" por ${item.price} soap! O item já está no seu inventário.`,
-      type: "success",
-    });
-    setTimeout(() => setNotice(null), 3500);
-  };
-
-  // Handle Equip / Unequip Toggle
-  const handleEquipToggle = (item: CustomizationItem) => {
-    const slotKeyMap: Record<string, string> = {
-      AVATAR_FRAME: "avatar_frame",
-      PROFILE_THEME: "profile_theme",
-      CHAT_BUBBLE: "chat_bubble",
-      BADGE: "badge",
-    };
-
-    const slotKey = slotKeyMap[item.item_type] || "other";
-    const currentlyEquipped = item.is_equipped;
-
-    if (currentlyEquipped) {
-      // Unequip
-      setCurrentUser((prev) => {
-        const nextCustomization = { ...(prev.customization_json || {}) };
-        delete nextCustomization[slotKey];
-        return {
-          ...prev,
-          customization_json: nextCustomization,
-        };
-      });
-
-      setItems((prev) =>
-        prev.map((i) => (i.id === item.id ? { ...i, is_equipped: false } : i))
-      );
-
-      setNotice({
-        message: `Item "${item.name}" foi desequipado.`,
-        type: "success",
-      });
-    } else {
-      // Equip (replaces anything in the same slot)
-      setCurrentUser((prev) => ({
-        ...prev,
-        customization_json: {
-          ...(prev.customization_json || {}),
-          [slotKey]: {
-            id: item.id,
-            code: item.code,
-            name: item.name,
-            metadata: item.metadata,
-          },
-        },
-      }));
-
-      setItems((prev) =>
-        prev.map((i) => {
-          if (i.item_type === item.item_type) {
-            return { ...i, is_equipped: i.id === item.id };
-          }
-          return i;
-        })
-      );
-
-      setNotice({
-        message: `"${item.name}" equipado com sucesso!`,
-        type: "success",
-      });
+  const handlePurchase = async (item: CustomizationItem) => {
+    setBusyId(item.id);
+    try {
+      await purchaseItem(item.id);
+      await Promise.all([loadItems(), refreshUser()]);
+      showNotice(`Você adquiriu "${item.name}". O item já está no seu inventário.`, "success");
+    } catch (err) {
+      showNotice(errorMessage(err), "error");
+    } finally {
+      setBusyId(null);
     }
-
-    setTimeout(() => setNotice(null), 3000);
   };
 
-  // Filtered Items by tab and category
+  // Slot names are the lower-cased item types; `null` unequips the slot.
+  const handleEquipToggle = async (item: CustomizationItem) => {
+    setBusyId(item.id);
+    try {
+      await equipSlots({ [item.item_type.toLowerCase()]: item.is_equipped ? null : item.id });
+      await Promise.all([loadItems(), refreshUser()]);
+      showNotice(
+        item.is_equipped ? `"${item.name}" foi desequipado.` : `"${item.name}" equipado com sucesso.`,
+        "success"
+      );
+    } catch (err) {
+      showNotice(errorMessage(err), "error");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const filteredItems = useMemo(() => {
     let list = items;
-
-    if (activeTab === "inventory") {
-      list = list.filter((i) => i.is_owned);
-    }
-
-    if (selectedCategory !== "ALL") {
-      list = list.filter((i) => i.item_type === selectedCategory);
-    }
-
+    if (activeTab === "inventory") list = list.filter((i) => i.is_owned);
+    if (selectedCategory !== "ALL") list = list.filter((i) => i.item_type === selectedCategory);
     return list;
   }, [items, activeTab, selectedCategory]);
 
   const ownedCount = items.filter((i) => i.is_owned).length;
   const equippedCount = items.filter((i) => i.is_equipped).length;
+
+  if (status === "loading") return <LoadingState label="Carregando a loja..." />;
+  if (status === "error") {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-10">
+        <ErrorState message={loadError ?? "Não foi possível carregar a loja."} onRetry={() => void loadItems()} />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-3 h-[calc(100vh-3.5rem)] overflow-hidden">
@@ -173,7 +127,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                 Minha Carteira
               </span>
               <span className="text-[10px] font-semibold text-pink-700 bg-pink-50 px-1.5 py-0.2 rounded-sm border border-pink-200">
-                +5/dia
+                {passiveHint}
               </span>
             </div>
             <div className="p-3">
@@ -355,8 +309,9 @@ export const StoreView: React.FC<StoreViewProps> = ({
                   key={item.id}
                   item={item}
                   currentUser={currentUser}
-                  onPurchase={handlePurchase}
-                  onEquipToggle={handleEquipToggle}
+                  busy={busyId === item.id}
+                  onPurchase={(i) => void handlePurchase(i)}
+                  onEquipToggle={(i) => void handleEquipToggle(i)}
                 />
               ))}
             </div>
@@ -400,7 +355,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                   1
                 </span>
                 <span>
-                  <strong>Geração Diária:</strong> Receba +5 soap automaticamente todos os dias ao acessar a rede.
+                  <strong>Ganho passivo:</strong> {economy ? `receba ${economy.default_passive_earn_rate} soap a cada ${economy.passive_interval_minutes} minutos de uso, até ${economy.passive_daily_cap} por dia.` : "receba soap enquanto usa a rede."}
                 </span>
               </div>
               <div className="flex items-start gap-2">

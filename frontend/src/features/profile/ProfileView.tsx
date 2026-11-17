@@ -27,6 +27,7 @@ interface ProfileViewProps {
   username: string | null;
   onOpenProfile: (username: string) => void;
   onNavigateToView: (view: string) => void;
+  onWriteLetter: (username: string) => void;
   onSelectCommunity?: (community: Community) => void;
 }
 
@@ -40,6 +41,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   username,
   onOpenProfile,
   onNavigateToView,
+  onWriteLetter,
   onSelectCommunity,
 }) => {
   const me = useAuthStore((s) => s.user)!;
@@ -196,7 +198,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {profile.is_following ? "Seguindo" : "Seguir"}
                   </button>
                   <button
-                    onClick={() => onNavigateToView("letters")}
+                    onClick={() => onWriteLetter(profile.username)}
                     title="Enviar uma carta"
                     className="btn-purple py-1.5 px-2 text-xs font-semibold flex items-center justify-center gap-1.5"
                   >

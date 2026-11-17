@@ -1,6 +1,8 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Letter, User } from "@/types";
-import { MOCK_FRIENDS } from "@/features/profile/mockData";
+import { listFollowing } from "@/services/users";
+import { sendLetter } from "@/services/letters";
+import { errorMessage } from "@/services/errors";
 import { X, Send, UploadCloud, AlertCircle, Mail } from "lucide-react";
 
 interface LetterComposeModalProps {
@@ -22,6 +24,8 @@ export const LetterComposeModal: React.FC<LetterComposeModalProps> = ({
     replyToLetter?.sender.username || initialRecipientUsername || ""
   );
   const [text, setText] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [following, setFollowing] = useState<User[]>([]);
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileSizeStr, setFileSizeStr] = useState<string | null>(null);
@@ -33,35 +37,45 @@ export const LetterComposeModal: React.FC<LetterComposeModalProps> = ({
 
   const isReply = !!replyToLetter;
 
+  // Letters can only be started with people you follow, so suggest exactly those.
+  useEffect(() => {
+    if (isReply) return;
+    listFollowing(currentUser.username, 1)
+      .then((data) => setFollowing(data.results.slice(0, 5).map((item) => item.user)))
+      .catch(() => setFollowing([]));
+  }, [isReply, currentUser.username]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setError(null);
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const picked = e.target.files?.[0];
+    if (!picked) return;
 
-    if (file.size > MAX_FILE_SIZE) {
-      setError(`O anexo possui ${(file.size / (1024 * 1024)).toFixed(1)} MB e ultrapassa o limite máximo permitido de 10 MB.`);
+    if (picked.size > MAX_FILE_SIZE) {
+      setError(`O anexo possui ${(picked.size / (1024 * 1024)).toFixed(1)} MB e ultrapassa o limite de 10 MB.`);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
-    setFileName(file.name);
-    setFileSizeStr((file.size / (1024 * 1024)).toFixed(2) + " MB");
+    setFile(picked);
+    setFileName(picked.name);
+    setFileSizeStr((picked.size / (1024 * 1024)).toFixed(2) + " MB");
 
     const reader = new FileReader();
     reader.onload = () => {
       setImageDataUrl(reader.result as string);
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(picked);
   };
 
   const handleRemoveImage = () => {
+    setFile(null);
     setImageDataUrl(null);
     setFileName(null);
     setFileSizeStr(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -70,49 +84,29 @@ export const LetterComposeModal: React.FC<LetterComposeModalProps> = ({
       setError("Informe o destinatário da carta.");
       return;
     }
-
     if (targetUser === currentUser.username.toLowerCase()) {
       setError("Você não pode enviar uma carta para si mesmo.");
       return;
     }
-
     if (!text.trim()) {
       setError("Escreva uma mensagem para sua carta.");
       return;
     }
 
     setLoading(true);
-
-    setTimeout(() => {
-      // Find recipient details or construct from friends
-      const foundFriend = MOCK_FRIENDS.find((f) => f.username.toLowerCase() === targetUser);
-      const recipientUser: User = {
-        id: foundFriend?.id || Date.now() + 99,
-        username: targetUser,
-        name: foundFriend?.name || `@${targetUser}`,
-        description: "",
-        profile_photo: foundFriend?.avatar || null,
-        customization_json: {},
-        is_active: true,
-        created_at: new Date().toISOString(),
-      };
-
-      const newLetter: Letter = {
-        id: Date.now(),
-        sender: currentUser,
-        recipient: isReply ? replyToLetter.sender : recipientUser,
-        reply_to: replyToLetter ? replyToLetter.id : null,
+    try {
+      const sent = await sendLetter({
+        recipientUsername: targetUser,
         text: text.trim(),
-        image: imageDataUrl,
-        sent_at: new Date().toISOString(),
-        read_at: null,
-        is_read: false,
-      };
-
-      onLetterSent(newLetter);
-      setLoading(false);
+        replyToId: replyToLetter?.id ?? null,
+        image: file,
+      });
+      onLetterSent(sent);
       onClose();
-    }, 400);
+    } catch (err) {
+      setError(errorMessage(err));
+      setLoading(false);
+    }
   };
 
   return (
@@ -177,10 +171,10 @@ export const LetterComposeModal: React.FC<LetterComposeModalProps> = ({
             </div>
 
             {/* Quick friend suggestions */}
-            {!isReply && (
+            {!isReply && following.length > 0 && (
               <div className="mt-1.5 flex items-center gap-1 overflow-x-auto pb-1 text-[11px]">
-                <span className="text-slate-400 text-[10px] mr-1">Sugestões:</span>
-                {MOCK_FRIENDS.slice(0, 4).map((friend) => (
+                <span className="text-slate-400 text-[10px] mr-1">Quem você segue:</span>
+                {following.map((friend) => (
                   <button
                     key={friend.id}
                     type="button"

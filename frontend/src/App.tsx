@@ -55,6 +55,7 @@ function AuthenticatedApp() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedCommname, setSelectedCommname] = useState<string | null>(null);
   const [profileUsername, setProfileUsername] = useState<string | null>(null);
+  const [letterRecipient, setLetterRecipient] = useState<string | null>(null);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col justify-between font-sans">
@@ -67,6 +68,7 @@ function AuthenticatedApp() {
               setSelectedCommname(null);
             }
             if (view === "profile") setProfileUsername(null);
+            if (view !== "letters") setLetterRecipient(null);
             setCurrentView(view);
           }}
           onSearchChange={(term) => {
@@ -133,7 +135,7 @@ function AuthenticatedApp() {
 
         {currentView === "letters" && (
           <LettersInboxView
-            currentUser={user}
+            composeTo={letterRecipient}
             onNavigateToView={(v) => setCurrentView(v as View)}
             onNavigateToProfile={() => setCurrentView("profile")}
           />
@@ -144,6 +146,10 @@ function AuthenticatedApp() {
             username={profileUsername}
             onOpenProfile={(username) => setProfileUsername(username === user.username ? null : username)}
             onNavigateToView={(v) => setCurrentView(v as View)}
+            onWriteLetter={(username) => {
+              setLetterRecipient(username);
+              setCurrentView("letters");
+            }}
             onSelectCommunity={(comm) => {
               setSelectedCommname(comm.commname);
               setCurrentView("community-detail");

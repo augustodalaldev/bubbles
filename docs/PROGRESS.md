@@ -39,8 +39,8 @@
 - [x] Phase 2 — Backend business rules: bubblepop suspension/limits/expiry, concurrent purchase, non-numeric ids, report audit, `*_username` null fields, letter read via service (404 for outsiders), community row lock + blocked checks, community customization blocked until purchases exist, logout/refresh hardening, passive cap in local time, zero-cost settings, absolute image URLs (435 tests)
 - [x] Phase 3 — API contract and error handling: Http404/PermissionDenied/ValidationError/IntegrityError mapped to the envelope, nested errors flattened (`media_files[1]`), headers preserved, JSON 404/500 for `/api/` (effective with DEBUG=False), shared `StandardPagination`, `ensure_user_wallet`/`ensure_community_wallet`, `is_staff` on `/users/me/` (449 tests)
 - [x] Phase 4 — Frontend foundation: in-memory access token + single-flight refresh, no Bearer on `/auth/*`, typed per-domain `services/`, pt-BR error mapping by API `code`, session bootstrap/login/register/logout, heartbeat every 5 min, session gate in `App.tsx`, real balance/avatar in the Header (mock login removed). Verified against a throwaway database (migrate from scratch + auth flow). `mockData.ts` is temporarily `@ts-nocheck` until phase 5
-- [ ] Phase 5 — Screen-by-screen integration
-- [ ] Phase 6 — Loading / error / empty states
+- [x] Phase 5 — Screen-by-screen integration: feed, post modal + threaded comments, profile (own/others, follow), communities (hub/detail/create), store (purchase/equip via `slots`), letters (inbox/sent/compose/reply), bubblepop creation form. `mockData.ts`, dead components and `canvas-confetti` removed. Verified with a 43-check script that runs the real `services/` against a throwaway backend (all passed). Backend: members list ordered leader/admins/members (450 tests)
+- [x] Phase 6 — Loading / error / empty states: every data screen uses `LoadingState`/`ErrorState`/`EmptyState`; `insufficient_soap` shows cost and balance (pt-BR)
 - [ ] Phase 7 — Visual polish
 - [ ] Phase 8 — Repository hygiene
 - [ ] Phase 9 — Docs

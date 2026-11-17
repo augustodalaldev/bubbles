@@ -1,5 +1,6 @@
 import React from "react";
 import { User } from "@/types";
+import { Avatar } from "@/components/Avatar";
 import { SoapIcon } from "@/components/SoapIcon";
 import { ShieldCheck, Eye } from "lucide-react";
 
@@ -64,11 +65,7 @@ export const LiveProfilePreview: React.FC<LiveProfilePreviewProps> = ({
                 boxShadow: glow,
               }}
             >
-              <img
-                src={currentUser.profile_photo || ""}
-                alt={currentUser.name}
-                className="w-full h-full object-cover rounded-full"
-              />
+              <Avatar user={currentUser} className="w-full h-full border-0" />
             </div>
           </div>
 
@@ -98,14 +95,14 @@ export const LiveProfilePreview: React.FC<LiveProfilePreviewProps> = ({
           <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-around text-[10px] text-slate-500">
             <div>
               <span className="font-bold text-slate-900 block text-xs">
-                {currentUser.followers_count ?? 148}
+                {currentUser.followers_count ?? 0}
               </span>
               seguidores
             </div>
             <div className="h-4 w-px bg-slate-200" />
             <div>
               <span className="font-bold text-slate-900 block text-xs">
-                {currentUser.following_count ?? 92}
+                {currentUser.following_count ?? 0}
               </span>
               seguindo
             </div>

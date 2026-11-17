@@ -8,6 +8,7 @@ interface CustomizationCardProps {
   currentUser: User;
   onPurchase: (item: CustomizationItem) => void;
   onEquipToggle: (item: CustomizationItem) => void;
+  busy?: boolean;
 }
 
 export const CustomizationCard: React.FC<CustomizationCardProps> = ({
@@ -15,6 +16,7 @@ export const CustomizationCard: React.FC<CustomizationCardProps> = ({
   currentUser,
   onPurchase,
   onEquipToggle,
+  busy = false,
 }) => {
   const isOwned = item.is_owned;
   const isEquipped = item.is_equipped;
@@ -186,6 +188,7 @@ export const CustomizationCard: React.FC<CustomizationCardProps> = ({
         <div>
           {isOwned ? (
             <button
+              disabled={busy}
               onClick={() => onEquipToggle(item)}
               className={`px-3 py-1 text-xs font-bold rounded-sm transition-all shadow-xs ${
                 isEquipped
@@ -198,7 +201,7 @@ export const CustomizationCard: React.FC<CustomizationCardProps> = ({
           ) : (
             <button
               onClick={() => onPurchase(item)}
-              disabled={!canAfford}
+              disabled={busy || !canAfford}
               className={`px-3 py-1 text-xs font-bold rounded-sm transition-all shadow-xs ${
                 !canAfford
                   ? "bg-slate-200 text-slate-400 cursor-not-allowed"
