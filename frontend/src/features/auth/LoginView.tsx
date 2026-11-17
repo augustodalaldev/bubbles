@@ -1,14 +1,12 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import { paths } from "@/routes";
 import { BrandLogo } from "@/components/BrandLogo";
 import { errorMessage } from "@/services/errors";
 import { useAuthStore } from "./authStore";
 import { ArrowRight, AlertCircle, Lock, User as UserIcon } from "lucide-react";
 
-interface LoginViewProps {
-  onNavigateToRegister: () => void;
-}
-
-export const LoginView: React.FC<LoginViewProps> = ({ onNavigateToRegister }) => {
+export const LoginView: React.FC = () => {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -108,9 +106,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onNavigateToRegister }) =>
 
         <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 text-center text-xs text-slate-600">
           Ainda não tem conta?{" "}
-          <button onClick={onNavigateToRegister} className="font-bold text-pink-600 hover:underline">
+          <Link to={paths.register} className="font-bold text-pink-600 hover:underline">
             Cadastre-se e ganhe soap de boas-vindas
-          </button>
+          </Link>
         </div>
       </div>
     </div>

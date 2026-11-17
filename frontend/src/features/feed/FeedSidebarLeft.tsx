@@ -1,4 +1,6 @@
 import React from "react";
+import { Link } from "react-router-dom";
+import { paths } from "@/routes";
 import { User } from "@/types";
 import { Avatar } from "@/components/Avatar";
 import { SoapIcon } from "@/components/SoapIcon";
@@ -7,15 +9,11 @@ import { Compass, User as UserIcon, Users, Store, Mail } from "lucide-react";
 
 interface FeedSidebarLeftProps {
   currentUser: User;
-  onNavigateToProfile: () => void;
-  onNavigateToView?: (view: string) => void;
   unreadLettersCount?: number;
 }
 
 export const FeedSidebarLeft: React.FC<FeedSidebarLeftProps> = ({
   currentUser,
-  onNavigateToProfile,
-  onNavigateToView,
   unreadLettersCount = 0,
 }) => {
   const economy = useAuthStore((s) => s.economy);
@@ -27,21 +25,21 @@ export const FeedSidebarLeft: React.FC<FeedSidebarLeftProps> = ({
         <div className="p-3 text-center">
           
           {/* User Avatar (Clean, no filter overlay) */}
-          <div 
-            onClick={onNavigateToProfile}
-            className="cursor-pointer inline-block mx-auto mb-2 relative"
+          <Link
+            to={paths.profile(currentUser.username)}
+            aria-label="Meu perfil"
+            className="inline-block mx-auto mb-2 relative"
           >
             <Avatar
               user={currentUser}
               className="w-16 h-16 mx-auto hover:border-pink-500 transition-colors"
             />
-          </div>
+          </Link>
 
-          <h2 
-            onClick={onNavigateToProfile}
-            className="text-xs font-bold text-slate-900 hover:text-pink-600 cursor-pointer truncate"
-          >
-            {currentUser.name}
+          <h2 className="text-xs font-bold text-slate-900 truncate">
+            <Link to={paths.profile(currentUser.username)} className="hover:text-pink-600">
+              {currentUser.name}
+            </Link>
           </h2>
           <span className="text-[11px] text-slate-400 block -mt-0.5 mb-2">
             @{currentUser.username}
@@ -92,40 +90,40 @@ export const FeedSidebarLeft: React.FC<FeedSidebarLeftProps> = ({
         </div>
         <div className="p-1 text-xs">
           
-          <button
-            onClick={() => onNavigateToView?.("feed")}
+          <Link to={paths.home}
+            
             className="w-full flex items-center gap-2.5 px-3 py-2 text-pink-700 font-semibold bg-pink-50/60 rounded-sm transition-colors text-left"
           >
             <Compass className="w-4 h-4 text-pink-600" />
             <span>Início (feed)</span>
-          </button>
+          </Link>
 
-          <button
-            onClick={onNavigateToProfile}
+          <Link to={paths.profile(currentUser.username)}
+            
             className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left"
           >
             <UserIcon className="w-4 h-4 text-slate-400" />
             <span>Meu perfil</span>
-          </button>
+          </Link>
 
-          <button
-            onClick={() => onNavigateToView?.("communities")}
+          <Link to={paths.communities}
+            
             className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left"
           >
             <Users className="w-4 h-4 text-slate-400" />
             <span>Comunidades</span>
-          </button>
+          </Link>
 
-          <button
-            onClick={() => onNavigateToView?.("store")}
+          <Link to={paths.store}
+            
             className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left"
           >
             <Store className="w-4 h-4 text-slate-400" />
             <span>Loja de soap</span>
-          </button>
+          </Link>
 
-          <button
-            onClick={() => onNavigateToView?.("letters")}
+          <Link to={paths.letters}
+            
             className="w-full flex items-center justify-between px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left"
           >
             <div className="flex items-center gap-2.5">
@@ -137,7 +135,7 @@ export const FeedSidebarLeft: React.FC<FeedSidebarLeftProps> = ({
                 {unreadLettersCount}
               </span>
             )}
-          </button>
+          </Link>
 
         </div>
       </div>

@@ -1,15 +1,13 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import { paths } from "@/routes";
 import { BrandLogo } from "@/components/BrandLogo";
 import { SoapIcon } from "@/components/SoapIcon";
 import { errorMessage, fieldErrors } from "@/services/errors";
 import { useAuthStore } from "./authStore";
 import { ArrowRight, AlertCircle } from "lucide-react";
 
-interface RegisterViewProps {
-  onNavigateToLogin: () => void;
-}
-
-export const RegisterView: React.FC<RegisterViewProps> = ({ onNavigateToLogin }) => {
+export const RegisterView: React.FC = () => {
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -208,12 +206,12 @@ export const RegisterView: React.FC<RegisterViewProps> = ({ onNavigateToLogin })
         {/* Footer / Switch to Login */}
         <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 text-center text-xs text-slate-600">
           Já possui conta?{" "}
-          <button
-            onClick={onNavigateToLogin}
+          <Link to={paths.login}
+            
             className="font-bold text-pink-600 hover:underline"
           >
             Entrar
-          </button>
+          </Link>
         </div>
 
       </div>

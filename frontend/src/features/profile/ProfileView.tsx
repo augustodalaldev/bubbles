@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { paths } from "@/routes";
 import { BubblegramBall } from "./BubblegramBall";
 import { BubblepopStory } from "./BubblepopStory";
 import { PostDetailModal } from "./PostDetailModal";
@@ -25,10 +27,6 @@ import { UserPlus, Mail, Calendar, Layers, Grid, Plus, Clock, ShoppingBag } from
 interface ProfileViewProps {
   /** Profile to show; null means the signed-in user's own profile. */
   username: string | null;
-  onOpenProfile: (username: string) => void;
-  onNavigateToView: (view: string) => void;
-  onWriteLetter: (username: string) => void;
-  onSelectCommunity?: (community: Community) => void;
 }
 
 /** Spreads real posts over the mural: two columns, growing downwards. */
@@ -39,10 +37,6 @@ const layoutFor = (index: number) => ({
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
   username,
-  onOpenProfile,
-  onNavigateToView,
-  onWriteLetter,
-  onSelectCommunity,
 }) => {
   const me = useAuthStore((s) => s.user)!;
   const economy = useAuthStore((s) => s.economy);
@@ -197,14 +191,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     <UserPlus className="w-3.5 h-3.5" />
                     {profile.is_following ? "Seguindo" : "Seguir"}
                   </button>
-                  <button
-                    onClick={() => onWriteLetter(profile.username)}
+                  <Link to={paths.lettersTo(profile.username)}
+                    
                     title="Enviar uma carta"
                     className="btn-purple py-1.5 px-2 text-xs font-semibold flex items-center justify-center gap-1.5"
                   >
                     <Mail className="w-3.5 h-3.5" />
                     Carta
-                  </button>
+                  </Link>
                 </div>
               )}
               {actionError && (
@@ -253,9 +247,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <div className="panel-classic">
               <div className="panel-classic-header">
                 <span className="text-sm sm:text-base font-bold text-slate-800">Cartas</span>
-                <button onClick={() => onNavigateToView("letters")} className="text-xs text-pink-600 font-semibold hover:underline">
+                <Link to={paths.letters}  className="text-xs text-pink-600 font-semibold hover:underline">
                   Abrir caixa postal
-                </button>
+                </Link>
               </div>
               <div className="p-3 space-y-2.5">
                 {recentLetters.length === 0 ? (
@@ -420,13 +414,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     {economy.passive_interval_minutes} min de uso, até {economy.passive_daily_cap} por dia.
                   </p>
                 )}
-                <button
-                  onClick={() => onNavigateToView("store")}
+                <Link to={paths.store}
+                  
                   className="mt-2.5 w-full btn-outline py-1.5 px-3 text-xs font-semibold flex items-center justify-center gap-1.5 text-slate-700 hover:text-pink-600"
                 >
                   <ShoppingBag className="w-3.5 h-3.5 text-pink-500" />
                   Loja de personalização
-                </button>
+                </Link>
               </div>
             </div>
           )}
@@ -441,12 +435,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               ) : (
                 <div className="grid grid-cols-2 gap-3">
                   {followers.slice(0, 6).map(({ id, user }) => (
-                    <button key={id} onClick={() => onOpenProfile(user.username)} className="flex flex-col items-center group">
+                    <Link to={paths.profile(user.username)} key={id}  className="flex flex-col items-center group">
                       <Avatar user={user} className="w-14 h-14 group-hover:opacity-90" />
                       <span className="text-[11px] font-medium text-slate-700 mt-1 truncate max-w-[65px] text-center group-hover:text-pink-600">
                         {user.name.split(" ")[0]}
                       </span>
-                    </button>
+                    </Link>
                   ))}
                 </div>
               )}
@@ -457,18 +451,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <div className="panel-classic">
               <div className="panel-classic-header">
                 <span className="text-sm sm:text-base font-bold text-slate-800">Comunidades ({myCommunities.length})</span>
-                <button onClick={() => onNavigateToView("communities")} className="text-xs text-pink-600 font-semibold hover:underline">
+                <Link to={paths.communities}  className="text-xs text-pink-600 font-semibold hover:underline">
                   ver todas
-                </button>
+                </Link>
               </div>
               <div className="p-3 space-y-2">
                 {myCommunities.length === 0 ? (
                   <p className="text-xs text-slate-400">Você ainda não participa de comunidades.</p>
                 ) : (
                   myCommunities.map((comm) => (
-                    <button
+                    <Link to={paths.community(comm.commname)}
                       key={comm.id}
-                      onClick={() => onSelectCommunity?.(comm)}
+                      
                       className="w-full flex items-center gap-2.5 p-1.5 hover:bg-slate-50 transition-colors group rounded-sm text-left"
                     >
                       {comm.community_photo ? (
@@ -482,7 +476,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <h4 className="text-xs font-semibold text-slate-800 truncate group-hover:text-pink-600">{comm.name}</h4>
                         <span className="text-[10px] text-slate-400">{comm.member_count.toLocaleString("pt-BR")} membros</span>
                       </div>
-                    </button>
+                    </Link>
                   ))
                 )}
               </div>

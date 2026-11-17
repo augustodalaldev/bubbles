@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { paths } from "@/routes";
 import { Bubblegram, Community, CommunityMemberItem } from "@/types";
 import { Avatar } from "@/components/Avatar";
 import { BubbleOverlay } from "@/components/BubbleOverlay";
@@ -34,8 +36,6 @@ import {
 
 interface CommunityDetailViewProps {
   commname: string;
-  onBackToHub: () => void;
-  onOpenProfile?: (username: string) => void;
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // mirrors the server limit, only to fail fast
@@ -43,10 +43,9 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // mirrors the server limit, only to fai
 const MemberLine: React.FC<{
   member: CommunityMemberItem;
   badge?: { label: string; className: string };
-  onOpenProfile?: (username: string) => void;
-}> = ({ member, badge, onOpenProfile }) => (
-  <button
-    onClick={() => onOpenProfile?.(member.user.username)}
+}> = ({ member, badge }) => (
+  <Link to={paths.profile(member.user.username)}
+    
     className="w-full py-2 flex items-center justify-between gap-3 text-left first:pt-0 last:pb-0"
   >
     <span className="flex items-center gap-2.5 min-w-0">
@@ -69,10 +68,10 @@ const MemberLine: React.FC<{
     <span className="text-[10px] text-slate-400 flex-shrink-0">
       Entrou em {new Date(member.joined_at).toLocaleDateString("pt-BR")}
     </span>
-  </button>
+  </Link>
 );
 
-export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commname, onBackToHub, onOpenProfile }) => {
+export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commname }) => {
   const economy = useAuthStore((s) => s.economy);
   const refreshUser = useAuthStore((s) => s.refreshUser);
 
@@ -178,9 +177,9 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
       <div className="max-w-xl mx-auto px-4 py-10">
         <ErrorState message={loadError ?? "Não foi possível carregar a comunidade."} onRetry={() => void loadCommunity()} />
         <div className="text-center">
-          <button onClick={onBackToHub} className="text-xs text-pink-600 hover:underline">
+          <Link to={paths.communities}  className="text-xs text-pink-600 hover:underline">
             Voltar para comunidades
-          </button>
+          </Link>
         </div>
       </div>
     );
@@ -296,13 +295,13 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start h-full">
         {/* Left column */}
         <div className="lg:col-span-3 h-full overflow-y-auto scrollbar-none hidden lg:block space-y-4">
-          <button
-            onClick={onBackToHub}
+          <Link to={paths.communities}
+            
             className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-pink-600 transition-colors py-1"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Voltar para comunidades</span>
-          </button>
+          </Link>
 
           <div className="panel-classic">
             <div className="p-4 text-center">
@@ -570,7 +569,6 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
                       post={post}
                       onOpenDetail={(p) => setSelectedPost(p)}
                       onDeleted={removePost}
-                      onOpenProfile={onOpenProfile}
                     />
                   ))}
                   {postsNext !== null && (
@@ -664,7 +662,7 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
                         <span className="text-xs font-bold text-slate-900">Líder</span>
                       </div>
                       <div className="p-3">
-                        <MemberLine member={leader} badge={{ label: "Líder", className: "text-purple-700 bg-purple-50 border-purple-200" }} onOpenProfile={onOpenProfile} />
+                        <MemberLine member={leader} badge={{ label: "Líder", className: "text-purple-700 bg-purple-50 border-purple-200" }} />
                       </div>
                     </div>
                   )}
@@ -675,7 +673,7 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
                       </div>
                       <div className="p-3 divide-y divide-slate-100">
                         {admins.map((m) => (
-                          <MemberLine key={m.id} member={m} badge={{ label: "Moderador", className: "text-pink-700 bg-pink-50 border-pink-200" }} onOpenProfile={onOpenProfile} />
+                          <MemberLine key={m.id} member={m} badge={{ label: "Moderador", className: "text-pink-700 bg-pink-50 border-pink-200" }} />
                         ))}
                       </div>
                     </div>
@@ -688,7 +686,7 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
                       {regular.length === 0 ? (
                         <p className="text-xs text-slate-400">Nenhum outro membro ainda.</p>
                       ) : (
-                        regular.map((m) => <MemberLine key={m.id} member={m} onOpenProfile={onOpenProfile} />)
+                        regular.map((m) => <MemberLine key={m.id} member={m} />)
                       )}
                     </div>
                   </div>
@@ -716,7 +714,7 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
             </div>
             <div className="p-2.5 space-y-2">
               {[...(leader ? [leader] : []), ...admins].map((m) => (
-                <button key={m.id} onClick={() => onOpenProfile?.(m.user.username)} className="w-full flex items-center gap-2 text-left">
+                <Link to={paths.profile(m.user.username)} key={m.id}  className="w-full flex items-center gap-2 text-left">
                   <Avatar user={m.user} className="w-7 h-7 flex-shrink-0" />
                   <span className="min-w-0">
                     <span className="text-xs font-bold text-slate-800 block truncate">{m.user.name}</span>
@@ -724,7 +722,7 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
                       {m.role === "LEADER" ? "Líder" : "Moderador"}
                     </span>
                   </span>
-                </button>
+                </Link>
               ))}
               {!leader && admins.length === 0 && <p className="text-xs text-slate-400">Carregando equipe...</p>}
             </div>

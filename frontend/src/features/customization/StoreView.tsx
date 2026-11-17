@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { paths } from "@/routes";
 import { CustomizationItem } from "@/types";
 import { CustomizationCard } from "./CustomizationCard";
 import { LiveProfilePreview } from "./LiveProfilePreview";
@@ -18,13 +20,9 @@ import {
 } from "lucide-react";
 
 interface StoreViewProps {
-  onNavigateToView?: (view: string) => void;
-  onNavigateToProfile?: () => void;
 }
 
 export const StoreView: React.FC<StoreViewProps> = ({
-  onNavigateToView,
-  onNavigateToProfile,
 }) => {
   const currentUser = useAuthStore((s) => s.user)!;
   const economy = useAuthStore((s) => s.economy);
@@ -162,27 +160,27 @@ export const StoreView: React.FC<StoreViewProps> = ({
               </span>
             </div>
             <div className="p-1 text-xs">
-              <button
-                onClick={() => onNavigateToView?.("feed")}
+              <Link to={paths.home}
+                
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left cursor-pointer"
               >
                 <Compass className="w-4 h-4 text-slate-400" />
                 <span>Início (feed)</span>
-              </button>
-              <button
-                onClick={onNavigateToProfile}
+              </Link>
+              <Link to={paths.profile(currentUser.username)}
+                
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left cursor-pointer"
               >
                 <UserIcon className="w-4 h-4 text-slate-400" />
                 <span>Meu perfil</span>
-              </button>
-              <button
-                onClick={() => onNavigateToView?.("communities")}
+              </Link>
+              <Link to={paths.communities}
+                
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left cursor-pointer"
               >
                 <Layers className="w-4 h-4 text-slate-400" />
                 <span>Comunidades</span>
-              </button>
+              </Link>
             </div>
           </div>
 

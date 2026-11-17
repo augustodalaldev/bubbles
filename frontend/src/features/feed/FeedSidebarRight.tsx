@@ -1,4 +1,6 @@
 import React from "react";
+import { Link } from "react-router-dom";
+import { paths } from "@/routes";
 import { Community } from "@/types";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { Users, ChevronRight } from "lucide-react";
@@ -7,16 +9,12 @@ interface FeedSidebarRightProps {
   communities: Community[] | null;
   error: string | null;
   onRetry: () => void;
-  onSelectCommunity: (community: Community) => void;
-  onSeeAll: () => void;
 }
 
 export const FeedSidebarRight: React.FC<FeedSidebarRightProps> = ({
   communities,
   error,
   onRetry,
-  onSelectCommunity,
-  onSeeAll,
 }) => (
   <aside className="space-y-4">
     <div className="panel-classic">
@@ -25,13 +23,13 @@ export const FeedSidebarRight: React.FC<FeedSidebarRightProps> = ({
           <Users className="w-3.5 h-3.5 text-pink-600" />
           <h2 className="text-xs font-bold text-slate-900">Minhas comunidades</h2>
         </div>
-        <button
-          onClick={onSeeAll}
+        <Link to={paths.communities}
+          
           className="text-[11px] text-pink-600 hover:text-pink-700 font-semibold flex items-center"
         >
           Ver todas
           <ChevronRight className="w-3 h-3 ml-0.5" />
-        </button>
+        </Link>
       </div>
 
       {error ? (
@@ -43,9 +41,9 @@ export const FeedSidebarRight: React.FC<FeedSidebarRightProps> = ({
       ) : (
         <div className="p-2 divide-y divide-slate-100">
           {communities.slice(0, 5).map((comm) => (
-            <button
+            <Link to={paths.community(comm.commname)}
               key={comm.id}
-              onClick={() => onSelectCommunity(comm)}
+              
               className="w-full py-2 px-1 flex items-center justify-between gap-2 hover:bg-slate-50 rounded-sm transition-colors text-left"
             >
               <div className="flex items-center gap-2 min-w-0">
@@ -67,7 +65,7 @@ export const FeedSidebarRight: React.FC<FeedSidebarRightProps> = ({
                   </span>
                 </div>
               </div>
-            </button>
+            </Link>
           ))}
         </div>
       )}

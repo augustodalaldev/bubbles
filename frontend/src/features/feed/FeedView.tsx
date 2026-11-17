@@ -18,12 +18,8 @@ import { FeedSidebarRight } from "./FeedSidebarRight";
 import { SearchResultsPanel } from "./SearchResultsPanel";
 
 interface FeedViewProps {
-  onNavigateToProfile: () => void;
-  onOpenProfile: (username: string) => void;
-  onNavigateToView?: (view: string) => void;
-  onSelectCommunity?: (community: Community) => void;
+  /** Search term from the URL (`?q=`). */
   searchTerm?: string;
-  onClearSearch?: () => void;
 }
 
 type FeedFilter = "all" | "following" | "communities";
@@ -34,14 +30,7 @@ const FILTERS: { id: FeedFilter; label: string }[] = [
   { id: "communities", label: "Comunidades" },
 ];
 
-export const FeedView: React.FC<FeedViewProps> = ({
-  onNavigateToProfile,
-  onOpenProfile,
-  onNavigateToView,
-  onSelectCommunity,
-  searchTerm = "",
-  onClearSearch,
-}) => {
+export const FeedView: React.FC<FeedViewProps> = ({ searchTerm = "" }) => {
   const currentUser = useAuthStore((s) => s.user)!;
 
   const [posts, setPosts] = useState<Bubblegram[]>([]);
@@ -131,11 +120,6 @@ export const FeedView: React.FC<FeedViewProps> = ({
     return posts;
   }, [posts, filter]);
 
-  const selectCommunity = (community: Community) => {
-    if (onSelectCommunity) onSelectCommunity(community);
-    else onNavigateToView?.("communities");
-  };
-
   const replacePost = (updated: Bubblegram) => {
     setPosts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
   };
@@ -147,8 +131,6 @@ export const FeedView: React.FC<FeedViewProps> = ({
         <div className="lg:col-span-3 h-full overflow-y-auto scrollbar-none hidden lg:block">
           <FeedSidebarLeft
             currentUser={currentUser}
-            onNavigateToProfile={onNavigateToProfile}
-            onNavigateToView={onNavigateToView}
             unreadLettersCount={unreadLetters}
           />
         </div>
@@ -167,9 +149,6 @@ export const FeedView: React.FC<FeedViewProps> = ({
               error={searchError}
               loading={searching}
               onRetry={() => void runSearch()}
-              onClear={onClearSearch}
-              onOpenProfile={onOpenProfile}
-              onSelectCommunity={selectCommunity}
             />
           ) : (
             <>
@@ -217,7 +196,6 @@ export const FeedView: React.FC<FeedViewProps> = ({
                       post={post}
                       onOpenDetail={(p) => setSelectedPost(p)}
                       onDeleted={removePost}
-                      onOpenProfile={onOpenProfile}
                     />
                   ))}
                 </div>
@@ -254,8 +232,6 @@ export const FeedView: React.FC<FeedViewProps> = ({
             communities={myCommunities}
             error={communitiesError}
             onRetry={() => void loadSideData()}
-            onSelectCommunity={selectCommunity}
-            onSeeAll={() => onNavigateToView?.("communities")}
           />
         </div>
       </div>

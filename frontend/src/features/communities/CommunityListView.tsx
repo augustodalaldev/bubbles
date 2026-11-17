@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { paths } from "@/routes";
 import { Community } from "@/types";
 import { BubbleOverlay } from "@/components/BubbleOverlay";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
@@ -7,11 +9,8 @@ import { errorMessage } from "@/services/errors";
 import { Users, Plus, Search, UserCheck, ChevronRight } from "lucide-react";
 import { CreateCommunityModal } from "./CreateCommunityModal";
 
-interface CommunityListViewProps {
-  onSelectCommunity: (community: Community) => void;
-}
-
-export const CommunityListView: React.FC<CommunityListViewProps> = ({ onSelectCommunity }) => {
+export const CommunityListView: React.FC = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"all" | "my">("all");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -171,8 +170,7 @@ export const CommunityListView: React.FC<CommunityListViewProps> = ({ onSelectCo
               return (
                 <div
                   key={community.id}
-                  onClick={() => onSelectCommunity(community)}
-                  className="panel-classic hover:shadow-md transition-shadow cursor-pointer p-4 flex flex-col justify-between"
+                  className="panel-classic relative hover:shadow-md transition-shadow p-4 flex flex-col justify-between"
                 >
                   <div>
                     <div className="flex items-start gap-3 mb-2.5">
@@ -187,7 +185,14 @@ export const CommunityListView: React.FC<CommunityListViewProps> = ({ onSelectCo
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <h2 className="text-xs font-bold text-slate-900 truncate">{community.name}</h2>
+                          <h2 className="text-xs font-bold text-slate-900 truncate">
+                            <Link
+                              to={paths.community(community.commname)}
+                              className="hover:text-pink-600 after:absolute after:inset-0"
+                            >
+                              {community.name}
+                            </Link>
+                          </h2>
                           <span className="text-[11px] text-slate-400 font-mono">@{community.commname}</span>
                         </div>
                         {isMember && (
@@ -218,12 +223,9 @@ export const CommunityListView: React.FC<CommunityListViewProps> = ({ onSelectCo
                     </span>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void toggleMembership(community);
-                        }}
+                        onClick={() => void toggleMembership(community)}
                         disabled={busyId === community.id}
-                        className={`text-xs px-2.5 py-0.5 rounded-sm font-semibold transition-all disabled:opacity-60 ${
+                        className={`relative z-10 text-xs px-2.5 py-0.5 rounded-sm font-semibold transition-all disabled:opacity-60 ${
                           isMember
                             ? "border border-slate-300 text-slate-600 hover:bg-slate-100"
                             : "bg-pink-50 border border-pink-200 text-pink-700 hover:bg-pink-100"
@@ -231,7 +233,7 @@ export const CommunityListView: React.FC<CommunityListViewProps> = ({ onSelectCo
                       >
                         {isMember ? "Sair" : "Participar"}
                       </button>
-                      <span className="flex items-center text-xs font-semibold text-pink-600">
+                      <span className="flex items-center text-xs font-semibold text-pink-600" aria-hidden="true">
                         Abrir
                         <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
                       </span>
@@ -259,7 +261,7 @@ export const CommunityListView: React.FC<CommunityListViewProps> = ({ onSelectCo
       {isCreateModalOpen && (
         <CreateCommunityModal
           onClose={() => setIsCreateModalOpen(false)}
-          onCommunityCreated={(community) => onSelectCommunity(community)}
+          onCommunityCreated={(community) => navigate(paths.community(community.commname))}
         />
       )}
     </div>

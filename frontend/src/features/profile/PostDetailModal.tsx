@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { paths } from "@/routes";
 import { motion } from "framer-motion";
 import { Bubblegram, Bubblepop, Comment } from "@/types";
 import { X, MessageCircle, Send, Clock, Trash2, CornerDownRight } from "lucide-react";
@@ -286,13 +288,13 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
         <div className="md:w-1/2 p-4 sm:p-5 flex flex-col justify-between overflow-y-auto bg-white">
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 pr-8">
-              <div className="flex items-center gap-2.5 min-w-0">
+              <Link to={paths.profile(author.username)} className="flex items-center gap-2.5 min-w-0">
                 <Avatar user={author} className="w-9 h-9 flex-shrink-0" />
                 <div className="min-w-0">
                   <h4 className="text-sm font-bold text-slate-900 leading-tight truncate">{author.name}</h4>
                   <span className="text-xs text-slate-500 font-medium">@{author.username}</span>
                 </div>
-              </div>
+              </Link>
               <div
                 title="Seu saldo atual de soap"
                 className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-sm text-xs font-semibold text-slate-700"

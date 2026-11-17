@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { paths } from "@/routes";
 import { Letter, User } from "@/types";
 import { Avatar } from "@/components/Avatar";
 import { BubbleOverlay } from "@/components/BubbleOverlay";
@@ -24,8 +26,6 @@ import {
 } from "lucide-react";
 
 interface LettersInboxViewProps {
-  onNavigateToView?: (view: string) => void;
-  onNavigateToProfile?: () => void;
   /** Opens the composer addressed to this username (used by the profile "Carta" button). */
   composeTo?: string | null;
   /** Called when the composer closes, so the route can drop `?to=`. */
@@ -41,8 +41,6 @@ type Box = {
 const emptyBox: Box = { letters: [], next: null, status: "loading", error: null };
 
 export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
-  onNavigateToView,
-  onNavigateToProfile,
   composeTo,
   onComposeClosed,
 }) => {
@@ -228,34 +226,34 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
               </span>
             </div>
             <div className="p-1 text-xs">
-              <button
-                onClick={() => onNavigateToView?.("feed")}
+              <Link to={paths.home}
+                
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left cursor-pointer"
               >
                 <Compass className="w-4 h-4 text-slate-400" />
                 <span>Início (feed)</span>
-              </button>
-              <button
-                onClick={onNavigateToProfile}
+              </Link>
+              <Link to={paths.profile(currentUser.username)}
+                
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left cursor-pointer"
               >
                 <UserIcon className="w-4 h-4 text-slate-400" />
                 <span>Meu perfil</span>
-              </button>
-              <button
-                onClick={() => onNavigateToView?.("communities")}
+              </Link>
+              <Link to={paths.communities}
+                
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left cursor-pointer"
               >
                 <Layers className="w-4 h-4 text-slate-400" />
                 <span>Comunidades</span>
-              </button>
-              <button
-                onClick={() => onNavigateToView?.("store")}
+              </Link>
+              <Link to={paths.store}
+                
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left cursor-pointer"
               >
                 <Store className="w-4 h-4 text-slate-400" />
                 <span>Loja de soap</span>
-              </button>
+              </Link>
             </div>
           </div>
 

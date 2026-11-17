@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import { paths } from "@/routes";
 import { Bubblegram } from "@/types";
 import { Avatar } from "@/components/Avatar";
 import { SoapIcon } from "@/components/SoapIcon";
@@ -13,14 +15,12 @@ interface FeedItemCardProps {
   post: Bubblegram;
   onOpenDetail: (post: Bubblegram) => void;
   onDeleted?: (postId: number) => void;
-  onOpenProfile?: (username: string) => void;
 }
 
 export const FeedItemCard: React.FC<FeedItemCardProps> = ({
   post,
   onOpenDetail,
   onDeleted,
-  onOpenProfile,
 }) => {
   const currentUserId = useAuthStore((s) => s.user?.id);
   const { count, supported, busy, error: supportError, support } = useSupportBubblegram(
@@ -66,8 +66,8 @@ export const FeedItemCard: React.FC<FeedItemCardProps> = ({
       )}
 
       <div className="p-3 pb-2 flex items-center justify-between gap-3">
-        <button
-          onClick={() => onOpenProfile?.(post.user.username)}
+        <Link to={paths.profile(post.user.username)}
+          
           className="flex items-center gap-2.5 min-w-0 text-left"
         >
           <Avatar user={post.user} className="w-9 h-9 flex-shrink-0" />
@@ -88,7 +88,7 @@ export const FeedItemCard: React.FC<FeedItemCardProps> = ({
               {timeAgo(post.published_at)}
             </span>
           </div>
-        </button>
+        </Link>
 
         {post.can_delete && (
           <button

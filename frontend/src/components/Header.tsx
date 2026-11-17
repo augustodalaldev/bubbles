@@ -1,18 +1,12 @@
 import React from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Search, Compass, Users, Store, Mail, LogOut } from "lucide-react";
 import { useAuthStore } from "@/features/auth/authStore";
+import { paths, viewFromPath, viewPath } from "@/routes";
+import type { AppView } from "@/routes";
 import { Avatar } from "./Avatar";
 import { BrandLogo } from "./BrandLogo";
 import { SoapIcon } from "./SoapIcon";
-
-import type { AppView } from "@/routes";
-
-interface HeaderProps {
-  currentView?: AppView;
-  onNavigate?: (view: AppView) => void;
-  searchValue?: string;
-  onSearchChange?: (term: string) => void;
-}
 
 const TABS: { view: AppView; label: string }[] = [
   { view: "feed", label: "Início" },
@@ -29,10 +23,21 @@ const ICONS: { view: AppView; title: string; Icon: typeof Compass }[] = [
   { view: "letters", title: "Cartas", Icon: Mail },
 ];
 
-export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate, searchValue = "", onSearchChange }) => {
+export const Header: React.FC = () => {
   const user = useAuthStore((s) => s.user);
   const economy = useAuthStore((s) => s.economy);
   const logout = useAuthStore((s) => s.logout);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+
+  const ownUsername = user?.username;
+  const currentView = viewFromPath(location.pathname, ownUsername);
+  const to = (view: AppView) => viewPath(view, ownUsername);
+
+  // The search term lives in the URL (?q=) so it survives reloads and the back button.
+  const onFeed = location.pathname === paths.home;
+  const searchValue = onFeed ? (params.get("q") ?? "") : "";
 
   const balance = user?.soap_balance ?? user?.wallet?.soap_balance ?? 0;
   const passiveHint = economy
@@ -45,9 +50,9 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate, searchV
   return (
     <header className="sticky top-0 z-40 w-full bg-white border-b border-slate-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
-        <button onClick={() => onNavigate?.("feed")} className="flex items-center" aria-label="Ir para o início">
+        <Link to={paths.home} className="flex items-center" aria-label="Ir para o início">
           <BrandLogo height={32} />
-        </button>
+        </Link>
 
         <div className="flex-1 max-w-md hidden md:block">
           <div className="relative">
@@ -57,18 +62,19 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate, searchV
               aria-label="Buscar perfis e comunidades"
               placeholder="Buscar perfis e comunidades..."
               value={searchValue}
-              onChange={(e) => onSearchChange?.(e.target.value)}
+              onChange={(e) => navigate(paths.search(e.target.value), { replace: onFeed })}
               className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-pink-500 focus:bg-white transition-colors"
             />
           </div>
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex items-center bg-slate-100 p-0.5 border border-slate-200 rounded-sm text-xs font-semibold">
+          <nav aria-label="Seções" className="flex items-center bg-slate-100 p-0.5 border border-slate-200 rounded-sm text-xs font-semibold">
             {TABS.map(({ view, label }) => (
-              <button
+              <Link
                 key={view}
-                onClick={() => onNavigate?.(view)}
+                to={to(view)}
+                aria-current={currentView === view ? "page" : undefined}
                 className={`px-2.5 py-1 rounded-sm transition-all ${
                   currentView === view
                     ? "bg-white text-slate-900 shadow-xs"
@@ -76,15 +82,15 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate, searchV
                 }`}
               >
                 {label}
-              </button>
+              </Link>
             ))}
-          </div>
+          </nav>
 
-          <nav className="hidden lg:flex items-center gap-1">
+          <div className="hidden lg:flex items-center gap-1">
             {ICONS.map(({ view, title, Icon }) => (
-              <button
+              <Link
                 key={view}
-                onClick={() => onNavigate?.(view)}
+                to={to(view)}
                 title={title}
                 aria-label={title}
                 className={`p-1.5 rounded-sm transition-colors ${
@@ -94,12 +100,12 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate, searchV
                 }`}
               >
                 <Icon className="w-4 h-4" />
-              </button>
+              </Link>
             ))}
-          </nav>
+          </div>
 
-          <button
-            onClick={() => onNavigate?.("store")}
+          <Link
+            to={paths.store}
             title={passiveTitle || "Seu saldo de soap (clique para abrir a Loja)"}
             className="flex items-center gap-2 px-2.5 py-1 bg-pink-50 border border-pink-200 rounded-sm hover:bg-pink-100/70 transition-colors"
           >
@@ -110,17 +116,17 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate, searchV
                 <span className="text-[10px] text-slate-500 leading-none">{passiveHint}</span>
               )}
             </div>
-          </button>
+          </Link>
 
           {user && (
-            <button
-              onClick={() => onNavigate?.("profile")}
+            <Link
+              to={paths.profile(user.username)}
               className="flex items-center gap-2 pl-1 border-l border-slate-200"
               title="Meu perfil"
               aria-label="Meu perfil"
             >
               <Avatar user={user} />
-            </button>
+            </Link>
           )}
 
           <button
