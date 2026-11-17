@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -9,6 +10,7 @@ from django.db.models import Sum
 from django.utils import timezone
 
 from apps.core.exceptions import DomainError
+from apps.core.locks import advisory_lock
 from apps.economy.exceptions import InsufficientSoap
 from apps.economy.models import (
     CREDIT_ACTION_TYPES,
@@ -36,6 +38,9 @@ def ensure_community_wallet(community: Any) -> Wallet:
     """Return the community's wallet, creating an empty one if missing."""
     wallet, _ = Wallet.objects.get_or_create(community=community, defaults={"soap_balance": 0})
     return wallet
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -244,18 +249,26 @@ def debit_bubblepop(
     return debit(wallet, cost, action_type=ActionType.DEBIT_BUBBLEPOP)
 
 
-@transaction.atomic
 def distribute_passive_soap(*, now: datetime | None = None) -> int:
     """Distribute passive soap to active users (RF019).
 
     Invariants:
     1. Only active users seen within the last `passive_interval_minutes` receive soap.
-    2. Daily limit is capped at `passive_daily_cap`.
+    2. Daily limit (local day) is capped at `passive_daily_cap`.
     3. Ledger rows use ActionType.PASSIVE_EARN.
-    4. Idempotency key prevents double credits for the same time window bucket.
+    4. Idempotent per window: the key `passive:<user>:<local date>:<window>` (window =
+       floor(epoch / interval)) means that running this twice in the same period pays once.
+    5. Runs are serialized across processes by an advisory lock, so two overlapping runs cannot
+       both read the daily total before either has paid.
+    6. Each user is paid in its own short transaction; a failure is logged and does not stop
+       the others.
     """
+    with advisory_lock("distribute_passive_soap"):
+        return _distribute_passive_soap(now or timezone.now())
+
+
+def _distribute_passive_soap(current_time: datetime) -> int:
     User = get_user_model()
-    current_time = now or timezone.now()
     settings_obj = EconomySettings.load()
 
     interval_mins = settings_obj.passive_interval_minutes
@@ -263,14 +276,14 @@ def distribute_passive_soap(*, now: datetime | None = None) -> int:
     default_rate = settings_obj.default_passive_earn_rate
 
     cutoff = current_time - timedelta(minutes=interval_mins)
-    eligible_users = (
+    eligible_user_ids = list(
         User.objects.filter(
             is_active=True,
             deleted_at__isnull=True,
             last_seen_at__gte=cutoff,
         )
-        .select_related("wallet")
         .order_by("pk")
+        .values_list("pk", flat=True)
     )
 
     local_now = timezone.localtime(current_time)
@@ -278,41 +291,44 @@ def distribute_passive_soap(*, now: datetime | None = None) -> int:
     window_bucket = int(current_time.timestamp() // (interval_mins * 60))
     credited_count = 0
 
-    for user in eligible_users:
-        wallet = ensure_user_wallet(user)
-        rate = wallet.passive_earn_rate if wallet.passive_earn_rate is not None else default_rate
-        if rate <= 0:
-            continue
-
-        today_earned = (
-            SoapTransaction.objects.filter(
-                wallet=wallet,
-                action_type=ActionType.PASSIVE_EARN,
-                created_at__gte=today_start,
-            ).aggregate(total=Sum("amount"))["total"]
-            or 0
-        )
-
-        remaining_cap = daily_cap - today_earned
-        if remaining_cap <= 0:
-            continue
-
-        grant = min(rate, remaining_cap)
-        idempotency_key = f"passive:{user.id}:{local_now.date().isoformat()}:{window_bucket}"
-
-        if SoapTransaction.objects.filter(idempotency_key=idempotency_key).exists():
-            continue
-
+    for user_id in eligible_user_ids:
+        idempotency_key = f"passive:{user_id}:{local_now.date().isoformat()}:{window_bucket}"
         try:
-            credit(
-                wallet,
-                grant,
-                action_type=ActionType.PASSIVE_EARN,
-                idempotency_key=idempotency_key,
-            )
-            credited_count += 1
-        except Exception:
-            pass
+            with transaction.atomic():
+                user = User.objects.get(pk=user_id)
+                wallet = ensure_user_wallet(user)
+                rate = (
+                    wallet.passive_earn_rate
+                    if wallet.passive_earn_rate is not None
+                    else default_rate
+                )
+                if rate <= 0:
+                    continue
+
+                if SoapTransaction.objects.filter(idempotency_key=idempotency_key).exists():
+                    continue
+
+                today_earned = (
+                    SoapTransaction.objects.filter(
+                        wallet=wallet,
+                        action_type=ActionType.PASSIVE_EARN,
+                        created_at__gte=today_start,
+                    ).aggregate(total=Sum("amount"))["total"]
+                    or 0
+                )
+                remaining_cap = daily_cap - today_earned
+                if remaining_cap <= 0:
+                    continue
+
+                credit(
+                    wallet,
+                    min(rate, remaining_cap),
+                    action_type=ActionType.PASSIVE_EARN,
+                    idempotency_key=idempotency_key,
+                )
+                credited_count += 1
+        except Exception:  # noqa: BLE001 - one user must not stop the others
+            logger.exception("passive soap: failed to pay user %s", user_id)
 
     return credited_count
 

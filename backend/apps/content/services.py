@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from apps.communities.models import Community, CommunityMember, MemberRole, MemberState
 from apps.core.exceptions import DomainError
+from apps.core.locks import advisory_lock
 from apps.core.uploads import delete_file_on_commit
 from apps.economy.services import ensure_community_wallet, ensure_user_wallet
 
@@ -602,9 +603,19 @@ def delete_bubblepop(*, actor: User, bubblepop: Bubblepop) -> None:
     delete_file_on_commit(image_file)
 
 
-@transaction.atomic
 def cleanup_expired_bubblepops(*, now: Any = None) -> int:
-    """Hard-delete all expired Bubblepop stories and their media files."""
+    """Hard-delete all expired Bubblepop stories and their media files.
+
+    Idempotent: a second run finds nothing left. Overlapping runs are serialized by an advisory
+    lock so they cannot both report (or try to delete) the same rows.
+    """
+    with advisory_lock("cleanup_expired_bubblepops"):
+        return _cleanup_expired_bubblepops(now=now)
+
+
+@transaction.atomic
+def _cleanup_expired_bubblepops(*, now: Any = None) -> int:
+    """Delete the rows in one transaction; the files go away only after it commits."""
     current_time = now or timezone.now()
     expired_pops = list(Bubblepop.objects.filter(expires_at__lte=current_time))
     if not expired_pops:

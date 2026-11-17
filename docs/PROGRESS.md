@@ -50,7 +50,7 @@
 
 ## Batch 2 (customization, scheduler, URLs, cleanup, demo)
 - [x] Phase 1 — Community customization paid by the community wallet: `scope` on items, `CommunityInventoryItem`, purchase/equip services (wallet lock, ledger on the community wallet), endpoints, `can_customize`, community "Personalização" tab with real cost/balance; tests for success, insufficient soap, roles, missing/owned items, scopes, blocked/archived and concurrency
-- [ ] Phase 2 — Scheduler
+- [x] Phase 2 — Scheduler: `run_scheduler` command + Makefile targets, advisory locks, idempotent and concurrency-safe passive soap and cleanup, per-user transactions and logged failures; tests with fake clock, `--once`, failures, overlapping runs (mutation-checked: they fail without the lock) (508 tests)
 - [ ] Phase 3 — URL navigation
 - [ ] Phase 4 — Manual validation (owner) + automated gate
 - [ ] Phase 5 — Cleanup

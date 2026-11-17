@@ -178,3 +178,14 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 | Equipping uses `slots` (item id or null) through `POST /communities/{c}/customization/equip/`; writing `customization_json` directly stays rejected | Ownership is always validated; other slots are untouched |
 | New endpoints: `POST /communities/{c}/customization/items/{id}/purchase/`, `GET /communities/{c}/customization/inventory/`, `GET|POST /communities/{c}/customization/equip/`, `GET /customization/items/?community={c}`; new `permissions.can_customize` | The frontend renders what the API reports |
 
+## Scheduler (2026-11-17)
+| Decision | Reason |
+|---|---|
+| `manage.py run_scheduler` (stdlib loop, `core/scheduler.py`) + `make scheduler` / `make scheduler-once`; no Celery/Redis, no new dependency | The brief asks for something lightweight; it runs identically inside and outside Docker |
+| No scheduler service in `docker-compose.yml` | The compose file only runs PostgreSQL and no backend image exists (Django runs natively); a service would require a new Dockerfile. `make scheduler` or cron covers it |
+| `distribute_passive_soap` every `passive_interval_minutes`, aligned to epoch multiples of the interval | Payment is idempotent per window (`floor(epoch/interval)`), so exactly one run per window |
+| `cleanup_expired_bubblepops` hourly | Reads already filter `expires_at`; the job only reclaims rows and disk |
+| A PostgreSQL session advisory lock (`core/locks.py`) serializes each job across processes | Two overlapping runs could both read the daily total before either paid |
+| Passive soap pays each user in its own short transaction; failures are logged, not swallowed | The previous single transaction held every wallet lock and hid errors with `except Exception: pass` |
+| Job failure never stops the loop; `--once` exits non-zero if a job failed | Fault tolerance in the daemon, observability for cron |
+

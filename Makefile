@@ -1,4 +1,4 @@
-.PHONY: up down logs run test lint format check-migrations frontend-dev frontend-build
+.PHONY: up down logs run scheduler scheduler-once test lint format check-migrations frontend-dev frontend-build
 
 up:
 	docker compose up -d
@@ -11,6 +11,14 @@ logs:
 
 run:
 	cd backend && uv run python manage.py runserver
+
+# Periodic jobs (passive soap, bubblepop cleanup). Works outside Docker; stop with Ctrl+C.
+scheduler:
+	cd backend && uv run python manage.py run_scheduler
+
+# Run every job once and exit (cron friendly, non-zero on failure).
+scheduler-once:
+	cd backend && uv run python manage.py run_scheduler --once
 
 frontend-dev:
 	cd frontend && npm run dev
