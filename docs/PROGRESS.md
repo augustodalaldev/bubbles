@@ -53,6 +53,6 @@
 - [x] Phase 2 — Scheduler: `run_scheduler` command + Makefile targets, advisory locks, idempotent and concurrency-safe passive soap and cleanup, per-user transactions and logged failures; tests with fake clock, `--once`, failures, overlapping runs (mutation-checked: they fail without the lock) (508 tests)
 - [x] Phase 3 — URL navigation (3 commits): router + routes, real `<Link>`s, `next` return, 404, `/p/:id`, copy link, lazy chunks (main 374 kB), `VITE_API_TARGET`. Checked in a real Chrome (38 checks: guard, return URL, F5, back/forward, 404, deep links, `?q=`, `?to=`, logout, open-redirect attempt)
 - [x] Phase 4 — Automated gate green (508 tests, check, migrations, ruff, build); in-browser validation is done manually by the owner. Extra: navigation was also exercised in a real Chrome via DevTools Protocol (38 checks). Manual checklist: register, login, feed, own/other profile, follow, support, comments, letters, community (create, join, post, Personalização tab), store; at each step check the URL, the back button and F5
-- [ ] Phase 5 — Cleanup
+- [x] Phase 5 — Cleanup (owner confirmed, no backup): databases `bubbles` and `bubbles_teste` dropped, recreated and migrated (30 tables, empty); `backend/media` emptied (1 file removed, folders kept); verified that pytest leaves `backend/media` untouched (temporary MEDIA_ROOT) and does not write to the dev databases
 - [ ] Phase 6 — Demo data and demo server
 
