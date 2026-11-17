@@ -43,7 +43,7 @@
 - [x] Phase 6 — Loading / error / empty states: every data screen uses `LoadingState`/`ErrorState`/`EmptyState`; `insufficient_soap` shows cost and balance (pt-BR)
 - [x] Phase 7 — Visual polish: no all-caps labels (sentence case), only bubble shapes are rounded, no emojis/continuous animations, real avatars with initial fallback, bundle 488 kB (no >500 kB warning); official SVGs in `public/` verified identical to `references/`
 - [x] Phase 8 — Repository hygiene: `__init__.py~` renamed to `__init__.py` + `*~` ignored, `DEBUG=False` in base, env-driven prod hardening (rejects placeholder secret, HTTPS redirect, HSTS, CSRF origins, proxy header) with tests, files deleted only on commit (`delete_file_on_commit`), tests use a temp `MEDIA_ROOT`, exact lookups for lowercase usernames/commnames, dead permission code removed, AuditLog read-only in admin (457 tests)
-- [ ] Phase 9 — Docs
+- [x] Phase 9 — Docs: ER (Comment 2000, media 1..4), DECISIONS, frontend PLAN facts, REQUIREMENTS_CHANGES pending list, README
 
 ## Notes
 - Do NOT run `migrate` until the custom `User` exists and `AUTH_USER_MODEL` is set (first task of 1.2).

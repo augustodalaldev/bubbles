@@ -17,3 +17,13 @@
 - **Visual customizations (`customization_json`)**: Both `User` and `Community` include a `customization_json` field (`JSONField`, default `{}`) to store visual customization settings (background colors, profile borders, badges, etc.) purchased with soap.
 - **SoapTransaction action type**: Confirmed and tested `SPEND_CUSTOMIZATION` as debit action type in `SoapTransaction` representing soap expenditures on visual customizations by users or communities.
 
+## Pending requirements found in the review (2026-11-17) — for the owner to decide
+Documented in the requirements but not available in the UI (backend exists unless noted). Not implemented as part of the integration work.
+- RF002: edit profile (name, description, photo, birth date) and delete account (`PATCH`/`DELETE /users/me/`).
+- Wallet statement (`GET /users/me/wallet/`).
+- RF013/RF015: member moderation (silence/ban), promote/demote admins, transfer leadership, archive and edit community info/photo (`/communities/{c}/members/...`, `transfer-leadership`, `archive`).
+- RF014 / S4: customizing a community with the community wallet (**backend missing**: the inventory is user-only; community `customization_json` is rejected for now).
+- RF016/RF017: reports (`POST /reports/`) and system administration (`/admin/*`) have no screens; use the Django Admin.
+- Email verification and password reset (Q6, deferred).
+- Scheduler for `distribute_passive_soap` and `cleanup_expired_bubblepops` (cron/CronJob/Celery).
+

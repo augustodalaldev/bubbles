@@ -143,8 +143,26 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 | Community blocking (`Community.blocked_at`) | Blocks malicious communities (`blocked_at is not None`) preventing joins, publishing, comments, and supports |
 | Administrative soap adjustments (`admin_adjust_soap`) | Staff can credit or debit wallets with `ActionType.ADMIN_ADJUSTMENT`, with mandatory reason and audit entry recording before and after balances |
 
-
-
-
-
+## Review & integration (2026-11-17) — see docs/REVIEW_PLAN.md
+| Decision | Reason |
+|---|---|
+| Image uploads validated by `core.uploads.validate_image_upload` (Pillow-detected JPEG/PNG/WebP/GIF, image extension, max 10 MB) through `core.fields.SafeImageField` | `FILE_UPLOAD_MAX_MEMORY_SIZE` is only a memory/temp-file threshold, not a limit; arbitrary files were being stored and served from `/media/` |
+| Only `ACTIVE` members can support community content; a banned member cannot `leave` | Supporting charged soap to non-members; leaving erased the ban row and allowed re-joining |
+| `user` throttle raised to 10000/day | The heartbeat alone consumed 1440 of the previous 1000/day |
+| Auth endpoints (`login`, `register`, `refresh`, `logout`) use no authentication classes | A stale `Authorization` header turned them into 401s; logout must clear the cookie even with an expired access token |
+| Refresh rejects inactive/deleted users and is throttled (`auth` scope) | Banned/deleted users kept receiving tokens |
+| Every error uses `{"error": {code, message, fields}}`, including Django `Http404`/`PermissionDenied`/`ValidationError`/`IntegrityError`, nested serializer errors (`media_files[1]`) and `/api/` 404/500 (with `DEBUG=False`); headers (`Retry-After`, `WWW-Authenticate`) are preserved | The frontend maps stable codes to pt-BR copy; unhandled cases returned HTML |
+| `delete_file_on_commit` for stored files | Deleting inside `atomic()` lost files when the transaction rolled back |
+| `EconomySettings` values of 0 are valid and skip the corresponding movement | They previously made signup/publishing/supports fail |
+| Passive daily cap and its idempotency key use the local (America/Sao_Paulo) day | The cap reset at 21:00 local time (UTC midnight) |
+| Community `customization_json` is rejected (`customization_not_available`) | Communities could be customized for free; buying with the community wallet (S4) is not implemented yet |
+| Community row is locked (`select_for_update`) for membership changes; blocked communities reject leader/admin management (staff exempt) | `member_count` drifted under concurrency; service rules disagreed with the `permissions` map |
+| Members list ordered LEADER, COMM_ADMIN, MEMBER, then newest | The moderation team must be on the first page |
+| `GET /letters/{id}/` is a pure read; the view marks the letter read for its recipient; outsiders get 404 | Replying marked the original as read; 403 leaked the existence of letters |
+| `/customization/equipped/` is an alias of `/customization/equip/` (GET reads, POST equips); the frontend uses `slots` (`item_ids` replaces every slot) | Documents an endpoint that existed but was undocumented |
+| Production settings fail fast on a placeholder/short `DJANGO_SECRET_KEY` or empty `DJANGO_ALLOWED_HOSTS`; HTTPS redirect, HSTS (default 3600 s), CSRF origins and proxy header come from the environment | `check --deploy` warnings and unsafe defaults |
+| Periodic commands (`distribute_passive_soap`, `cleanup_expired_bubblepops`) have no scheduler in the repo | Run them from cron/CronJob; bubblepop reads already filter by `expires_at`, so correctness does not depend on the job |
+| Frontend: access token in memory + single-flight refresh through the httpOnly cookie; no Bearer on `/auth/*`; no React Router/TanStack Query (kept zustand + axios) | Matches the Pillar 1.3 decision; avoids new dependencies |
+| Frontend: costs and balances come from `GET /economy/settings/` and the API responses; supports/purchases update from server data, never optimistically | Rule 6 of the project guide: the frontend never decides economics |
+| Frontend: removed fake features without backend (notifications bell, forgot-password link, share link, suggested users, "popular" tab, fake counters) and `canvas-confetti` | `docs/frontend/PLAN.md` principles (100% faithful to the API, no useless animation) |
 

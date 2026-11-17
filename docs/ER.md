@@ -14,7 +14,7 @@ erDiagram
 
     User ||--o{ Bubblegram : "authors"
     Community ||--o{ Bubblegram : "contains (optional)"
-    Bubblegram ||--o{ BubblegramMedia : "has media (1..N for MEDIA type)"
+    Bubblegram ||--o{ BubblegramMedia : "has media (1..4 images for MEDIA type, enforced in the service)"
 
     User ||--o{ Bubblepop : "creates ephemeral post"
 
@@ -163,7 +163,7 @@ erDiagram
         bigint bubblegram_id FK
         bigint user_id FK "author"
         bigint parent_id FK "nullable, reply to comment on same post"
-        text text "max 1000"
+        text text "max 2000"
         integer soap_count "cached counter"
         datetime published_at
     }

@@ -1,5 +1,7 @@
 # Plano de revisão, integração e polimento — Bubbles
 
+> **Status: executed** on branch `review/integration` (phases 0-9). See `docs/PROGRESS.md` for the outcome of each phase and `docs/DECISIONS.md` for the decisions taken.
+
 > Data da revisão: 2026-11-17. Commit base: `5eeeb6d`.
 
 ## Contexto
