@@ -42,3 +42,22 @@ export function viewFromPath(pathname: string, ownUsername?: string): AppView | 
   }
   return null;
 }
+
+/**
+ * Where to go after logging in. Only same-origin app paths are accepted (an open redirect would
+ * let a crafted `/login?next=https://evil` send people elsewhere), and never the auth screens.
+ */
+export function safeNext(next: string | null | undefined): string {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return paths.home;
+  if (/[\\\u0000-\u001f]/.test(next)) return paths.home;
+  if (next === paths.login || next === paths.register) return paths.home;
+  if (next.startsWith(paths.login + "?") || next.startsWith(paths.register + "?")) return paths.home;
+  return next;
+}
+
+/** `/login` (or `/register`) that remembers the page the person wanted. */
+export function authPath(base: string, from: { pathname: string; search: string }): string {
+  const target = from.pathname + from.search;
+  return target === paths.home ? base : `${base}?next=${encodeURIComponent(target)}`;
+}
+

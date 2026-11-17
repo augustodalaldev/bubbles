@@ -6,8 +6,12 @@ import { getEconomySettings } from "@/services/economy";
 
 type SessionStatus = "loading" | "authenticated" | "anonymous";
 
+/** Why there is no session: an explicit logout must not remember the page, an expiry should. */
+type SessionEnd = "logout" | "expired" | null;
+
 interface AuthState {
   status: SessionStatus;
+  sessionEnded: SessionEnd;
   user: User | null;
   economy: EconomySettings | null;
   /** Recovers the session on page load through the httpOnly refresh cookie. */
@@ -28,10 +32,11 @@ async function loadEconomy(): Promise<EconomySettings | null> {
 }
 
 export const useAuthStore = create<AuthState>((set) => {
-  setSessionExpiredHandler(() => set({ status: "anonymous", user: null }));
+  setSessionExpiredHandler(() => set({ status: "anonymous", user: null, sessionEnded: "expired" }));
 
   return {
     status: "loading",
+    sessionEnded: null,
     user: null,
     economy: null,
 
@@ -43,7 +48,7 @@ export const useAuthStore = create<AuthState>((set) => {
       }
       try {
         const [user, economy] = await Promise.all([authApi.fetchCurrentUser(), loadEconomy()]);
-        set({ status: "authenticated", user, economy });
+        set({ status: "authenticated", user, economy, sessionEnded: null });
       } catch {
         set({ status: "anonymous", user: null });
       }
@@ -51,19 +56,19 @@ export const useAuthStore = create<AuthState>((set) => {
 
     login: async (identifier, password) => {
       const user = await authApi.login(identifier, password);
-      set({ status: "authenticated", user, economy: await loadEconomy() });
+      set({ status: "authenticated", user, economy: await loadEconomy(), sessionEnded: null });
     },
 
     register: async (payload) => {
       const user = await authApi.register(payload);
-      set({ status: "authenticated", user, economy: await loadEconomy() });
+      set({ status: "authenticated", user, economy: await loadEconomy(), sessionEnded: null });
     },
 
     logout: async () => {
       try {
         await authApi.logout();
       } finally {
-        set({ status: "anonymous", user: null });
+        set({ status: "anonymous", user: null, sessionEnded: "logout" });
       }
     },
 

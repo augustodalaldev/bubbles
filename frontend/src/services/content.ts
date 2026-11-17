@@ -18,6 +18,11 @@ export async function createBubblegram(input: CreateBubblegramInput): Promise<Bu
   return data;
 }
 
+export async function getBubblegram(id: number): Promise<Bubblegram> {
+  const { data } = await api.get<Bubblegram>(`/bubblegrams/${id}/`);
+  return data;
+}
+
 export async function deleteBubblegram(id: number): Promise<void> {
   await api.delete(`/bubblegrams/${id}/`);
 }

@@ -189,3 +189,16 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 | Passive soap pays each user in its own short transaction; failures are logged, not swallowed | The previous single transaction held every wallet lock and hid errors with `except Exception: pass` |
 | Job failure never stops the loop; `--once` exits non-zero if a job failed | Fault tolerance in the daemon, observability for cron |
 
+## URL navigation (2026-11-17)
+| Decision | Reason |
+|---|---|
+| `react-router-dom` 6.x (BrowserRouter), instead of syncing the store with the History API by hand | Back/forward, reload, deep links, real `<a>` links (middle click, copy address) and route guards come for free; hand-rolled routing would re-implement them with more risk. Cost: one dependency (~20 kB gzip) |
+| URLs: `/`, `/login`, `/register`, `/u/:username`, `/communities`, `/c/:commname`, `/store`, `/letters`, `/p/:id`, `*` = 404 | One URL per existing screen; no new screens. `/p/:id` reuses the post modal |
+| Only the search term (`?q=`) and the letter recipient (`?to=`) live in the URL; feed filters and community tabs stay in component state | Keeps URLs meaningful without turning every toggle into history entries |
+| Guard: anonymous visitors go to `/login?next=<url>` and return after login; an explicit logout does not keep `next`; an expired session does | Deep links work after signing in; logging out must not leak the last page |
+| `next` accepts only same-origin app paths (no `//`, scheme, backslash or control characters, never the auth screens) | Prevents an open redirect through a crafted login link |
+| Each screen is a lazy chunk (`React.lazy`) | Keeps the first bundle under 500 kB after adding the router |
+| The post modal has "Copiar link" now that `/p/:id` exists | The earlier share button was removed because no URL existed |
+| Servers that serve `frontend/dist` must fall back to `index.html` (README has the nginx snippet) | SPA routing; Vite dev/preview already do it |
+| `VITE_API_TARGET` selects the backend the dev proxy talks to | Lets the demo backend run on another port |
+

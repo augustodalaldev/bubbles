@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { paths } from "@/routes";
 import { BrandLogo } from "@/components/BrandLogo";
 import { SoapIcon } from "@/components/SoapIcon";
@@ -8,6 +8,7 @@ import { useAuthStore } from "./authStore";
 import { ArrowRight, AlertCircle } from "lucide-react";
 
 export const RegisterView: React.FC = () => {
+  const { search } = useLocation();
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -206,7 +207,7 @@ export const RegisterView: React.FC = () => {
         {/* Footer / Switch to Login */}
         <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 text-center text-xs text-slate-600">
           Já possui conta?{" "}
-          <Link to={paths.login}
+          <Link to={paths.login + search}
             
             className="font-bold text-pink-600 hover:underline"
           >

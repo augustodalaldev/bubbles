@@ -130,3 +130,15 @@ Não há mais dados mockados. Pendências que **não** têm tela (existem no bac
 extrato da carteira, moderação de membros/promover/transferir liderança/arquivar comunidade, denúncias e administração
 (use o Django Admin), compra de customização pela carteira da comunidade (S4).
 
+## 8. Navegação por URL (2026-11-17)
+
+Mapa das telas (todas com URL própria, ver README): feed `/` (`?q=` para busca), `/login`, `/register`, perfil `/u/:username`,
+comunidades `/communities` e `/c/:commname`, loja `/store`, cartas `/letters` (`?to=`), post `/p/:id`, 404 para o resto.
+Rotas protegidas redirecionam para `/login?next=` e voltam à URL original.
+
+Falhas de integração corrigidas nesta etapa: URL fixa em `/`; botão voltar/avançar; F5 perdia a tela; sem links compartilháveis;
+perfil/comunidade/carta abertos por estado; sem 404; sem retorno após login.
+
+Telas **fora do escopo** (decisão do produto, apenas listadas): editar perfil e excluir conta, extrato da carteira, moderação de membros,
+transferência de liderança, arquivamento de comunidade, denúncias e administração (Django Admin).
+

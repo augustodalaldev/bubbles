@@ -1,3 +1,4 @@
+import { Suspense, lazy, useEffect, useState } from "react";
 import {
   Navigate,
   Outlet,
@@ -9,28 +10,49 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { Header } from "@/components/Header";
+import { NotFoundView } from "@/components/NotFoundView";
+import { ErrorState, LoadingState } from "@/components/StateViews";
 import { useAuthStore } from "@/features/auth/authStore";
-import { LoginView } from "@/features/auth/LoginView";
-import { RegisterView } from "@/features/auth/RegisterView";
-import { CommunityDetailView } from "@/features/communities/CommunityDetailView";
-import { CommunityListView } from "@/features/communities/CommunityListView";
-import { StoreView } from "@/features/customization/StoreView";
-import { FeedView } from "@/features/feed/FeedView";
-import { LettersInboxView } from "@/features/letters/LettersInboxView";
-import { ProfileView } from "@/features/profile/ProfileView";
-import { paths, viewFromPath } from "@/routes";
+import { PostDetailModal } from "@/features/profile/PostDetailModal";
+import { getBubblegram } from "@/services/content";
+import { errorMessage, toApiError } from "@/services/errors";
+import { authPath, paths, safeNext, viewFromPath } from "@/routes";
+import type { Bubblegram } from "@/types";
 
-/** Routes that need a session. Anonymous visitors are sent to the login screen. */
+// Each screen is its own chunk: the first page only downloads what it shows.
+const LoginView = lazy(() => import("@/features/auth/LoginView").then((m) => ({ default: m.LoginView })));
+const RegisterView = lazy(() => import("@/features/auth/RegisterView").then((m) => ({ default: m.RegisterView })));
+const FeedView = lazy(() => import("@/features/feed/FeedView").then((m) => ({ default: m.FeedView })));
+const ProfileView = lazy(() => import("@/features/profile/ProfileView").then((m) => ({ default: m.ProfileView })));
+const CommunityListView = lazy(() =>
+  import("@/features/communities/CommunityListView").then((m) => ({ default: m.CommunityListView }))
+);
+const CommunityDetailView = lazy(() =>
+  import("@/features/communities/CommunityDetailView").then((m) => ({ default: m.CommunityDetailView }))
+);
+const StoreView = lazy(() => import("@/features/customization/StoreView").then((m) => ({ default: m.StoreView })));
+const LettersInboxView = lazy(() =>
+  import("@/features/letters/LettersInboxView").then((m) => ({ default: m.LettersInboxView }))
+);
+
+/** Routes that need a session. Anonymous visitors go to /login and come back to the URL they wanted. */
 function RequireAuth() {
   const status = useAuthStore((s) => s.status);
-  if (status !== "authenticated") return <Navigate to={paths.login} replace />;
+  const sessionEnded = useAuthStore((s) => s.sessionEnded);
+  const location = useLocation();
+  if (status !== "authenticated") {
+    // After an explicit logout there is no page to return to; after an expiry there is.
+    const target = sessionEnded === "logout" ? paths.login : authPath(paths.login, location);
+    return <Navigate to={target} replace />;
+  }
   return <Outlet />;
 }
 
-/** Login/register: signed-in users have nothing to do there. */
+/** Login/register: signed-in users have nothing to do there, so send them where they were headed. */
 function PublicOnly() {
   const status = useAuthStore((s) => s.status);
-  if (status === "authenticated") return <Navigate to={paths.home} replace />;
+  const [params] = useSearchParams();
+  if (status === "authenticated") return <Navigate to={safeNext(params.get("next"))} replace />;
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans">
       <Outlet />
@@ -47,7 +69,9 @@ function AppLayout() {
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col justify-between font-sans">
       <div>
         <Header />
-        <Outlet />
+        <Suspense fallback={<LoadingState />}>
+          <Outlet />
+        </Suspense>
       </div>
 
       {view === "profile" || view === "communities" ? (
@@ -88,25 +112,75 @@ function LettersRoute() {
   );
 }
 
+/** Deep link to a post: the same detail modal the feed opens, but addressable. */
+function PostRoute() {
+  const { id = "" } = useParams();
+  const postId = Number(id);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [post, setPost] = useState<Bubblegram | null>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "notfound" | "error">("loading");
+  const [error, setError] = useState<string | null>(null);
+  const valid = Number.isInteger(postId) && postId > 0;
+
+  useEffect(() => {
+    if (!valid) return;
+    setStatus("loading");
+    getBubblegram(postId)
+      .then((data) => {
+        setPost(data);
+        setStatus("ready");
+      })
+      .catch((err) => {
+        if (toApiError(err).status === 404) setStatus("notfound");
+        else {
+          setError(errorMessage(err));
+          setStatus("error");
+        }
+      });
+  }, [postId, valid]);
+
+  // Back to wherever the person came from; a direct visit goes to the feed.
+  const close = () => (location.key !== "default" ? navigate(-1) : navigate(paths.home, { replace: true }));
+
+  if (!valid || status === "notfound") return <NotFoundView message="Esta publicação não existe ou foi excluída." />;
+  if (status === "loading") return <LoadingState label="Carregando publicação..." />;
+  if (status === "error" || !post) {
+    return <ErrorState message={error ?? "Não foi possível carregar a publicação."} />;
+  }
+  return (
+    <PostDetailModal
+      post={post}
+      story={null}
+      onClose={close}
+      onPostUpdate={setPost}
+      onPostDeleted={() => navigate(paths.home, { replace: true })}
+    />
+  );
+}
+
 export function AppRoutes() {
   return (
-    <Routes>
-      <Route element={<PublicOnly />}>
-        <Route path={paths.login} element={<LoginView />} />
-        <Route path={paths.register} element={<RegisterView />} />
-      </Route>
-
-      <Route element={<RequireAuth />}>
-        <Route element={<AppLayout />}>
-          <Route index element={<FeedRoute />} />
-          <Route path="u/:username" element={<ProfileRoute />} />
-          <Route path="communities" element={<CommunityListView />} />
-          <Route path="c/:commname" element={<CommunityRoute />} />
-          <Route path="store" element={<StoreView />} />
-          <Route path="letters" element={<LettersRoute />} />
-          <Route path="*" element={<Navigate to={paths.home} replace />} />
+    <Suspense fallback={<LoadingState />}>
+      <Routes>
+        <Route element={<PublicOnly />}>
+          <Route path={paths.login} element={<LoginView />} />
+          <Route path={paths.register} element={<RegisterView />} />
         </Route>
-      </Route>
-    </Routes>
+
+        <Route element={<RequireAuth />}>
+          <Route element={<AppLayout />}>
+            <Route index element={<FeedRoute />} />
+            <Route path="u/:username" element={<ProfileRoute />} />
+            <Route path="communities" element={<CommunityListView />} />
+            <Route path="c/:commname" element={<CommunityRoute />} />
+            <Route path="store" element={<StoreView />} />
+            <Route path="letters" element={<LettersRoute />} />
+            <Route path="p/:id" element={<PostRoute />} />
+            <Route path="*" element={<NotFoundView />} />
+          </Route>
+        </Route>
+      </Routes>
+    </Suspense>
   );
 }

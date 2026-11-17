@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { paths } from "@/routes";
 import { motion } from "framer-motion";
 import { Bubblegram, Bubblepop, Comment } from "@/types";
-import { X, MessageCircle, Send, Clock, Trash2, CornerDownRight } from "lucide-react";
+import { X, MessageCircle, Send, Clock, Trash2, CornerDownRight, Check, Link as LinkIcon } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { SoapIcon } from "@/components/SoapIcon";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
@@ -145,6 +145,7 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
   const [input, setInput] = useState("");
   const [replyTo, setReplyTo] = useState<Comment | null>(null);
   const [sending, setSending] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const postId = post?.id;
 
@@ -224,6 +225,17 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
       await loadComments(1, true); // replies may have been removed with it
     } catch (err) {
       setActionError(errorMessage(err));
+    }
+  };
+
+  const handleCopyLink = async () => {
+    if (!post) return;
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}${paths.post(post.id)}`);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setActionError("Não foi possível copiar o link.");
     }
   };
 
@@ -331,15 +343,25 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
                   <SoapIcon size={22} />
                   <span>{support.count}</span>
                 </button>
-                {canDeleteContent && (
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => void handleDeleteContent()}
-                    className="btn-outline py-1.5 px-2.5 text-xs font-semibold flex items-center gap-1.5 text-slate-600 hover:text-red-700"
+                    onClick={() => void handleCopyLink()}
+                    title="Copiar o link desta publicação"
+                    className="btn-outline py-1.5 px-2.5 text-xs font-semibold flex items-center gap-1.5 text-slate-600 hover:text-slate-900"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Excluir</span>
+                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <LinkIcon className="w-3.5 h-3.5" />}
+                    <span>{copied ? "Link copiado" : "Copiar link"}</span>
                   </button>
-                )}
+                  {canDeleteContent && (
+                    <button
+                      onClick={() => void handleDeleteContent()}
+                      className="btn-outline py-1.5 px-2.5 text-xs font-semibold flex items-center gap-1.5 text-slate-600 hover:text-red-700"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Excluir</span>
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 

@@ -51,7 +51,7 @@
 ## Batch 2 (customization, scheduler, URLs, cleanup, demo)
 - [x] Phase 1 — Community customization paid by the community wallet: `scope` on items, `CommunityInventoryItem`, purchase/equip services (wallet lock, ledger on the community wallet), endpoints, `can_customize`, community "Personalização" tab with real cost/balance; tests for success, insufficient soap, roles, missing/owned items, scopes, blocked/archived and concurrency
 - [x] Phase 2 — Scheduler: `run_scheduler` command + Makefile targets, advisory locks, idempotent and concurrency-safe passive soap and cleanup, per-user transactions and logged failures; tests with fake clock, `--once`, failures, overlapping runs (mutation-checked: they fail without the lock) (508 tests)
-- [ ] Phase 3 — URL navigation
+- [x] Phase 3 — URL navigation (3 commits): router + routes, real `<Link>`s, `next` return, 404, `/p/:id`, copy link, lazy chunks (main 374 kB), `VITE_API_TARGET`. Checked in a real Chrome (38 checks: guard, return URL, F5, back/forward, 404, deep links, `?q=`, `?to=`, logout, open-redirect attempt)
 - [ ] Phase 4 — Manual validation (owner) + automated gate
 - [ ] Phase 5 — Cleanup
 - [ ] Phase 6 — Demo data and demo server

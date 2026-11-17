@@ -22,6 +22,30 @@ Create a staff user with `cd backend && uv run python manage.py createsuperuser`
 ## Useful commands
 `make test` · `make lint` · `make format` · `make check-migrations` · `make frontend-build`
 
+## Frontend URLs
+| URL | Screen |
+|---|---|
+| `/` · `/?q=term` | Feed · search |
+| `/login` · `/register` | Authentication (`?next=/path` returns to the page you wanted) |
+| `/u/:username` | Profile (your own too) |
+| `/communities` · `/c/:commname` | Community hub · community |
+| `/store` | Customization store |
+| `/letters` · `/letters?to=username` | Mailbox · composer addressed to someone |
+| `/p/:id` | A single post (shareable link) |
+| anything else | 404 page |
+
+Dev: the Vite server already falls back to `index.html` for these paths. Point it at another backend with
+`VITE_API_TARGET=http://127.0.0.1:8001 make frontend-dev`.
+
+**Production:** whatever serves `frontend/dist` must answer every non-file path with `index.html`
+(the app is a single-page app), otherwise reloading `/c/some_comm` returns the server's 404. nginx:
+```nginx
+location / { root /var/www/bubbles; try_files $uri /index.html; }
+location /api/ { proxy_pass http://127.0.0.1:8000; }
+location /media/ { proxy_pass http://127.0.0.1:8000; }
+```
+`npm run preview` (Vite) already does this fallback.
+
 ## Scheduler (passive soap and bubblepop cleanup)
 ```bash
 make scheduler        # keeps running; stop with Ctrl+C (SIGINT/SIGTERM stop it cleanly)
