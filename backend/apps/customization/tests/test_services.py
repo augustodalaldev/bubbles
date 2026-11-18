@@ -170,7 +170,10 @@ def test_update_profile_validates_inventory():
     # Once owned, update_profile succeeds
     UserInventoryItemFactory(user=user, item=item)
     updated = update_profile(user=user, customization_json=payload)
-    assert updated.customization_json == payload
+    # Rebuilt from the catalog: the client's extra keys are gone, the item data is canonical.
+    stored = updated.customization_json["avatar_frame"]
+    assert stored["id"] == item.id and stored["code"] == item.code
+    assert stored["metadata"] == item.metadata
 
 
 def test_concurrent_purchase_integrity_error_becomes_already_owned_and_refunds(monkeypatch):

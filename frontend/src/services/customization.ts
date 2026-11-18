@@ -28,6 +28,12 @@ export async function equipSlots(slots: Record<string, number | null>) {
   return data;
 }
 
+/** Writes the profile section (needs a SECTION item). Plain text only. */
+export async function saveProfileSection(title: string, text: string): Promise<{ title: string; text: string }> {
+  const { data } = await api.put<{ title: string; text: string }>("/customization/section/", { title, text });
+  return data;
+}
+
 /** Community store: `is_owned`/`is_equipped` refer to the community, not to the user. */
 export async function listCommunityItems(commname: string) {
   const { data } = await api.get<Paginated<CustomizationItem>>("/customization/items/", {

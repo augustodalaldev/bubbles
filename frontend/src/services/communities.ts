@@ -44,6 +44,8 @@ export interface UpdateCommunityInput {
   description: string;
   photo?: File | null;
   removePhoto?: boolean;
+  banner?: File | null;
+  removeBanner?: boolean;
 }
 
 export async function updateCommunity(commname: string, input: UpdateCommunityInput): Promise<Community> {
@@ -52,6 +54,8 @@ export async function updateCommunity(commname: string, input: UpdateCommunityIn
   form.append("description", input.description);
   if (input.photo) form.append("community_photo", input.photo);
   else if (input.removePhoto) form.append("remove_community_photo", "true");
+  if (input.banner) form.append("banner_photo", input.banner);
+  else if (input.removeBanner) form.append("remove_banner_photo", "true");
   const { data } = await api.patch<Community>(`/communities/${commname}/`, form);
   return data;
 }

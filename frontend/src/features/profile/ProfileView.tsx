@@ -7,7 +7,7 @@ import { PostDetailModal } from "./PostDetailModal";
 import { Bubblegram, Bubblepop, Community, FollowItem, Letter, User } from "@/types";
 import { Avatar } from "@/components/Avatar";
 import { UserName } from "@/components/UserName";
-import { themeColors } from "@/utils/theme";
+import { themeColors, themeStyle } from "@/utils/theme";
 import { CreateBubblePopup } from "@/features/feed/CreateBubblePopup";
 import { SoapIcon } from "@/components/SoapIcon";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
@@ -25,6 +25,7 @@ import {
   unfollowUser,
 } from "@/services/users";
 import { timeAgo } from "@/utils/time";
+import { ProfileSectionPanel } from "./ProfileSectionPanel";
 import { UserPlus, Mail, Calendar, Layers, Grid, Plus, Clock, ShoppingBag } from "lucide-react";
 
 interface ProfileViewProps {
@@ -187,6 +188,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   };
 
   return (
+    // The page wears the profile owner's wallpaper and accent (the viewer's own theme is behind it).
+    <div className="min-h-[calc(100vh-3.5rem)]" style={themeStyle(profile)}>
     <main className="max-w-7xl mx-auto px-4 py-5">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* LEFT: profile and letters */}
@@ -293,6 +296,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               </div>
             </div>
           </div>
+
+          {(profile.section || (isOwn && profile.customization_json?.section)) && (
+            <ProfileSectionPanel section={profile.section} isOwn={isOwn} />
+          )}
 
           {isOwn && (
             <div className="panel-classic">
@@ -417,7 +424,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     >
                       <div className="aspect-square bg-slate-100 overflow-hidden relative flex items-center justify-center">
                         {post.media.length > 0 ? (
-                          <img src={post.media[0].media} alt="Mídia" className="w-full h-full object-cover" />
+                          <div className="bubble-photo w-[92%] h-[92%] shadow-sm">
+                            <img src={post.media[0].media} alt="Mídia" className="w-full h-full object-cover" />
+                          </div>
                         ) : (
                           <p className="text-xs text-slate-600 font-medium p-3 text-center line-clamp-4">{post.text}</p>
                         )}
@@ -568,5 +577,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         />
       )}
     </main>
+    </div>
   );
 };

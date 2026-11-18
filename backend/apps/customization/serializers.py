@@ -22,6 +22,7 @@ class CustomizationItemSerializer(serializers.ModelSerializer):
             "description",
             "price",
             "metadata",
+            "image",
             "is_active",
             "created_at",
             "is_owned",
@@ -80,6 +81,19 @@ class CustomizationItemSerializer(serializers.ModelSerializer):
 
 
 class CustomizationItemCreateUpdateSerializer(serializers.ModelSerializer):
+    def validate(self, attrs):
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        from apps.customization.validators import validate_item_metadata
+
+        item_type = attrs.get("item_type") or getattr(self.instance, "item_type", None)
+        metadata = attrs.get("metadata", getattr(self.instance, "metadata", {}))
+        try:
+            validate_item_metadata(item_type, metadata)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"metadata": exc.messages}) from exc
+        return attrs
+
     class Meta:
         model = CustomizationItem
         fields = [
@@ -117,6 +131,11 @@ class UserInventoryItemSerializer(serializers.ModelSerializer):
             if isinstance(data, dict) and data.get("id") == obj.item_id:
                 return True
         return False
+
+
+class ProfileSectionInputSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=40, allow_blank=True)
+    text = serializers.CharField(max_length=500, allow_blank=True)
 
 
 class EquipCustomizationInputSerializer(serializers.Serializer):

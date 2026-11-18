@@ -21,6 +21,7 @@ from apps.customization.serializers import (
     CustomizationItemSerializer,
     EquipCommunityCustomizationInputSerializer,
     EquipCustomizationInputSerializer,
+    ProfileSectionInputSerializer,
     PurchaseResponseSerializer,
     UserInventoryItemSerializer,
 )
@@ -29,6 +30,7 @@ from apps.customization.services import (
     equip_customization,
     purchase_community_item,
     purchase_customization_item,
+    update_profile_section,
 )
 from apps.economy.services import ensure_community_wallet
 
@@ -186,6 +188,17 @@ class EquipCustomizationView(APIView):
             slots=slots,
         )
         return Response(equipped, status=status.HTTP_200_OK)
+
+
+class ProfileSectionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(request=ProfileSectionInputSerializer, responses={200: OpenApiTypes.OBJECT})
+    def put(self, request):
+        serializer = ProfileSectionInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = update_profile_section(user=request.user, **serializer.validated_data)
+        return Response({"title": user.section_title, "text": user.section_text})
 
 
 class CommunityPurchaseCustomizationView(APIView):

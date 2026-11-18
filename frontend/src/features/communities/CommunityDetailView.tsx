@@ -434,8 +434,13 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
         {/* Center column */}
         <div className="lg:col-span-6 min-w-0 lg:h-full lg:overflow-y-auto pr-1.5 scrollbar-thin">
           {community.banner_photo && (
-            <div className="w-full h-32 rounded-sm overflow-hidden mb-4 border border-slate-200">
-              <img src={community.banner_photo} alt={community.name} className="w-full h-full object-cover" />
+            <div className="relative w-full h-36 sm:h-44 rounded-sm overflow-hidden mb-4 border border-slate-200 bg-slate-100" data-testid="community-banner">
+              <img src={community.banner_photo} alt={`Banner de ${community.name}`} className="w-full h-full object-cover" />
+              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-slate-900/55 to-transparent pointer-events-none" />
+              <div className="absolute bottom-2 left-3 right-3 text-white pointer-events-none">
+                <span className="block text-sm font-bold leading-tight truncate drop-shadow">{community.name}</span>
+                <span className="block text-[11px] font-mono opacity-90 truncate">@{community.commname}</span>
+              </div>
             </div>
           )}
 

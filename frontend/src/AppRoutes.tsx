@@ -18,6 +18,7 @@ import { PostDetailModal } from "@/features/profile/PostDetailModal";
 import { getBubblegram } from "@/services/content";
 import { errorMessage, toApiError } from "@/services/errors";
 import { authPath, paths, safeNext, viewFromPath } from "@/routes";
+import { themeStyle } from "@/utils/theme";
 import type { Bubblegram } from "@/types";
 
 // Each screen is its own chunk: the first page only downloads what it shows.
@@ -77,7 +78,10 @@ function AppLayout() {
   const view = viewFromPath(location.pathname, user.username);
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col justify-between font-sans">
+    <div
+      className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col justify-between font-sans"
+      style={themeStyle(user)}
+    >
       <div>
         <Header />
         {user.is_suspended && (

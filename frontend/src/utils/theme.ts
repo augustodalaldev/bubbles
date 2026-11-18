@@ -50,12 +50,60 @@ export interface Badge {
   color: string;
 }
 
-export function badgeOf(user: WithCustomization): Badge | null {
-  const meta = slot(user, "badge")?.metadata;
+/** A profile shows up to three badges, in these slots. */
+export const BADGE_SLOTS = ["badge", "badge_2", "badge_3"] as const;
+
+function badgeFrom(user: WithCustomization, name: string): Badge | null {
+  const meta = slot(user, name)?.metadata;
   const label = typeof meta?.label === "string" ? meta.label.trim().slice(0, 24) : "";
   if (!label) return null;
   const background = safeColor(meta?.badge_color) ?? "#7B63FF";
   return { label, background, color: contrastText(background) };
+}
+
+export function badgesOf(user: WithCustomization): Badge[] {
+  return BADGE_SLOTS.map((name) => badgeFrom(user, name)).filter((b): b is Badge => b !== null);
+}
+
+/** Only same-origin `/media/...` images (the catalog's uploads) are used as backgrounds. */
+const MEDIA_URL = /^(?:https?:\/\/[^/\s]+)?\/media\/[A-Za-z0-9_./-]+$/;
+
+export function wallpaperOf(user: WithCustomization): { url: string; fit: "cover" | "tile" } | null {
+  const entry = user?.customization_json?.wallpaper as { image?: unknown; metadata?: Record<string, unknown> } | undefined;
+  const url = typeof entry?.image === "string" && MEDIA_URL.test(entry.image) ? entry.image : null;
+  if (!url) return null;
+  return { url, fit: entry?.metadata?.fit === "tile" ? "tile" : "cover" };
+}
+
+export function accentOf(user: WithCustomization): string | null {
+  return safeColor(slot(user, "accent_color")?.metadata?.color);
+}
+
+/**
+ * Inline style for a page area that wears someone's wallpaper and accent color. The accent is
+ * exposed as CSS variables that buttons and panel headers read (see index.css).
+ */
+export function themeStyle(user: WithCustomization): React.CSSProperties | undefined {
+  const accent = accentOf(user);
+  const wallpaper = wallpaperOf(user);
+  if (!accent && !wallpaper) return undefined;
+  const style: Record<string, string> = {};
+  if (accent) {
+    style["--accent"] = accent;
+    style["--accent-contrast"] = contrastText(accent);
+  }
+  if (wallpaper) {
+    style.backgroundImage = `url("${wallpaper.url}")`;
+    if (wallpaper.fit === "tile") {
+      style.backgroundRepeat = "repeat";
+    } else {
+      style.backgroundSize = "cover";
+      style.backgroundPosition = "center";
+      style.backgroundAttachment = "fixed";
+      style.backgroundRepeat = "no-repeat";
+    }
+  }
+  return style as React.CSSProperties;
 }
 
 export function themeColors(user: WithCustomization): { primary: string; secondary: string } | null {

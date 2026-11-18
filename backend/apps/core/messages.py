@@ -115,6 +115,10 @@ MESSAGES: dict[str, str] = {
     "customization_not_available": "A personalização desta comunidade ainda não está disponível.",
     # --- moderation
     "cannot_ban_staff": "Administradores não podem ser banidos.",
+    "duplicate_badge": "O mesmo selo não pode aparecer duas vezes.",
+    "section_locked": "Compre uma seção de perfil na Loja para usar este recurso.",
+    "invalid_section": "A seção é inválida: use até 40 caracteres no título e 500 no texto.",
+    "invalid_metadata": "Os dados do item de personalização são inválidos.",
     "account_banned": "Esta conta foi banida. Motivo: {reason}",
     "already_banned": "Esta comunidade já está banida.",
     "cannot_suspend_staff": "Administradores não podem ser suspensos.",

@@ -204,7 +204,7 @@ erDiagram
         bigint id PK
         string name "max 100"
         string code UK "unique slug"
-        string item_type "AVATAR_FRAME, PROFILE_THEME, CHAT_BUBBLE, BADGE, NAME_COLOR"
+        string item_type "AVATAR_FRAME, PROFILE_THEME, CHAT_BUBBLE, BADGE, NAME_COLOR, WALLPAPER, ACCENT_COLOR, SECTION"
         string scope "USER | COMMUNITY | BOTH (who may buy it)"
         text description
         integer price "cost in soap (0 for free/starter)"

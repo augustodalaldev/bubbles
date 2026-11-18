@@ -29,6 +29,8 @@ export interface User {
   is_suspended?: boolean;
   suspended_until?: string | null;
   moderation_reason?: string;
+  /** Customizable profile section: only present while a SECTION item is equipped. */
+  section?: ProfileSection | null;
   soap_balance?: number;
   wallet?: Wallet | null;
   last_seen_at?: string;
@@ -62,6 +64,11 @@ export interface CommunityRef {
   id: number;
   commname: string;
   name: string;
+}
+
+export interface ProfileSection {
+  title: string;
+  text: string;
 }
 
 export interface Community extends CommunityRef {
@@ -165,7 +172,10 @@ export type CustomizationType =
   | "PROFILE_THEME"
   | "CHAT_BUBBLE"
   | "BADGE"
-  | "NAME_COLOR";
+  | "NAME_COLOR"
+  | "WALLPAPER"
+  | "ACCENT_COLOR"
+  | "SECTION";
 
 export interface CustomizationItem {
   id: number;
@@ -176,6 +186,8 @@ export interface CustomizationItem {
   description: string;
   price: number;
   metadata: Record<string, any>;
+  /** Wallpapers only (uploaded by staff). */
+  image?: string | null;
   is_active: boolean;
   created_at: string;
   is_owned: boolean;

@@ -1,5 +1,6 @@
 from typing import Any
 
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
 from apps.communities.models import Community, CommunityMember, MemberRole, MemberState
@@ -10,12 +11,51 @@ from apps.customization.models import (
     CustomizationScope,
     UserInventoryItem,
 )
+from apps.customization.validators import clean_section
 from apps.economy.models import Wallet
 from apps.economy.services import (
     ensure_community_wallet,
     ensure_user_wallet,
     spend_customization,
 )
+
+# Slots equal the lower-cased item type, except badges: a profile shows up to three.
+BADGE_SLOTS = ("badge", "badge_2", "badge_3")
+
+
+def slot_accepts(slot_key: str, item_type: str) -> bool:
+    """Whether an item of `item_type` may sit in slot `slot_key`."""
+    if item_type == "BADGE":
+        return slot_key in BADGE_SLOTS
+    return slot_key == item_type.lower()
+
+
+def item_snapshot(item: CustomizationItem) -> dict[str, Any]:
+    """What gets stored in `customization_json` when an item is equipped."""
+    data: dict[str, Any] = {
+        "id": item.id,
+        "code": item.code,
+        "name": item.name,
+        "item_type": item.item_type,
+        "metadata": item.metadata,
+    }
+    if item.image:
+        data["image"] = item.image.url
+    return data
+
+
+def _check_unique_badges(slots: dict[str, Any]) -> None:
+    ids = [
+        slots[key]["id"]
+        for key in BADGE_SLOTS
+        if isinstance(slots.get(key), dict) and slots[key].get("id") is not None
+    ]
+    if len(ids) != len(set(ids)):
+        raise DomainError(
+            "The same badge cannot be shown twice.",
+            code="duplicate_badge",
+            http_status=400,
+        )
 
 
 @transaction.atomic
@@ -123,13 +163,7 @@ def equip_customization(
                         http_status=400,
                     )
                 seen_types.add(slot_key)
-                new_equipped[slot_key] = {
-                    "id": item.id,
-                    "code": item.code,
-                    "name": item.name,
-                    "item_type": item.item_type,
-                    "metadata": item.metadata,
-                }
+                new_equipped[slot_key] = item_snapshot(item)
             current_equipped = new_equipped
 
     if slots is not None:
@@ -147,7 +181,7 @@ def equip_customization(
                         http_status=404,
                     ) from None
 
-                if item.item_type.lower() != slot_key:
+                if not slot_accepts(slot_key, item.item_type):
                     raise DomainError(
                         f"Item '{item.code}' of type '{item.item_type}' "
                         f"does not match slot '{slot_key}'.",
@@ -163,14 +197,9 @@ def equip_customization(
                         http_status=400,
                     )
 
-                current_equipped[slot_key] = {
-                    "id": item.id,
-                    "code": item.code,
-                    "name": item.name,
-                    "item_type": item.item_type,
-                    "metadata": item.metadata,
-                }
+                current_equipped[slot_key] = item_snapshot(item)
 
+    _check_unique_badges(current_equipped)
     user.customization_json = current_equipped
     type(user).objects.filter(pk=user.pk).update(customization_json=current_equipped)
     return current_equipped
@@ -196,6 +225,64 @@ def validate_user_customization_ownership(*, user: Any, customization_json: dict
                 code="item_not_owned",
                 http_status=400,
             )
+
+
+def canonical_user_customization(
+    *, user: Any, customization_json: dict[str, Any]
+) -> dict[str, Any]:
+    """Rebuild a client-supplied `customization_json` from the database.
+
+    Only the item ids are read from the client; names, metadata and images come from the catalog,
+    so a client cannot smuggle arbitrary design tokens into its profile.
+    """
+    result: dict[str, Any] = {}
+    for slot_key, data in (customization_json or {}).items():
+        item_id = data.get("id") or data.get("item_id") if isinstance(data, dict) else None
+        if not item_id:
+            raise DomainError(
+                "Each customization slot must reference an item id.",
+                code="invalid_customization",
+                extra={"fields": {"customization_json": ["Each slot needs an item id."]}},
+            )
+        item = CustomizationItem.objects.filter(pk=item_id).first()
+        if item is None or not UserInventoryItem.objects.filter(user=user, item=item).exists():
+            raise DomainError(
+                "Cannot equip items that are not in your inventory.",
+                code="item_not_owned",
+                http_status=400,
+            )
+        if not slot_accepts(str(slot_key).lower(), item.item_type):
+            raise DomainError(
+                f"Item '{item.code}' does not match slot '{slot_key}'.",
+                code="slot_mismatch",
+                http_status=400,
+            )
+        result[str(slot_key).lower()] = item_snapshot(item)
+    _check_unique_badges(result)
+    return result
+
+
+@transaction.atomic
+def update_profile_section(*, user: Any, title: str, text: str) -> Any:
+    """Write the customizable profile section. Requires owning a SECTION item."""
+    if not UserInventoryItem.objects.filter(user=user, item__item_type="SECTION").exists():
+        raise DomainError(
+            "Buy a profile section in the store first.",
+            code="section_locked",
+            http_status=403,
+        )
+    try:
+        title, text = clean_section(title, text)
+    except ValidationError as exc:
+        raise DomainError(
+            "Invalid section.",
+            code="invalid_section",
+            extra={"fields": {"text": [exc.messages[0]]}},
+        ) from exc
+    user.section_title = title
+    user.section_text = text
+    user.save(update_fields=["section_title", "section_text"])
+    return user
 
 
 # --------------------------------------------------------------------------------------
@@ -319,20 +406,15 @@ def equip_community_customization(
                 http_status=400 if exists else 404,
             )
         item = holding.item
-        if item.item_type.lower() != slot_key:
+        if not slot_accepts(slot_key, item.item_type):
             raise DomainError(
                 f"Item '{item.code}' of type '{item.item_type}' does not match slot '{slot_key}'.",
                 code="slot_mismatch",
                 http_status=400,
             )
-        current[slot_key] = {
-            "id": item.id,
-            "code": item.code,
-            "name": item.name,
-            "item_type": item.item_type,
-            "metadata": item.metadata,
-        }
+        current[slot_key] = item_snapshot(item)
 
+    _check_unique_badges(current)
     Community.objects.filter(pk=community.pk).update(customization_json=current)
     community.customization_json = current
     return current

@@ -26,11 +26,15 @@ function DetailsSection({ community, onSaved }: { community: Community; onSaved:
   const [description, setDescription] = useState(community.description ?? "");
   const [photo, setPhoto] = useState<File | null>(null);
   const [removePhoto, setRemovePhoto] = useState(false);
+  const [banner, setBanner] = useState<File | null>(null);
+  const [removeBanner, setRemoveBanner] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const preview = useMemo(() => (photo ? URL.createObjectURL(photo) : null), [photo]);
   useEffect(() => () => (preview ? URL.revokeObjectURL(preview) : undefined), [preview]);
+  const bannerPreview = useMemo(() => (banner ? URL.createObjectURL(banner) : null), [banner]);
+  useEffect(() => () => (bannerPreview ? URL.revokeObjectURL(bannerPreview) : undefined), [bannerPreview]);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,10 +42,12 @@ function DetailsSection({ community, onSaved }: { community: Community; onSaved:
     setNotice(null);
     setErrors({});
     try {
-      const updated = await api.updateCommunity(community.commname, { name, description, photo, removePhoto });
+      const updated = await api.updateCommunity(community.commname, { name, description, photo, removePhoto, banner, removeBanner });
       onSaved(updated);
       setPhoto(null);
       setRemovePhoto(false);
+      setBanner(null);
+      setRemoveBanner(false);
       setNotice({ ok: true, text: "Comunidade atualizada." });
     } catch (err) {
       setErrors(fieldErrors(err));
@@ -52,6 +58,7 @@ function DetailsSection({ community, onSaved }: { community: Community; onSaved:
   };
 
   const current = removePhoto ? null : community.community_photo;
+  const currentBanner = removeBanner ? null : community.banner_photo;
   return (
     <Section title="Dados da comunidade">
       <form onSubmit={save} className="space-y-3">
@@ -87,6 +94,42 @@ function DetailsSection({ community, onSaved }: { community: Community; onSaved:
               </button>
             )}
           </div>
+        </div>
+        <div>
+          <span className="block mb-1 text-[11px] font-semibold text-slate-700">Banner do mural</span>
+          <div className="w-full h-28 rounded-sm overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center text-[11px] text-slate-400">
+            {bannerPreview || currentBanner ? (
+              <img src={bannerPreview ?? currentBanner ?? ""} alt="Banner da comunidade" className="w-full h-full object-cover" />
+            ) : (
+              "Sem banner"
+            )}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              aria-label="Novo banner da comunidade"
+              onChange={(e) => {
+                setBanner(e.target.files?.[0] ?? null);
+                setRemoveBanner(false);
+              }}
+              className="block text-[11px] text-slate-600"
+            />
+            {(community.banner_photo || banner) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setBanner(null);
+                  setRemoveBanner(true);
+                }}
+                className="text-[11px] font-semibold text-red-700 hover:underline"
+              >
+                Remover banner
+              </button>
+            )}
+          </div>
+          <p className="text-[10px] text-slate-400 mt-0.5">Aparece no topo do mural da comunidade. Imagens largas funcionam melhor.</p>
+          {errors.banner_photo && <p role="alert" className="text-[11px] text-red-700">{errors.banner_photo}</p>}
         </div>
         {errors.community_photo && <p role="alert" className="text-[11px] text-red-700">{errors.community_photo}</p>}
         <label className="block">

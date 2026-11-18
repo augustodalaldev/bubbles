@@ -67,7 +67,7 @@ export const BubblegramBall: React.FC<BubblegramBallProps> = ({
     >
       {isRoundPhoto ? (
         /* Round Bubble Sphere with User's bubble.svg Overlay */
-        <div className="relative w-full h-full rounded-full overflow-hidden bg-slate-100 shadow-md transition-shadow group-hover:shadow-lg">
+        <div className="bubble-photo relative w-full h-full bg-slate-100 shadow-md transition-shadow group-hover:shadow-lg">
           <img
             src={firstMedia!}
             alt="Publicação"

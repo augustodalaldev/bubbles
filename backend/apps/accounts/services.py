@@ -202,10 +202,11 @@ def update_profile(
                 code="invalid_customization",
                 extra={"fields": {"customization_json": ["Must be a valid object."]}},
             )
-        from apps.customization.services import validate_user_customization_ownership
+        from apps.customization.services import canonical_user_customization
 
-        validate_user_customization_ownership(user=user, customization_json=customization_json)
-        user.customization_json = customization_json
+        user.customization_json = canonical_user_customization(
+            user=user, customization_json=customization_json
+        )
         update_fields.append("customization_json")
 
     if update_fields:

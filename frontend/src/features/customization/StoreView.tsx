@@ -9,6 +9,7 @@ import { ErrorState, LoadingState } from "@/components/StateViews";
 import { useAuthStore } from "@/features/auth/authStore";
 import { equipSlots, listItems, purchaseItem } from "@/services/customization";
 import { errorMessage } from "@/services/errors";
+import { BADGE_SLOTS } from "@/utils/theme";
 import { 
   Store, 
   Compass, 
@@ -75,9 +76,22 @@ export const StoreView: React.FC<StoreViewProps> = ({
 
   // Slot names are the lower-cased item types; `null` unequips the slot.
   const handleEquipToggle = async (item: CustomizationItem) => {
+    // One change at a time: the slot is chosen from the current state, which an in-flight request
+    // is about to change.
+    if (busyId !== null) return;
+    // A profile shows up to three badges (badge, badge_2, badge_3); every other type has one slot.
+    const equipped = (useAuthStore.getState().user?.customization_json ?? {}) as Record<string, { id?: number } | undefined>;
+    const candidates: string[] = item.item_type === "BADGE" ? [...BADGE_SLOTS] : [item.item_type.toLowerCase()];
+    const current = candidates.find((s) => equipped[s]?.id === item.id);
+    const free = candidates.find((s) => !equipped[s]);
+    const target = item.is_equipped ? (current ?? candidates[0]) : (free ?? (item.item_type === "BADGE" ? null : candidates[0]));
+    if (!target) {
+      showNotice("Você já exibe 3 selos. Desequipe um antes de equipar outro.", "error");
+      return;
+    }
     setBusyId(item.id);
     try {
-      await equipSlots({ [item.item_type.toLowerCase()]: item.is_equipped ? null : item.id });
+      await equipSlots({ [target]: item.is_equipped ? null : item.id });
       await Promise.all([loadItems(), refreshUser()]);
       showNotice(
         item.is_equipped ? `"${item.name}" foi desequipado.` : `"${item.name}" equipado com sucesso.`,
@@ -230,7 +244,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                   </h1>
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  Personalize sua presença visual na rede com molduras translúcidas, temas e insígnias.
+                  Personalize sua presença com molduras, temas, selos (até 3), papéis de parede, cores de destaque e uma seção só sua.
                 </p>
               </div>
 
@@ -283,6 +297,10 @@ export const StoreView: React.FC<StoreViewProps> = ({
                 { id: "PROFILE_THEME", label: "Temas de Perfil" },
                 { id: "CHAT_BUBBLE", label: "Bolhas de Chat" },
                 { id: "BADGE", label: "Insígnias" },
+                { id: "NAME_COLOR", label: "Cores de Nome" },
+                { id: "WALLPAPER", label: "Papéis de Parede" },
+                { id: "ACCENT_COLOR", label: "Cores de Destaque" },
+                { id: "SECTION", label: "Seção do Perfil" },
               ].map((cat) => (
                 <button
                   key={cat.id}

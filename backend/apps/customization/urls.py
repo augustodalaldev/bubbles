@@ -24,6 +24,9 @@ urlpatterns = [
         name="customization-inventory",
     ),
     path(
+        "customization/section/", views.ProfileSectionView.as_view(), name="customization-section"
+    ),
+    path(
         "customization/equip/",
         views.EquipCustomizationView.as_view(),
         name="customization-equip",

@@ -176,14 +176,14 @@ def test_update_profile_success():
         name="New Name",
         description="New Desc",
         birth_date=new_birth_date,
-        customization_json={"border_color": "bubble-blue"},
+        customization_json={},
     )
 
     user.refresh_from_db()
     assert updated.name == "New Name"
     assert updated.description == "New Desc"
     assert updated.birth_date == new_birth_date
-    assert updated.customization_json == {"border_color": "bubble-blue"}
+    assert updated.customization_json == {}
 
 
 def test_update_profile_validations():

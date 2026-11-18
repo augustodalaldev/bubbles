@@ -2,6 +2,7 @@ import React from "react";
 import { CustomizationItem } from "@/types";
 import { SoapIcon } from "@/components/SoapIcon";
 import { Check, ShieldCheck, Sparkles } from "lucide-react";
+import { safeColor } from "@/utils/theme";
 
 interface CustomizationCardProps {
   item: CustomizationItem;
@@ -106,8 +107,57 @@ export const CustomizationCard: React.FC<CustomizationCardProps> = ({
       );
     }
 
+    if (item.item_type === "WALLPAPER") {
+      return (
+        <div className="h-24 border-b border-slate-200 bg-slate-100 overflow-hidden">
+          {item.image ? (
+            <img src={item.image} alt={`Prévia: ${item.name}`} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-pink-600" />
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (item.item_type === "ACCENT_COLOR" || item.item_type === "NAME_COLOR") {
+      const color = safeColor(item.metadata?.color) ?? "#F465AC";
+      return (
+        <div className="h-24 bg-slate-50 flex items-center justify-center gap-3 p-3 border-b border-slate-200">
+          <span className="w-9 h-9 rounded-full border border-slate-300" style={{ backgroundColor: color }} title={color} />
+          {item.item_type === "ACCENT_COLOR" ? (
+            <span
+              className="px-3 py-1 text-xs font-bold rounded-sm border"
+              style={{ backgroundColor: color, borderColor: color, color: "#fff", textShadow: "0 0 2px rgba(0,0,0,0.5)" }}
+            >
+              Botão
+            </span>
+          ) : (
+            <span className="text-sm font-bold" style={{ color }}>
+              {previewName}
+            </span>
+          )}
+        </div>
+      );
+    }
+
+    if (item.item_type === "SECTION") {
+      return (
+        <div className="h-24 bg-slate-50 flex items-center justify-center p-3 border-b border-slate-200">
+          <div className="w-full max-w-[170px] bg-white border border-slate-200 rounded-sm shadow-2xs">
+            <div className="px-2 py-1 border-b border-slate-200 text-[10px] font-bold text-slate-700">Minha seção</div>
+            <div className="p-2 space-y-1">
+              <span className="block h-1.5 w-full bg-slate-200 rounded-sm" />
+              <span className="block h-1.5 w-2/3 bg-slate-200 rounded-sm" />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     if (item.item_type === "BADGE") {
-      const badgeColor = item.metadata?.badge_color || "#7B63FF";
+      const badgeColor = safeColor(item.metadata?.badge_color) ?? "#7B63FF";
 
       return (
         <div className="h-24 bg-slate-50 flex items-center justify-center p-3 border-b border-slate-200">
@@ -116,7 +166,7 @@ export const CustomizationCard: React.FC<CustomizationCardProps> = ({
             style={{ backgroundColor: badgeColor }}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
-            {item.name}
+            {(item.metadata?.label as string | undefined) ?? item.name}
           </span>
         </div>
       );
@@ -141,6 +191,12 @@ export const CustomizationCard: React.FC<CustomizationCardProps> = ({
         return "Insígnia";
       case "NAME_COLOR":
         return "Cor de Nome";
+      case "WALLPAPER":
+        return "Papel de Parede";
+      case "ACCENT_COLOR":
+        return "Cor de Destaque";
+      case "SECTION":
+        return "Seção do Perfil";
       default:
         return "Item";
     }

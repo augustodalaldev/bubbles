@@ -201,13 +201,19 @@ def test_current_user_me_patch(auth_client):
     payload = {
         "name": "Updated Name",
         "description": "Updated Description",
-        "customization_json": {"theme": "dark-bubbles"},
+        "customization_json": {},
     }
     response = client.patch("/api/v1/users/me/", data=payload, format="json")
     assert response.status_code == status.HTTP_200_OK
     assert response.data["name"] == "Updated Name"
     assert response.data["description"] == "Updated Description"
-    assert response.data["customization_json"] == {"theme": "dark-bubbles"}
+    assert response.data["customization_json"] == {}
+
+    # Free-form customization is rejected: slots must reference catalog items.
+    junk = client.patch(
+        "/api/v1/users/me/", data={"customization_json": {"theme": "dark-bubbles"}}, format="json"
+    )
+    assert junk.status_code == status.HTTP_400_BAD_REQUEST
 
     user.refresh_from_db()
     assert user.name == "Updated Name"

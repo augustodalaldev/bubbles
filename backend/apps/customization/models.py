@@ -1,6 +1,11 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
+
+from apps.core.uploads import UploadTo, validate_image_upload
+
+from .validators import validate_item_metadata
 
 
 class CustomizationType(models.TextChoices):
@@ -9,6 +14,9 @@ class CustomizationType(models.TextChoices):
     CHAT_BUBBLE = "CHAT_BUBBLE", "Chat Bubble"
     BADGE = "BADGE", "Badge"
     NAME_COLOR = "NAME_COLOR", "Name Color"
+    WALLPAPER = "WALLPAPER", "Wallpaper"
+    ACCENT_COLOR = "ACCENT_COLOR", "Accent Color"
+    SECTION = "SECTION", "Profile Section"
 
 
 class CustomizationScope(models.TextChoices):
@@ -44,6 +52,13 @@ class CustomizationItem(models.Model):
         blank=True,
         help_text="Design tokens and styling metadata consumed by the frontend.",
     )
+    # Wallpapers only: uploaded by staff in the admin, never by users.
+    image = models.ImageField(
+        upload_to=UploadTo("customization"),
+        blank=True,
+        validators=[validate_image_upload],
+        help_text="Required for wallpapers (JPEG/PNG/WebP/GIF, up to 10 MB).",
+    )
     is_active = models.BooleanField(default=True, db_index=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
 
@@ -55,6 +70,15 @@ class CustomizationItem(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.get_item_type_display()}) - {self.price} soap"
+
+    def clean(self):
+        super().clean()
+        try:
+            validate_item_metadata(self.item_type, self.metadata)
+        except ValidationError as exc:
+            raise ValidationError({"metadata": exc.messages}) from exc
+        if self.item_type == CustomizationType.WALLPAPER and not self.image:
+            raise ValidationError({"image": "A wallpaper needs an image."})
 
 
 class UserInventoryItem(models.Model):
