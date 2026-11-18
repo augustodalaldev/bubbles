@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.serializers import PublicUserSerializer
-from apps.communities.models import Community
+from apps.communities.models import Community, not_moderated_q
 from apps.communities.serializers import CommunityListSerializer
 
 from .messages import message_for
@@ -52,14 +52,17 @@ class SearchView(APIView):
             deleted_at__isnull=True,
         ).order_by("username")[:20]
 
-        communities = Community.objects.filter(
-            Q(commname__icontains=query)
-            | Q(name__icontains=query)
-            | Q(description__icontains=query),
-            archived_at__isnull=True,
-            blocked_at__isnull=True,
-            deleted_at__isnull=True,
-        ).order_by("-member_count", "commname")[:20]
+        communities = (
+            Community.objects.filter(
+                Q(commname__icontains=query)
+                | Q(name__icontains=query)
+                | Q(description__icontains=query),
+                archived_at__isnull=True,
+                deleted_at__isnull=True,
+            )
+            .filter(not_moderated_q())
+            .order_by("-member_count", "commname")[:20]
+        )
 
         data = {
             "query": query,

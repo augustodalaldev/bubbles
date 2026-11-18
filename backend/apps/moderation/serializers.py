@@ -77,8 +77,46 @@ class AuditLogSerializer(serializers.ModelSerializer):
         return obj.actor.username if obj.actor_id else None
 
 
+class AdminUserSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    username = serializers.CharField()
+    name = serializers.CharField()
+    email = serializers.CharField()
+    profile_photo = serializers.SerializerMethodField()
+    is_staff = serializers.BooleanField()
+    status = serializers.SerializerMethodField()
+    suspended_until = serializers.DateTimeField()
+    moderation_reason = serializers.CharField()
+    created_at = serializers.DateTimeField()
+
+    def get_status(self, obj) -> str:
+        """ACTIVE / SUSPENDED / BANNED, treating an expired suspension as active."""
+        if obj.is_banned:
+            return "BANNED"
+        return "SUSPENDED" if obj.is_suspended else "ACTIVE"
+
+    def get_profile_photo(self, obj) -> str | None:
+        return obj.profile_photo.url if obj.profile_photo else None
+
+
+class AdminCommunitySerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    commname = serializers.CharField()
+    name = serializers.CharField()
+    member_count = serializers.IntegerField()
+    is_archived = serializers.BooleanField()
+    status = serializers.SerializerMethodField()
+    suspended_until = serializers.DateTimeField()
+    blocked_at = serializers.DateTimeField()
+    moderation_reason = serializers.CharField()
+    created_at = serializers.DateTimeField()
+
+    def get_status(self, obj) -> str:
+        return obj.moderation_status or "ACTIVE"
+
+
 class SuspendUserInputSerializer(serializers.Serializer):
-    duration_hours = serializers.IntegerField(min_value=1, default=24)
+    duration_hours = serializers.IntegerField(min_value=1, max_value=24 * 365, default=24)
     reason = serializers.CharField(max_length=500, required=True)
 
 

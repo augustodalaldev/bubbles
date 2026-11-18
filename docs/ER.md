@@ -86,6 +86,8 @@ erDiagram
         datetime archived_at "nullable, archived = read-only"
         datetime blocked_at "nullable, admin blocked"
         datetime deleted_at "nullable, soft-deleted by the leader; handle becomes deleted_id"
+        datetime suspended_until "nullable, staff suspension (blocked_at is the ban)"
+        string moderation_reason "shown to members"
     }
 
     CommunityMember {

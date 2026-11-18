@@ -191,7 +191,8 @@ def suspend_user(
     suspended_until = timezone.now() + timedelta(hours=duration_hours)
     user.status = UserStatus.SUSPENDED
     user.suspended_until = suspended_until
-    user.save(update_fields=["status", "suspended_until"])
+    user.moderation_reason = reason.strip()
+    user.save(update_fields=["status", "suspended_until", "moderation_reason"])
 
     log_audit_action(
         actor=actor,
@@ -237,7 +238,8 @@ def ban_user(
     user.status = UserStatus.BANNED
     user.is_active = False
     user.suspended_until = None
-    user.save(update_fields=["status", "is_active", "suspended_until"])
+    user.moderation_reason = reason.strip()
+    user.save(update_fields=["status", "is_active", "suspended_until", "moderation_reason"])
 
     log_audit_action(
         actor=actor,
@@ -264,10 +266,13 @@ def unban_user(
             http_status=403,
         )
 
+    if user.deleted_at is not None:
+        raise DomainError("User not found.", code="user_not_found", http_status=404)
     user.status = UserStatus.ACTIVE
     user.is_active = True
     user.suspended_until = None
-    user.save(update_fields=["status", "is_active", "suspended_until"])
+    user.moderation_reason = ""
+    user.save(update_fields=["status", "is_active", "suspended_until", "moderation_reason"])
 
     log_audit_action(
         actor=actor,
@@ -277,6 +282,51 @@ def unban_user(
         reason=reason,
     )
     return user
+
+
+@transaction.atomic
+def suspend_community(
+    *,
+    actor: Any,
+    community: Community,
+    duration_hours: int,
+    reason: str = "",
+) -> Community:
+    """Temporarily suspend a community: hidden from lists and read-only (staff only)."""
+    if not actor.is_staff:
+        raise DomainError(
+            "Only staff administrators can suspend communities.",
+            code="permission_denied",
+            http_status=403,
+        )
+    if duration_hours <= 0:
+        raise DomainError(
+            "Suspension duration must be at least 1 hour.",
+            code="invalid_duration",
+            http_status=400,
+        )
+    if community.is_blocked:
+        raise DomainError(
+            "This community is already banned.",
+            code="already_banned",
+            http_status=400,
+        )
+    community.suspended_until = timezone.now() + timedelta(hours=duration_hours)
+    community.moderation_reason = reason.strip()
+    community.save(update_fields=["suspended_until", "moderation_reason"])
+
+    log_audit_action(
+        actor=actor,
+        action=AuditAction.COMMUNITY_SUSPEND,
+        target_type="COMMUNITY",
+        target_id=community.commname,
+        reason=reason,
+        metadata={
+            "duration_hours": duration_hours,
+            "suspended_until": community.suspended_until.isoformat(),
+        },
+    )
+    return community
 
 
 @transaction.atomic
@@ -295,7 +345,9 @@ def block_community(
         )
 
     community.blocked_at = timezone.now()
-    community.save(update_fields=["blocked_at"])
+    community.suspended_until = None
+    community.moderation_reason = reason.strip()
+    community.save(update_fields=["blocked_at", "suspended_until", "moderation_reason"])
 
     log_audit_action(
         actor=actor,
@@ -323,7 +375,9 @@ def unblock_community(
         )
 
     community.blocked_at = None
-    community.save(update_fields=["blocked_at"])
+    community.suspended_until = None
+    community.moderation_reason = ""
+    community.save(update_fields=["blocked_at", "suspended_until", "moderation_reason"])
 
     log_audit_action(
         actor=actor,

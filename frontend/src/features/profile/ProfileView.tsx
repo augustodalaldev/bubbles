@@ -215,6 +215,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 </p>
               )}
 
+              {!isOwn && me.is_staff && (
+                <Link
+                  to={paths.moderation({ tab: "users", q: profile.username })}
+                  className="text-[11px] font-semibold text-pink-700 hover:underline mb-3"
+                >
+                  Moderar este usuário
+                </Link>
+              )}
+
               {isOwn && (
                 <Link to={paths.account} className="btn-outline w-full py-1.5 px-2 mb-4 text-xs font-semibold text-center">
                   Editar perfil e conta

@@ -22,6 +22,49 @@ def list_reports(
     return qs.order_by("-created_at")
 
 
+def list_admin_users(*, query: str = "", status: str = "") -> QuerySet:
+    """Users for the moderation screen. Deleted (anonymized) accounts are left out."""
+    from django.contrib.auth import get_user_model
+    from django.db.models import Q
+    from django.utils import timezone
+
+    qs = get_user_model().objects.filter(deleted_at__isnull=True)
+    if query:
+        qs = qs.filter(Q(username__icontains=query) | Q(name__icontains=query))
+    now = timezone.now()
+    if status == "BANNED":
+        qs = qs.filter(status="BANNED")
+    elif status == "SUSPENDED":
+        qs = qs.filter(status="SUSPENDED").filter(
+            Q(suspended_until__isnull=True) | Q(suspended_until__gt=now)
+        )
+    elif status == "ACTIVE":
+        qs = qs.exclude(status="BANNED").exclude(
+            Q(status="SUSPENDED") & (Q(suspended_until__isnull=True) | Q(suspended_until__gt=now))
+        )
+    return qs.order_by("username")
+
+
+def list_admin_communities(*, query: str = "", status: str = "") -> QuerySet:
+    """Communities for the moderation screen. Deleted communities are left out."""
+    from django.db.models import Q
+
+    from apps.communities.models import Community, not_moderated_q
+
+    qs = Community.objects.filter(deleted_at__isnull=True)
+    if query:
+        qs = qs.filter(Q(commname__icontains=query) | Q(name__icontains=query))
+    if status == "BANNED":
+        qs = qs.filter(blocked_at__isnull=False)
+    elif status == "SUSPENDED":
+        qs = qs.filter(blocked_at__isnull=True, suspended_until__isnull=False).exclude(
+            not_moderated_q()
+        )
+    elif status == "ACTIVE":
+        qs = qs.filter(not_moderated_q())
+    return qs.order_by("commname")
+
+
 def list_audit_logs(
     *,
     action: str | None = None,

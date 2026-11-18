@@ -58,7 +58,9 @@ MESSAGES: dict[str, str] = {
     "reserved_commname": "Este identificador de comunidade não está disponível.",
     "invalid_guidelines": "As diretrizes ultrapassam o limite de 2000 caracteres.",
     "community_archived": "Esta comunidade foi arquivada e está somente para leitura.",
-    "community_blocked": "Esta comunidade está bloqueada pela administração.",
+    "community_blocked": (
+        "Esta comunidade está suspensa ou bloqueada pela administração e está somente para leitura."
+    ),
     "confirmation_mismatch": "O texto digitado não confere. Confira e tente de novo.",
     "already_archived": "Esta comunidade já está arquivada.",
     "already_member": "Você já participa desta comunidade.",
@@ -113,6 +115,8 @@ MESSAGES: dict[str, str] = {
     "customization_not_available": "A personalização desta comunidade ainda não está disponível.",
     # --- moderation
     "cannot_ban_staff": "Administradores não podem ser banidos.",
+    "account_banned": "Esta conta foi banida. Motivo: {reason}",
+    "already_banned": "Esta comunidade já está banida.",
     "cannot_suspend_staff": "Administradores não podem ser suspensos.",
     "self_report": "Você não pode denunciar a si mesmo.",
     "invalid_content_id": "O identificador do conteúdo deve ser um número.",

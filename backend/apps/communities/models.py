@@ -46,6 +46,10 @@ class Community(models.Model):
     # Soft delete by the leader: the row stays (ledger and content keep their references) but the
     # community is hidden everywhere and its handle is freed (see `delete_community`).
     deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    # Temporary suspension by staff (a ban is `blocked_at`). Both make the community read-only
+    # and hidden from lists; `moderation_reason` is shown to its members.
+    suspended_until = models.DateTimeField(null=True, blank=True)
+    moderation_reason = models.CharField(max_length=500, blank=True, default="")
 
     class Meta:
         verbose_name_plural = "communities"
@@ -70,6 +74,31 @@ class Community(models.Model):
     @property
     def is_blocked(self) -> bool:
         return self.blocked_at is not None
+
+    @property
+    def is_suspended(self) -> bool:
+        return self.suspended_until is not None and self.suspended_until > timezone.now()
+
+    @property
+    def is_moderated(self) -> bool:
+        """Banned (blocked) or suspended: read-only and hidden from lists."""
+        return self.is_blocked or self.is_suspended
+
+    @property
+    def moderation_status(self) -> str | None:
+        if self.is_blocked:
+            return "BANNED"
+        if self.is_suspended:
+            return "SUSPENDED"
+        return None
+
+
+def not_moderated_q(prefix: str = "") -> Q:
+    """Filter for communities that are neither banned nor under an active suspension."""
+    return Q(**{f"{prefix}blocked_at__isnull": True}) & (
+        Q(**{f"{prefix}suspended_until__isnull": True})
+        | Q(**{f"{prefix}suspended_until__lte": timezone.now()})
+    )
 
 
 class CommunityMember(models.Model):

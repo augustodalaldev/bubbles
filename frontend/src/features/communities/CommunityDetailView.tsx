@@ -6,6 +6,7 @@ import { Avatar } from "@/components/Avatar";
 import { UserName } from "@/components/UserName";
 import { BubbleOverlay } from "@/components/BubbleOverlay";
 import { SoapIcon } from "@/components/SoapIcon";
+import { formatUntil } from "@/components/ModerationBanner";
 import { NotFoundView } from "@/components/NotFoundView";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { useAuthStore } from "@/features/auth/authStore";
@@ -77,6 +78,7 @@ const NOT_FOUND = "not_found";
 
 export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commname }) => {
   const economy = useAuthStore((s) => s.economy);
+  const isStaff = useAuthStore((s) => s.user?.is_staff);
   const refreshUser = useAuthStore((s) => s.refreshUser);
 
   const [community, setCommunity] = useState<Community | null>(null);
@@ -193,7 +195,7 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
   const permissions = community.permissions;
   const myRole = community.my_membership?.role;
   const myState = community.my_membership?.current_state;
-  const canPost = myState === "ACTIVE" && !community.is_archived;
+  const canPost = myState === "ACTIVE" && !community.is_archived && !community.moderation;
   const postCost = economy?.bubblegram_community_cost;
 
   // Equipped avatar frame (a design token bought with the community's soap)
@@ -328,6 +330,24 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
 
               <h1 className="text-sm font-bold text-slate-900 leading-tight">{community.name}</h1>
               <span className="text-xs text-slate-400 font-mono block mt-0.5 mb-2">@{community.commname}</span>
+              {community.moderation && (
+                <div role="status" className="mb-2 text-left text-[11px] bg-amber-50 border border-amber-300 text-amber-900 rounded-sm p-2">
+                  <p className="font-bold">
+                    {community.moderation.status === "BANNED"
+                      ? "Comunidade banida: somente leitura"
+                      : `Comunidade suspensa${community.moderation.suspended_until ? ` até ${formatUntil(community.moderation.suspended_until)}` : ""}: somente leitura`}
+                  </p>
+                  {community.moderation.reason && <p className="break-words">Motivo: {community.moderation.reason}</p>}
+                </div>
+              )}
+              {isStaff && (
+                <Link
+                  to={paths.moderation({ tab: "communities", q: community.commname })}
+                  className="inline-block mb-2 text-[11px] font-semibold text-pink-700 hover:underline"
+                >
+                  Moderar esta comunidade
+                </Link>
+              )}
               {community.is_archived && (
                 <span className="inline-block mb-2 text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 rounded-sm border border-slate-300">
                   Arquivada: somente leitura

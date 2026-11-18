@@ -3,7 +3,7 @@ from django.db.models import Case, IntegerField, Q, QuerySet, When
 
 from apps.core.exceptions import DomainError
 
-from .models import Community, CommunityMember, MemberRole, MemberState
+from .models import Community, CommunityMember, MemberRole, MemberState, not_moderated_q
 
 User = get_user_model()
 
@@ -15,6 +15,15 @@ def get_community_by_commname(*, commname: str) -> Community:
     if not community:
         raise DomainError("Community not found.", code="community_not_found", http_status=404)
     return community
+
+
+def assert_community_visible(*, community: Community, viewer: User) -> None:
+    """A banned/suspended community is only visible to staff and its own (non-banned) members."""
+    if not community.is_moderated or getattr(viewer, "is_staff", False):
+        return
+    membership = get_community_membership(community=community, user=viewer)
+    if membership is None or membership.current_state == MemberState.BANNED:
+        raise DomainError("Community not found.", code="community_not_found", http_status=404)
 
 
 def get_community_membership(*, community: Community, user: User) -> CommunityMember | None:
@@ -42,7 +51,7 @@ def compute_community_permissions(
     is_leader = is_member and membership.role == MemberRole.LEADER and is_active
     is_admin = is_member and membership.role == MemberRole.COMM_ADMIN and is_active
     is_archived = community.is_archived
-    is_blocked = getattr(community, "is_blocked", False)
+    is_blocked = getattr(community, "is_moderated", False)
 
     return {
         "can_edit": bool(
@@ -79,7 +88,7 @@ def list_communities(
     qs = Community.objects.filter(deleted_at__isnull=True).order_by("-created_at")
 
     if not getattr(user, "is_staff", False):
-        qs = qs.filter(blocked_at__isnull=True)
+        qs = qs.filter(not_moderated_q())
 
     if mine and user.is_authenticated:
         member_comm_ids = (
@@ -114,6 +123,7 @@ def list_community_members(
     )
     qs = (
         community.memberships.select_related("user")
+        .exclude(user__status="BANNED")
         .annotate(role_rank=role_rank)
         .order_by("role_rank", "-joined_at", "-id")
     )

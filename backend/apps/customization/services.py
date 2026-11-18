@@ -219,7 +219,7 @@ def _require_community_customizer(actor: Any, community: Community) -> None:
             code="permission_denied",
             http_status=403,
         )
-    if community.is_blocked:
+    if community.is_moderated:
         raise DomainError("This community is blocked.", code="community_blocked", http_status=403)
     if community.is_archived:
         raise DomainError(

@@ -11,6 +11,7 @@ from apps.economy.services import ensure_community_wallet
 
 from .models import CommunityMember, MemberRole, MemberState
 from .selectors import (
+    assert_community_visible,
     get_community_by_commname,
     list_communities,
     list_community_members,
@@ -71,6 +72,7 @@ class CommunityDetailView(APIView):
     @extend_schema(responses={200: CommunityDetailSerializer})
     def get(self, request, commname: str):
         community = get_community_by_commname(commname=commname)
+        assert_community_visible(community=community, viewer=request.user)
         serializer = CommunityDetailSerializer(community, context={"request": request})
         return Response(serializer.data)
 
@@ -144,6 +146,7 @@ class CommunityMemberListView(APIView):
     @extend_schema(responses={200: CommunityMemberSerializer(many=True)})
     def get(self, request, commname: str):
         community = get_community_by_commname(commname=commname)
+        assert_community_visible(community=community, viewer=request.user)
         state = request.query_params.get("state")
         members = list_community_members(community=community, state=state)
 

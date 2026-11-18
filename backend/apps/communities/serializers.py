@@ -61,6 +61,7 @@ class CommunityListSerializer(serializers.ModelSerializer):
 
 
 class CommunityDetailSerializer(serializers.ModelSerializer):
+    moderation = serializers.SerializerMethodField()
     my_membership = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
 
@@ -79,10 +80,22 @@ class CommunityDetailSerializer(serializers.ModelSerializer):
             "created_at",
             "is_archived",
             "archived_at",
+            "moderation",
             "my_membership",
             "permissions",
         ]
         read_only_fields = fields
+
+    def get_moderation(self, obj: Community) -> dict | None:
+        """Banner data for a suspended/banned community (only people who can see the page)."""
+        status = obj.moderation_status
+        if status is None:
+            return None
+        return {
+            "status": status,
+            "reason": obj.moderation_reason,
+            "suspended_until": obj.suspended_until if status == "SUSPENDED" else None,
+        }
 
     def get_my_membership(self, obj: Community) -> dict | None:
         request = self.context.get("request")

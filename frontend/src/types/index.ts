@@ -28,6 +28,7 @@ export interface User {
   status?: "ACTIVE" | "SUSPENDED" | "BANNED";
   is_suspended?: boolean;
   suspended_until?: string | null;
+  moderation_reason?: string;
   soap_balance?: number;
   wallet?: Wallet | null;
   last_seen_at?: string;
@@ -74,8 +75,16 @@ export interface Community extends CommunityRef {
   // Only on the detail endpoint:
   guidelines?: string;
   archived_at?: string | null;
+  /** Set while the community is suspended or banned (read-only for its members). */
+  moderation?: CommunityModeration | null;
   my_membership?: { role: MemberRole; current_state: MemberState; joined_at: string } | null;
   permissions?: CommunityPermissions;
+}
+
+export interface CommunityModeration {
+  status: "SUSPENDED" | "BANNED";
+  reason: string;
+  suspended_until: string | null;
 }
 
 export interface CommunityMemberItem {

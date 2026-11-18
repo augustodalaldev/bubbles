@@ -12,6 +12,13 @@ export const paths = {
   followers: (username: string) => `/u/${encodeURIComponent(username)}/followers`,
   following: (username: string) => `/u/${encodeURIComponent(username)}/following`,
   account: "/conta",
+  moderation: (params?: { tab?: string; q?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.tab) qs.set("tab", params.tab);
+    if (params?.q) qs.set("q", params.q);
+    const text = qs.toString();
+    return text ? `/moderacao?${text}` : "/moderacao";
+  },
   communitySettings: (commname: string) => `/c/${encodeURIComponent(commname)}/configuracoes`,
   letter: (id: number) => `/letters/${id}`,
   post: (id: number) => `/p/${id}`,

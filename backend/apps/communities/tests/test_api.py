@@ -250,11 +250,16 @@ def test_community_blocked_listing_and_permissions():
     assert active_comm.commname in comm_names
     assert blocked_comm.commname not in comm_names
 
-    # Permissions on blocked community disallow join
+    # Someone outside the community cannot open it at all
+    assert client.get(f"/api/v1/communities/{blocked_comm.commname}/").status_code == 404
+
+    # A member still sees the (read-only) page, with the ban reason
+    CommunityMemberFactory(community=blocked_comm, user=user)
     res_detail = client.get(f"/api/v1/communities/{blocked_comm.commname}/")
     assert res_detail.status_code == status.HTTP_200_OK
     assert res_detail.data["permissions"]["can_join"] is False
     assert res_detail.data["permissions"]["can_edit"] is False
+    assert res_detail.data["moderation"]["status"] == "BANNED"
 
 
 def test_members_list_returns_absolute_profile_photo_urls():

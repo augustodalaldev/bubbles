@@ -5,7 +5,7 @@ from django.db.models import BooleanField, Case, CharField, Q, QuerySet, Value, 
 from django.utils import timezone
 
 from apps.accounts.models import UserConnection
-from apps.communities.models import CommunityMember, MemberState
+from apps.communities.models import CommunityMember, MemberState, not_moderated_q
 from apps.core.exceptions import DomainError
 
 from .models import Bubblegram, Bubblepop, Comment
@@ -20,6 +20,7 @@ def get_bubblegram_by_id(*, bubblegram_id: int) -> Bubblegram:
         .prefetch_related("media")
         .filter(pk=bubblegram_id)
         .exclude(community__deleted_at__isnull=False)
+        .exclude(user__status="BANNED")
         .first()
     )
     if not bubblegram:
@@ -43,6 +44,7 @@ def list_community_bubblegrams(*, commname: str) -> QuerySet[Bubblegram]:
         Bubblegram.objects.select_related("user", "community")
         .prefetch_related("media")
         .filter(community__commname=commname.strip().lower())
+        .exclude(user__status="BANNED")
         .order_by("-published_at")
     )
 
@@ -64,6 +66,7 @@ def list_bubblegram_comments(*, bubblegram_id: int) -> QuerySet[Comment]:
     return (
         Comment.objects.select_related("user", "bubblegram")
         .filter(bubblegram_id=bubblegram_id)
+        .exclude(user__status="BANNED")
         .order_by("published_at")
     )
 
@@ -122,8 +125,8 @@ def list_feed_bubblegrams(
         CommunityMember.objects.filter(
             user=user,
             community__archived_at__isnull=True,
-            community__blocked_at__isnull=True,
         )
+        .filter(not_moderated_q("community__"))
         .exclude(current_state=MemberState.BANNED)
         .values_list("community_id", flat=True)
     )
@@ -146,7 +149,7 @@ def list_feed_bubblegrams(
                 soap_count__gt=0,
                 user__is_active=True,
             )
-            .exclude(community__blocked_at__isnull=False)
+            .filter(not_moderated_q("community__"))
             .exclude(community__deleted_at__isnull=False)
             .exclude(normal_q)
             .order_by("-soap_count", "-published_at")
@@ -187,6 +190,7 @@ def list_feed_bubblegrams(
         Bubblegram.objects.select_related("user", "community")
         .prefetch_related("media")
         .filter(feed_filter)
+        .exclude(user__status="BANNED")
         .annotate(
             is_suggested=Case(
                 When(id__in=suggested_ids, then=Value(True)),

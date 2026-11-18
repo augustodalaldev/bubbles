@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Search, Compass, Users, Store, Mail, LogOut } from "lucide-react";
+import { Search, Compass, Users, Store, Mail, LogOut, ShieldCheck } from "lucide-react";
 import { useAuthStore } from "@/features/auth/authStore";
 import { paths, viewFromPath, viewPath } from "@/routes";
 import type { AppView } from "@/routes";
@@ -127,6 +127,19 @@ export const Header: React.FC = () => {
               )}
             </div>
           </Link>
+
+          {user?.is_staff && (
+            <Link
+              to={paths.moderation()}
+              title="Moderação"
+              aria-label="Moderação"
+              className={`p-1.5 rounded-sm transition-colors flex-shrink-0 ${
+                location.pathname === "/moderacao" ? "text-pink-600 bg-pink-50" : "text-slate-600 hover:text-pink-600 hover:bg-slate-100"
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4" />
+            </Link>
+          )}
 
           {user && (
             <Link

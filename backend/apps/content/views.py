@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.communities.selectors import get_community_by_commname
+from apps.communities.selectors import assert_community_visible, get_community_by_commname
 
 from .selectors import (
     get_bubblegram_by_id,
@@ -99,6 +99,9 @@ class CommunityBubblegramsView(APIView):
 
     @extend_schema(responses={200: BubblegramSerializer(many=True)})
     def get(self, request, commname: str):
+        assert_community_visible(
+            community=get_community_by_commname(commname=commname), viewer=request.user
+        )
         qs = list_community_bubblegrams(commname=commname)
         paginator = PageNumberPagination()
         page = paginator.paginate_queryset(qs, request)

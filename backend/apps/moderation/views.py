@@ -12,9 +12,16 @@ from apps.core.exceptions import DomainError
 from apps.core.pagination import StandardPagination
 from apps.economy.models import Wallet
 from apps.moderation.models import Report
-from apps.moderation.selectors import list_audit_logs, list_reports
+from apps.moderation.selectors import (
+    list_admin_communities,
+    list_admin_users,
+    list_audit_logs,
+    list_reports,
+)
 from apps.moderation.serializers import (
+    AdminCommunitySerializer,
     AdminSoapAdjustmentInputSerializer,
+    AdminUserSerializer,
     AuditLogSerializer,
     ReasonRequiredInputSerializer,
     ReportCreateSerializer,
@@ -29,6 +36,7 @@ from apps.moderation.services import (
     block_community,
     file_report,
     review_report,
+    suspend_community,
     suspend_user,
     unban_user,
     unblock_community,
@@ -114,7 +122,7 @@ class AdminUserSuspendView(APIView):
         responses={200: OpenApiTypes.OBJECT},
     )
     def post(self, request, pk: int):
-        target_user = get_object_or_404(User, pk=pk)
+        target_user = get_object_or_404(User, pk=pk, deleted_at__isnull=True)
         serializer = SuspendUserInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         suspended_user = suspend_user(
@@ -141,7 +149,7 @@ class AdminUserBanView(APIView):
         responses={200: OpenApiTypes.OBJECT},
     )
     def post(self, request, pk: int):
-        target_user = get_object_or_404(User, pk=pk)
+        target_user = get_object_or_404(User, pk=pk, deleted_at__isnull=True)
         serializer = ReasonRequiredInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         banned_user = ban_user(
@@ -166,7 +174,7 @@ class AdminUserUnbanView(APIView):
         responses={200: OpenApiTypes.OBJECT},
     )
     def post(self, request, pk: int):
-        target_user = get_object_or_404(User, pk=pk)
+        target_user = get_object_or_404(User, pk=pk, deleted_at__isnull=True)
         serializer = ReasonRequiredInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         restored_user = unban_user(
@@ -183,6 +191,63 @@ class AdminUserUnbanView(APIView):
         )
 
 
+class AdminUserListView(APIView):
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("q", OpenApiTypes.STR, description="Search username or name"),
+            OpenApiParameter("status", OpenApiTypes.STR, description="ACTIVE, SUSPENDED or BANNED"),
+        ],
+        responses={200: AdminUserSerializer(many=True)},
+    )
+    def get(self, request):
+        qs = list_admin_users(
+            query=request.query_params.get("q", "").strip(),
+            status=request.query_params.get("status", "").strip().upper(),
+        )
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(qs, request)
+        return paginator.get_paginated_response(AdminUserSerializer(page, many=True).data)
+
+
+class AdminCommunityListView(APIView):
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("q", OpenApiTypes.STR, description="Search handle or name"),
+            OpenApiParameter("status", OpenApiTypes.STR, description="ACTIVE, SUSPENDED or BANNED"),
+        ],
+        responses={200: AdminCommunitySerializer(many=True)},
+    )
+    def get(self, request):
+        qs = list_admin_communities(
+            query=request.query_params.get("q", "").strip(),
+            status=request.query_params.get("status", "").strip().upper(),
+        )
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(qs, request)
+        return paginator.get_paginated_response(AdminCommunitySerializer(page, many=True).data)
+
+
+class AdminCommunitySuspendView(APIView):
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(request=SuspendUserInputSerializer, responses={200: AdminCommunitySerializer})
+    def post(self, request, commname: str):
+        community = get_object_or_404(Community, commname=commname, deleted_at__isnull=True)
+        serializer = SuspendUserInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        community = suspend_community(
+            actor=request.user,
+            community=community,
+            duration_hours=serializer.validated_data["duration_hours"],
+            reason=serializer.validated_data["reason"],
+        )
+        return Response(AdminCommunitySerializer(community).data)
+
+
 class AdminCommunityBlockView(APIView):
     permission_classes = [IsAdminUser]
 
@@ -191,7 +256,7 @@ class AdminCommunityBlockView(APIView):
         responses={200: OpenApiTypes.OBJECT},
     )
     def post(self, request, commname: str):
-        community = get_object_or_404(Community, commname=commname)
+        community = get_object_or_404(Community, commname=commname, deleted_at__isnull=True)
         serializer = ReasonRequiredInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         blocked_comm = block_community(
@@ -216,7 +281,7 @@ class AdminCommunityUnblockView(APIView):
         responses={200: OpenApiTypes.OBJECT},
     )
     def post(self, request, commname: str):
-        community = get_object_or_404(Community, commname=commname)
+        community = get_object_or_404(Community, commname=commname, deleted_at__isnull=True)
         serializer = ReasonRequiredInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         unblocked_comm = unblock_community(

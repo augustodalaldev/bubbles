@@ -99,7 +99,7 @@ def create_bubblegram(
                 code="community_archived",
                 http_status=400,
             )
-        if community.is_blocked:
+        if community.is_moderated:
             raise DomainError(
                 "Cannot publish in a blocked community.",
                 code="community_blocked",
@@ -233,7 +233,7 @@ def create_comment(
                 code="community_archived",
                 http_status=400,
             )
-        if bubblegram.community.is_blocked:
+        if bubblegram.community.is_moderated:
             raise DomainError(
                 "Cannot comment in a blocked community.",
                 code="community_blocked",
@@ -347,7 +347,7 @@ def support_bubblegram(*, donor: User, bubblegram: Bubblegram) -> BubblegramSupp
                 code="community_archived",
                 http_status=400,
             )
-        if bubblegram.community.is_blocked:
+        if bubblegram.community.is_moderated:
             raise DomainError(
                 "Cannot interact in a blocked community.",
                 code="community_blocked",
@@ -453,7 +453,7 @@ def support_comment(*, donor: User, comment: Comment) -> CommentSupport:
                 code="community_archived",
                 http_status=400,
             )
-        if community.is_blocked:
+        if community.is_moderated:
             raise DomainError(
                 "Cannot interact in a blocked community.",
                 code="community_blocked",

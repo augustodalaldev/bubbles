@@ -37,6 +37,7 @@ from .services import (
     change_email,
     change_password,
     delete_account,
+    find_banned_user,
     follow_user,
     register_user,
     unfollow_user,
@@ -105,6 +106,17 @@ class LoginView(APIView):
             password=serializer.validated_data["password"],
         )
         if not user:
+            banned = find_banned_user(
+                identifier=serializer.validated_data["identifier"],
+                password=serializer.validated_data["password"],
+            )
+            if banned:
+                raise DomainError(
+                    "This account has been banned.",
+                    code="account_banned",
+                    http_status=403,
+                    extra={"reason": banned.moderation_reason or "não informado"},
+                )
             raise DomainError(
                 "Invalid username/email or password.",
                 code="invalid_credentials",

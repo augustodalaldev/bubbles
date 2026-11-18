@@ -50,6 +50,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         db_index=True,
     )
     suspended_until = models.DateTimeField(null=True, blank=True)
+    # Why the account is suspended/banned; shown to the person (never to others).
+    moderation_reason = models.CharField(max_length=500, blank=True, default="")
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 

@@ -52,6 +52,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "status",
             "is_suspended",
             "suspended_until",
+            "moderation_reason",
             "soap_balance",
             "wallet",
             "followers_count",

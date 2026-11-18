@@ -10,6 +10,7 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { Header } from "@/components/Header";
+import { ModerationBanner } from "@/components/ModerationBanner";
 import { NotFoundView } from "@/components/NotFoundView";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { useAuthStore } from "@/features/auth/authStore";
@@ -36,6 +37,9 @@ const FollowListView = lazy(() =>
 const AccountView = lazy(() => import("@/features/account/AccountView").then((m) => ({ default: m.AccountView })));
 const CommunitySettingsView = lazy(() =>
   import("@/features/communities/CommunitySettingsView").then((m) => ({ default: m.CommunitySettingsView }))
+);
+const ModerationView = lazy(() =>
+  import("@/features/moderation/ModerationView").then((m) => ({ default: m.ModerationView }))
 );
 const StoreView = lazy(() => import("@/features/customization/StoreView").then((m) => ({ default: m.StoreView })));
 const LettersInboxView = lazy(() =>
@@ -76,6 +80,11 @@ function AppLayout() {
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col justify-between font-sans">
       <div>
         <Header />
+        {user.is_suspended && (
+          <ModerationBanner title="Sua conta está suspensa" until={user.suspended_until} reason={user.moderation_reason}>
+            Você pode ler o conteúdo, mas não pode publicar, comentar, apoiar nem enviar cartas.
+          </ModerationBanner>
+        )}
         <Suspense fallback={<LoadingState />}>
           <Outlet />
         </Suspense>
@@ -207,6 +216,7 @@ export function AppRoutes() {
             <Route path="c/:commname" element={<CommunityRoute />} />
             <Route path="c/:commname/configuracoes" element={<CommunitySettingsRoute />} />
             <Route path="conta" element={<AccountView />} />
+            <Route path="moderacao" element={<ModerationView />} />
             <Route path="store" element={<StoreView />} />
             <Route path="letters/:id?" element={<LettersRoute />} />
             <Route path="p/:id" element={<PostRoute />} />

@@ -224,6 +224,27 @@ def _require_password(user: User, password: str) -> None:
         )
 
 
+def find_banned_user(*, identifier: str, password: str) -> User | None:
+    """The banned account these credentials belong to, if any.
+
+    Only answers after the password is correct, so the ban (and its reason) is never revealed
+    to someone who merely guesses a username.
+    """
+    identifier = identifier.strip()
+    if "@" in identifier:
+        user = User.objects.filter(email__iexact=identifier).first()
+    else:
+        user = User.objects.filter(username=identifier.lower()).first()
+    if (
+        user
+        and user.status == "BANNED"
+        and user.deleted_at is None
+        and user.check_password(password)
+    ):
+        return user
+    return None
+
+
 @transaction.atomic
 def change_password(*, user: User, current_password: str, new_password: str) -> None:
     """Change the password after confirming the current one. Other sessions are ended."""

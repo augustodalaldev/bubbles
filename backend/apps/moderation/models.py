@@ -29,6 +29,7 @@ class AuditAction(models.TextChoices):
     USER_SUSPEND = "USER_SUSPEND", "User suspend"
     USER_BAN = "USER_BAN", "User ban"
     USER_UNBAN = "USER_UNBAN", "User unban"
+    COMMUNITY_SUSPEND = "COMMUNITY_SUSPEND", "Community suspend"
     COMMUNITY_BLOCK = "COMMUNITY_BLOCK", "Community block"
     COMMUNITY_UNBLOCK = "COMMUNITY_UNBLOCK", "Community unblock"
     CONTENT_DELETE = "CONTENT_DELETE", "Content delete"

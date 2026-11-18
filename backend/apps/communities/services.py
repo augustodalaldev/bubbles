@@ -31,7 +31,7 @@ def _lock_community(community: Community) -> None:
 
 
 def _reject_if_blocked(community: Community) -> None:
-    if community.is_blocked:
+    if community.is_moderated:
         raise DomainError(
             "This community is blocked.",
             code="community_blocked",
@@ -330,7 +330,7 @@ def join_community(*, user: User, community: Community) -> CommunityMember:
             http_status=400,
         )
 
-    if community.is_blocked:
+    if community.is_moderated:
         raise DomainError(
             "Cannot join a blocked community.",
             code="community_blocked",
