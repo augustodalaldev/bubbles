@@ -9,6 +9,8 @@ from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 
+from .messages import MESSAGES, message_for
+
 
 class DomainError(Exception):
     """Base class for domain-level business rule violations.
@@ -78,7 +80,7 @@ def _envelope(code: str, message: str, fields: dict[str, list[str]] | None = Non
 
 def _validation_envelope(detail: Any) -> dict:
     flat = _flatten_errors(detail)
-    message = "Invalid input."
+    message = message_for("validation_error")
     for key in ("non_field_errors", "detail"):
         messages = flat.pop(key, None)
         if messages:
@@ -96,9 +98,12 @@ def custom_exception_handler(exc: Exception, context: dict[str, Any]) -> Respons
     """
     if isinstance(exc, DomainError):
         fields = exc.extra.get("fields") if exc.extra else None
+        message = message_for(exc.code, exc.message, exc.extra)
+        if fields and exc.code in MESSAGES:
+            fields = {name: [message] for name in fields}
         error_payload: dict[str, Any] = {
             "code": exc.code,
-            "message": exc.message,
+            "message": message,
             "fields": fields,
         }
         if exc.extra:
@@ -113,7 +118,7 @@ def custom_exception_handler(exc: Exception, context: dict[str, Any]) -> Respons
 
     if isinstance(exc, IntegrityError):
         return Response(
-            _envelope("conflict", "The request conflicts with existing data."),
+            _envelope("conflict", message_for("conflict")),
             status=status.HTTP_409_CONFLICT,
         )
 
@@ -126,15 +131,16 @@ def custom_exception_handler(exc: Exception, context: dict[str, Any]) -> Respons
     if isinstance(exc, ValidationError):
         response.data = _validation_envelope(exc.detail)
     elif isinstance(exc, Http404):
-        response.data = _envelope("not_found", "Not found.")
+        response.data = _envelope("not_found", message_for("not_found"))
     elif isinstance(exc, DjangoPermissionDenied):
-        response.data = _envelope(
-            "permission_denied", "You do not have permission to perform this action."
-        )
+        response.data = _envelope("permission_denied", message_for("permission_denied"))
     elif isinstance(exc, APIException):
         detail = exc.detail
         code = str(getattr(detail, "code", None) or exc.default_code)
-        if isinstance(detail, dict):
+        if code in ("token_not_valid", "not_authenticated") and isinstance(detail, dict):
+            # simplejwt adds noisy `messages`/`code` keys: keep only the clean message.
+            response.data = _envelope(code, message_for(code, str(detail.get("detail", ""))))
+        elif isinstance(detail, dict):
             flat = _flatten_errors({k: v for k, v in detail.items() if k != "detail"})
             main = detail.get("detail")
             message = str(main) if main else "An error occurred."
@@ -144,6 +150,6 @@ def custom_exception_handler(exc: Exception, context: dict[str, Any]) -> Respons
         else:
             response.data = _envelope(code, str(detail))
     else:
-        response.data = _envelope("api_error", str(exc))
+        response.data = _envelope("api_error", message_for("api_error", str(exc)))
 
     return response

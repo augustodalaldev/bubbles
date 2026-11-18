@@ -34,7 +34,7 @@ def validate_image_upload(file) -> None:
     extension is kept in the stored file name, so it must also be an image extension.
     """
     if file.size > MAX_IMAGE_UPLOAD_BYTES:
-        raise ValidationError("Image must be at most 10 MB.", code="image_too_large")
+        raise ValidationError("A imagem deve ter no máximo 10 MB.", code="image_too_large")
     extension = PurePath(file.name or "").suffix.lower()
     try:
         position = file.tell()
@@ -44,14 +44,12 @@ def validate_image_upload(file) -> None:
         with Image.open(file) as image:
             image_format = image.format
     except Exception as exc:
-        raise ValidationError("Upload a valid image.", code="invalid_image") from exc
+        raise ValidationError("Envie uma imagem válida.", code="invalid_image") from exc
     finally:
         file.seek(position)
     allowed_extensions = set().union(*ALLOWED_IMAGE_FORMATS.values())
     if image_format not in ALLOWED_IMAGE_FORMATS or extension not in allowed_extensions:
-        raise ValidationError(
-            "Only JPEG, PNG, WebP and GIF images are accepted.", code="invalid_image_type"
-        )
+        raise ValidationError("Use imagens JPEG, PNG, WebP ou GIF.", code="invalid_image_type")
 
 
 @deconstructible

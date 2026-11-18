@@ -4,7 +4,8 @@ import { paths } from "@/routes";
 import { BrandLogo } from "@/components/BrandLogo";
 import { errorMessage } from "@/services/errors";
 import { useAuthStore } from "./authStore";
-import { ArrowRight, AlertCircle, Lock, User as UserIcon } from "lucide-react";
+import { PasswordInput } from "@/components/PasswordInput";
+import { ArrowRight, AlertCircle, User as UserIcon } from "lucide-react";
 
 export const LoginView: React.FC = () => {
   const { search } = useLocation();
@@ -80,18 +81,14 @@ export const LoginView: React.FC = () => {
               <label htmlFor="login-password" className="block text-xs font-semibold text-slate-700 mb-1">
                 Senha
               </label>
-              <div className="relative">
-                <input
-                  id="login-password"
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-pink-500 focus:bg-white"
-                />
-                <Lock className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
-              </div>
+              <PasswordInput
+                id="login-password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-pink-500 focus:bg-white"
+              />
             </div>
 
             <button

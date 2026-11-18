@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { paths } from "@/routes";
 import { Bubblegram, Community, CommunityMemberItem } from "@/types";
 import { Avatar } from "@/components/Avatar";
+import { UserName } from "@/components/UserName";
 import { BubbleOverlay } from "@/components/BubbleOverlay";
 import { SoapIcon } from "@/components/SoapIcon";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
@@ -52,7 +53,7 @@ const MemberLine: React.FC<{
       <Avatar user={member.user} className="w-8 h-8 flex-shrink-0" />
       <span className="min-w-0">
         <span className="flex items-center gap-1.5">
-          <span className="text-xs font-bold text-slate-800 truncate">{member.user.name}</span>
+          <UserName user={member.user} className="text-xs font-bold text-slate-800 truncate" />
           {badge && (
             <span className={`text-[10px] font-bold px-1.5 rounded-sm border ${badge.className}`}>{badge.label}</span>
           )}
@@ -291,10 +292,10 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-3 h-[calc(100vh-3.5rem)] overflow-hidden">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start h-full">
+    <div className="max-w-7xl mx-auto px-4 py-3 lg:h-[calc(100vh-3.5rem)] lg:overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start lg:h-full">
         {/* Left column */}
-        <div className="lg:col-span-3 h-full overflow-y-auto scrollbar-none hidden lg:block space-y-4">
+        <div className="lg:col-span-3 lg:h-full lg:overflow-y-auto scrollbar-none space-y-4">
           <Link to={paths.communities}
             
             className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-pink-600 transition-colors py-1"
@@ -399,7 +400,7 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
         </div>
 
         {/* Center column */}
-        <div className="lg:col-span-6 min-w-0 h-full overflow-y-auto pr-1.5 scrollbar-thin">
+        <div className="lg:col-span-6 min-w-0 lg:h-full lg:overflow-y-auto pr-1.5 scrollbar-thin">
           {community.banner_photo && (
             <div className="w-full h-32 rounded-sm overflow-hidden mb-4 border border-slate-200">
               <img src={community.banner_photo} alt={community.name} className="w-full h-full object-cover" />
@@ -706,7 +707,7 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
         </div>
 
         {/* Right column */}
-        <div className="lg:col-span-3 h-full overflow-y-auto scrollbar-none hidden lg:block space-y-4">
+        <div className="lg:col-span-3 lg:h-full lg:overflow-y-auto scrollbar-none space-y-4">
           <div className="panel-classic">
             <div className="panel-classic-header flex items-center justify-between">
               <span className="text-xs font-bold text-slate-900">Equipe de moderação</span>

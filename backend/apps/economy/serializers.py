@@ -59,19 +59,23 @@ class EconomySettingsUpdateSerializer(serializers.ModelSerializer):
         max_hours = attrs.get("bubblepop_max_hours", instance.bubblepop_max_hours)
         if min_hours > max_hours:
             raise serializers.ValidationError(
-                {"bubblepop_min_hours": "Minimum hours cannot exceed maximum hours."}
+                {"bubblepop_min_hours": "O mínimo de horas não pode ser maior que o máximo."}
             )
 
         hours_per_soap = attrs.get("bubblepop_hours_per_soap", instance.bubblepop_hours_per_soap)
         if hours_per_soap <= 0:
             raise serializers.ValidationError(
-                {"bubblepop_hours_per_soap": "Hours per soap must be greater than 0."}
+                {"bubblepop_hours_per_soap": "As horas por soap devem ser maiores que zero."}
             )
 
         interval = attrs.get("passive_interval_minutes", instance.passive_interval_minutes)
         if interval <= 0:
             raise serializers.ValidationError(
-                {"passive_interval_minutes": "Passive interval minutes must be greater than 0."}
+                {
+                    "passive_interval_minutes": (
+                        "O intervalo do ganho passivo deve ser maior que zero."
+                    )
+                }
             )
 
         return attrs

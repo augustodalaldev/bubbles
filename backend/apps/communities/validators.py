@@ -17,11 +17,13 @@ RESERVED_COMMNAMES = frozenset(
 
 validate_commname_format = RegexValidator(
     regex=COMMNAME_PATTERN,
-    message="Use 3 to 21 lowercase letters, digits or underscores.",
+    message="Use de 3 a 21 caracteres: letras minúsculas, números e sublinhado.",
     code="invalid_commname",
 )
 
 
 def validate_commname_not_reserved(value: str) -> None:
     if value in RESERVED_COMMNAMES:
-        raise ValidationError("This community handle is not available.", code="reserved_commname")
+        raise ValidationError(
+            "Este identificador de comunidade não está disponível.", code="reserved_commname"
+        )

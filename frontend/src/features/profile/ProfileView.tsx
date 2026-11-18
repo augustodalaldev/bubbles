@@ -6,6 +6,9 @@ import { BubblepopStory } from "./BubblepopStory";
 import { PostDetailModal } from "./PostDetailModal";
 import { Bubblegram, Bubblepop, Community, FollowItem, Letter, User } from "@/types";
 import { Avatar } from "@/components/Avatar";
+import { UserName } from "@/components/UserName";
+import { themeColors } from "@/utils/theme";
+import { CreateBubblePopup } from "@/features/feed/CreateBubblePopup";
 import { SoapIcon } from "@/components/SoapIcon";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { useAuthStore } from "@/features/auth/authStore";
@@ -30,10 +33,21 @@ interface ProfileViewProps {
 }
 
 /** Spreads real posts over the mural: two columns, growing downwards. */
-const layoutFor = (index: number) => ({
-  initialX: 20 + (index % 2) * 250 + ((index * 37) % 30),
-  initialY: 10 + Math.floor(index / 2) * 215,
-});
+const CELL = 215; // one bubble slot (a 195 px photo plus breathing room)
+
+/** Columns that fit the mural's real width: two on desktop, one on a phone. */
+const columnsFor = (width: number) => Math.max(1, Math.floor((width - 20) / CELL));
+
+/** Spreads real posts over the mural, centered in the available width and growing downwards. */
+const layoutFor = (index: number, width: number) => {
+  const cols = columnsFor(width);
+  const left = Math.max(6, (width - cols * CELL) / 2 + 10);
+  return {
+    initialX: left + (index % cols) * CELL,
+    initialY: 10 + Math.floor(index / cols) * CELL,
+    size: Math.min(195, Math.max(120, Math.floor(width - 24))),
+  };
+};
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
   username,
@@ -66,8 +80,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [followBusy, setFollowBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const playgroundRef = useRef<HTMLDivElement>(null);
+  const [muralWidth, setMuralWidth] = useState(560);
+
+  // Follow the mural's real width so the bubbles are laid out for the screen they are on.
+  useEffect(() => {
+    const el = playgroundRef.current;
+    if (!el) return;
+    setMuralWidth(el.clientWidth || 560);
+    const observer = new ResizeObserver(([entry]) => setMuralWidth(Math.round(entry.contentRect.width)));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [viewMode, postsStatus, posts.length]);
 
   const profile: User | null = isOwn ? me : other;
+  const theme = themeColors(profile);
 
   const loadProfile = useCallback(async () => {
     if (isOwn) return;
@@ -152,7 +178,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const formattedBirthDate = profile.birth_date
     ? new Date(profile.birth_date + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
     : "";
-  const muralHeight = Math.max(580, Math.ceil(posts.length / 2) * 215 + 40);
+  const muralCols = columnsFor(muralWidth);
+  const muralHeight = Math.max(580, Math.ceil(posts.length / muralCols) * CELL + 60);
 
   const replacePost = (updated: Bubblegram) => {
     setPosts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
@@ -169,9 +196,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <span className="text-sm sm:text-base font-bold text-slate-800">Perfil</span>
             </div>
 
+            {theme && (
+              <div
+                aria-hidden="true"
+                className="h-16"
+                style={{ background: `linear-gradient(135deg, ${theme.primary}, ${theme.secondary})` }}
+              />
+            )}
             <div className="p-4 text-center flex flex-col items-center">
               <Avatar user={profile} className="w-24 h-24 mb-3 text-2xl" />
-              <h1 className="text-base font-bold text-slate-900 leading-tight">{profile.name}</h1>
+              <h1 className="text-base font-bold text-slate-900 leading-tight">
+                <UserName user={profile} />
+              </h1>
               <p className="text-xs text-pink-600 font-semibold mb-2">@{profile.username}</p>
               {profile.description && (
                 <p className="text-xs text-slate-600 leading-relaxed text-center px-1 mb-3 whitespace-pre-wrap break-words">
@@ -349,8 +385,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   </div>
                   {posts.map((post, index) => (
                     <BubblegramBall
-                      key={post.id}
-                      post={{ ...post, ...layoutFor(index) }}
+                      key={`${post.id}-${muralCols}`}
+                      post={{ ...post, ...layoutFor(index, muralWidth) }}
                       dragConstraintsRef={playgroundRef}
                       onClick={setSelectedPost}
                     />
@@ -484,6 +520,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           )}
         </div>
       </div>
+
+      {isOwn && (
+        <CreateBubblePopup
+          onPostCreated={(post) => {
+            setPosts((prev) => [post, ...prev]);
+            setPostsCount((n) => n + 1);
+          }}
+        />
+      )}
 
       {creatingPop && (
         <CreateBubblepopModal onClose={() => setCreatingPop(false)} onCreated={(pop) => setBubblepops((prev) => [...prev, pop])} />

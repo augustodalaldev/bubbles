@@ -217,3 +217,17 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 | `faker` (pt_BR) as a dev dependency; Portuguese content lives in `apps/core/demo/content.py` | Natural names and texts; fixed seed keeps them reproducible |
 | Accounts share the password `DemoPets2026!`; emails use `@demo.bubbles.test` | Demo credentials only; the reserved domain cannot receive mail |
 
+## Polish 2 — Phase 1 (2026-11-17)
+| Decision | Reason |
+|---|---|
+| `LANGUAGE_CODE = "pt-br"` | Django, DRF and simplejwt built-in messages (invalid e-mail, password validators, throttling, token errors) come out in Portuguese |
+| Central catalog `apps/core/messages.py` (error code -> pt-BR text, with `{cost}`/`{balance}`/`{communities}` placeholders); the exception handler replaces `message` and the per-field messages of every `DomainError` | The 180 raise sites keep English messages for logs/tests; the UI never depends on translating messages one by one in the frontend |
+| A test scans the source for every `code="..."` and fails when one is missing from the catalog | New error codes cannot ship untranslated |
+| User-visible validator/serializer/upload texts written in Portuguese at the source | They are shown through field errors |
+| `auth_refresh` throttle scope (120/min) separate from `auth` (20/min) | Every page load calls `/auth/refresh/`; a reload loop was exhausting login attempts |
+| Anonymized accounts are named "Conta excluída" | The name appears in feeds and threads, which are in Portuguese |
+| `PasswordInput` (show/hide) is the only password field component | One behavior everywhere, including future password fields |
+| Customization tokens are applied only through `utils/theme.ts`: hex colors, a strict glow pattern, label text truncated to 24 chars; anything else is ignored | Tokens reach inline styles, so nothing from the API is trusted |
+| `Avatar` applies the equipped frame and `UserName` the name color and badge, so every place that shows a person gets them | Customization used to apply only to the community photo and the store preview |
+| Phones: the header splits into two rows, side columns stack instead of disappearing, fixed-height two-pane layouts apply only from `lg`, the profile mural lays bubbles out for its real width | At 375 px the logo and avatar shrank to 0 px and the community info column was hidden |
+

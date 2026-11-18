@@ -96,7 +96,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-LANGUAGE_CODE = "en-us"
+LANGUAGE_CODE = "pt-br"  # Django/DRF/simplejwt built-in messages come out in Portuguese
 TIME_ZONE = "America/Sao_Paulo"  # stored as UTC, displayed in local time
 USE_I18N = True
 USE_TZ = True
@@ -149,6 +149,8 @@ REST_FRAMEWORK = {
         "anon": "100/day",
         "user": "10000/day",
         "auth": "20/minute",
+        # Every page load calls /auth/refresh/, so it gets a much higher limit than login.
+        "auth_refresh": "120/minute",
     },
 }
 

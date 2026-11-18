@@ -92,5 +92,5 @@ class AdminSoapAdjustmentInputSerializer(serializers.Serializer):
 
     def validate_amount(self, value):
         if value == 0:
-            raise serializers.ValidationError("Adjustment amount cannot be zero.")
+            raise serializers.ValidationError("O valor do ajuste não pode ser zero.")
         return value

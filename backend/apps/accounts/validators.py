@@ -26,14 +26,14 @@ RESERVED_USERNAMES = frozenset(
 
 validate_username_format = RegexValidator(
     regex=USERNAME_PATTERN,
-    message="Use 3 to 30 lowercase letters, digits or underscores.",
+    message="Use de 3 a 30 caracteres: letras minúsculas, números e sublinhado.",
     code="invalid_username",
 )
 
 
 def validate_username_not_reserved(value: str) -> None:
     if value in RESERVED_USERNAMES or value.startswith(DELETED_USERNAME_PREFIX):
-        raise ValidationError("This username is not available.", code="reserved_username")
+        raise ValidationError("Este nome de usuário não está disponível.", code="reserved_username")
 
 
 def calculate_age(birth_date: date, today: date) -> int:
@@ -44,9 +44,11 @@ def calculate_age(birth_date: date, today: date) -> int:
 def validate_birth_date(value: date) -> None:
     today = timezone.localdate()
     if value > today:
-        raise ValidationError("Birth date cannot be in the future.", code="future_birth_date")
+        raise ValidationError(
+            "A data de nascimento não pode estar no futuro.", code="future_birth_date"
+        )
     if calculate_age(value, today) < MINIMUM_AGE:
         raise ValidationError(
-            f"You must be at least {MINIMUM_AGE} years old.",
+            f"É necessário ter pelo menos {MINIMUM_AGE} anos.",
             code="underage",
         )

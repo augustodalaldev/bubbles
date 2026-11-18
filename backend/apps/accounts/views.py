@@ -120,7 +120,7 @@ class LoginView(APIView):
 class RefreshTokenView(APIView):
     authentication_classes: list = []
     permission_classes = [AllowAny]
-    throttle_scope = "auth"
+    throttle_scope = "auth_refresh"
 
     @extend_schema(request=RefreshTokenInputSerializer, responses={200: OpenApiTypes.OBJECT})
     def post(self, request):

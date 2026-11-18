@@ -14,6 +14,7 @@ from apps.accounts.serializers import PublicUserSerializer
 from apps.communities.models import Community
 from apps.communities.serializers import CommunityListSerializer
 
+from .messages import message_for
 from .serializers import SearchResultSerializer
 
 User = get_user_model()
@@ -73,7 +74,7 @@ def api_not_found(request, exception=None):
     """JSON 404 for unknown /api/ routes (HTML for everything else)."""
     if request.path.startswith("/api/"):
         return JsonResponse(
-            {"error": {"code": "not_found", "message": "Not found.", "fields": None}},
+            {"error": {"code": "not_found", "message": message_for("not_found"), "fields": None}},
             status=404,
         )
     return page_not_found(request, exception)
@@ -86,7 +87,7 @@ def api_server_error(request):
             {
                 "error": {
                     "code": "server_error",
-                    "message": "Internal server error.",
+                    "message": message_for("server_error"),
                     "fields": None,
                 }
             },

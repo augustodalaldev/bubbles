@@ -139,13 +139,13 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
     });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-3 h-[calc(100vh-3.5rem)] overflow-hidden">
+    <div className="max-w-7xl mx-auto px-4 py-3 lg:h-[calc(100vh-3.5rem)] lg:overflow-hidden">
       
       {/* 3-Column Classic Grid (Left 3 cols, Center 6 cols, Right 3 cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start h-full">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start lg:h-full">
         
         {/* Left Column (3 Cols) - Static Sidebar */}
-        <div className="lg:col-span-3 h-full overflow-y-auto scrollbar-none hidden lg:block space-y-4">
+        <div className="lg:col-span-3 lg:h-full lg:overflow-y-auto scrollbar-none hidden lg:block space-y-4">
           
           {/* Compose Primary Action Button */}
           <button
@@ -260,7 +260,7 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
         </div>
 
         {/* Center Lane (6 Cols) - THE ONLY SCROLLABLE AREA */}
-        <div className="lg:col-span-6 min-w-0 h-full overflow-y-auto pr-1.5 scrollbar-thin">
+        <div className="lg:col-span-6 min-w-0 lg:h-full lg:overflow-y-auto pr-1.5 scrollbar-thin">
           
           {/* Top Mailbox Header Card */}
           <div className="panel-classic mb-4">
@@ -475,7 +475,7 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
         </div>
 
         {/* Right Column (3 Cols) - Static Sidebar */}
-        <div className="lg:col-span-3 h-full overflow-y-auto scrollbar-none hidden lg:block space-y-4">
+        <div className="lg:col-span-3 lg:h-full lg:overflow-y-auto scrollbar-none hidden lg:block space-y-4">
           
           {/* Quick Contacts to Send Letter */}
           <div className="panel-classic">

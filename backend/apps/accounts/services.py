@@ -18,6 +18,9 @@ from .validators import (
     validate_username_not_reserved,
 )
 
+# Shown wherever an anonymized (deleted) account appears.
+DELETED_ACCOUNT_NAME = "Conta excluída"
+
 User = get_user_model()
 
 
@@ -264,7 +267,7 @@ def delete_account(*, user: User, password: str) -> None:
     user_id = user.id
     user.username = f"deleted_{user_id}"
     user.email = f"deleted_{user_id}@deleted.invalid"
-    user.name = "Deleted User"
+    user.name = DELETED_ACCOUNT_NAME
     user.description = ""
     if user.profile_photo:
         delete_file_on_commit(user.profile_photo)

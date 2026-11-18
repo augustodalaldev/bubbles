@@ -5,6 +5,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { SoapIcon } from "@/components/SoapIcon";
 import { errorMessage, fieldErrors } from "@/services/errors";
 import { useAuthStore } from "./authStore";
+import { PasswordInput } from "@/components/PasswordInput";
 import { ArrowRight, AlertCircle } from "lucide-react";
 
 export const RegisterView: React.FC = () => {
@@ -14,7 +15,6 @@ export const RegisterView: React.FC = () => {
   const [email, setEmail] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [password, setPassword] = useState("");
-  const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -55,7 +55,6 @@ export const RegisterView: React.FC = () => {
         email: email.trim(),
         birth_date: birthDate,
         password,
-        description: description.trim(),
       });
     } catch (err) {
       setErrors(fieldErrors(err));
@@ -142,6 +141,7 @@ export const RegisterView: React.FC = () => {
                   type="email"
                   required
                   value={email}
+                  autoComplete="email"
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="seu@email.com"
                   className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-sm text-slate-800 focus:outline-none focus:border-pink-500 focus:bg-white"
@@ -168,29 +168,15 @@ export const RegisterView: React.FC = () => {
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Senha *
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 required
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Mínimo 8 caracteres"
                 className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-sm text-slate-800 focus:outline-none focus:border-pink-500 focus:bg-white"
               />
                 {errors.password && <p className="mt-0.5 text-[11px] text-red-700">{errors.password}</p>}
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Descrição do perfil (opcional)
-              </label>
-              <textarea
-                rows={2}
-                maxLength={250}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Conte brevemente sobre seus interesses..."
-                className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-sm text-slate-800 focus:outline-none focus:border-pink-500 focus:bg-white resize-none"
-              />
             </div>
 
             <button

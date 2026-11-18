@@ -132,7 +132,7 @@ class EquipCustomizationInputSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         if "item_ids" not in attrs and "slots" not in attrs:
-            raise serializers.ValidationError("Either 'item_ids' or 'slots' must be provided.")
+            raise serializers.ValidationError("Informe 'item_ids' ou 'slots'.")
         return attrs
 
 

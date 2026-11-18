@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Bubblegram, Bubblepop, Comment } from "@/types";
 import { X, MessageCircle, Send, Clock, Trash2, CornerDownRight, Check, Link as LinkIcon } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
+import { UserName } from "@/components/UserName";
 import { SoapIcon } from "@/components/SoapIcon";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { useAuthStore } from "@/features/auth/authStore";
@@ -59,7 +60,7 @@ const CommentRow: React.FC<{
     <div className={depth > 0 ? "ml-4 border-l border-slate-200 pl-2" : ""}>
       <div className="p-2 bg-slate-50 border border-slate-200 rounded-sm text-xs">
         <div className="flex items-center justify-between mb-0.5 gap-2">
-          <span className="font-bold text-slate-800 truncate">{comment.user.name}</span>
+          <UserName user={comment.user} className="font-bold text-slate-800 truncate" />
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className="text-[10px] text-slate-400">{timeAgo(comment.published_at)}</span>
             <button
@@ -303,7 +304,9 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
               <Link to={paths.profile(author.username)} className="flex items-center gap-2.5 min-w-0">
                 <Avatar user={author} className="w-9 h-9 flex-shrink-0" />
                 <div className="min-w-0">
-                  <h4 className="text-sm font-bold text-slate-900 leading-tight truncate">{author.name}</h4>
+                  <h4 className="text-sm font-bold text-slate-900 leading-tight truncate">
+                    <UserName user={author} />
+                  </h4>
                   <span className="text-xs text-slate-500 font-medium">@{author.username}</span>
                 </div>
               </Link>

@@ -126,16 +126,16 @@ export const FeedView: React.FC<FeedViewProps> = ({ searchTerm = "" }) => {
   const removePost = (id: number) => setPosts((prev) => prev.filter((p) => p.id !== id));
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-3 h-[calc(100vh-3.5rem)] overflow-hidden">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start h-full">
-        <div className="lg:col-span-3 h-full overflow-y-auto scrollbar-none hidden lg:block">
+    <div className="max-w-7xl mx-auto px-4 py-3 lg:h-[calc(100vh-3.5rem)] lg:overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start lg:h-full">
+        <div className="lg:col-span-3 lg:h-full lg:overflow-y-auto scrollbar-none">
           <FeedSidebarLeft
             currentUser={currentUser}
             unreadLettersCount={unreadLetters}
           />
         </div>
 
-        <div className="lg:col-span-6 min-w-0 h-full overflow-y-auto pr-1.5 scrollbar-thin">
+        <div className="lg:col-span-6 min-w-0 lg:h-full lg:overflow-y-auto pr-1.5 scrollbar-thin">
           <FeedBubblepopsTray
             bubblepops={bubblepops}
             onSelectBubblepop={(story) => setSelectedStory(story)}
@@ -227,7 +227,7 @@ export const FeedView: React.FC<FeedViewProps> = ({ searchTerm = "" }) => {
           <div className="py-4 text-center text-[11px] text-slate-400">Bubbles • Rede Social</div>
         </div>
 
-        <div className="lg:col-span-3 h-full overflow-y-auto scrollbar-none hidden lg:block">
+        <div className="lg:col-span-3 lg:h-full lg:overflow-y-auto scrollbar-none hidden lg:block">
           <FeedSidebarRight
             communities={myCommunities}
             error={communitiesError}

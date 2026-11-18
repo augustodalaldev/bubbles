@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { paths } from "@/routes";
 import { User } from "@/types";
 import { Avatar } from "@/components/Avatar";
+import { UserName } from "@/components/UserName";
 import { SoapIcon } from "@/components/SoapIcon";
 import { useAuthStore } from "@/features/auth/authStore";
 import { Compass, User as UserIcon, Users, Store, Mail } from "lucide-react";
@@ -38,7 +39,7 @@ export const FeedSidebarLeft: React.FC<FeedSidebarLeftProps> = ({
 
           <h2 className="text-xs font-bold text-slate-900 truncate">
             <Link to={paths.profile(currentUser.username)} className="hover:text-pink-600">
-              {currentUser.name}
+              <UserName user={currentUser} showBadge={false} />
             </Link>
           </h2>
           <span className="text-[11px] text-slate-400 block -mt-0.5 mb-2">
@@ -81,8 +82,8 @@ export const FeedSidebarLeft: React.FC<FeedSidebarLeftProps> = ({
         </div>
       </div>
 
-      {/* Classic Menu Navigation Links */}
-      <div className="panel-classic">
+      {/* Classic Menu Navigation Links (phones use the header tabs) */}
+      <div className="panel-classic hidden lg:block">
         <div className="panel-classic-header">
           <span className="text-xs font-bold text-slate-800">
             Navegação

@@ -17,5 +17,6 @@ REST_FRAMEWORK = {
         "anon": "10000/day",
         "user": "10000/day",
         "auth": "10000/day",
+        "auth_refresh": "10000/day",
     },
 }

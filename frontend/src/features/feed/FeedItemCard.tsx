@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { paths } from "@/routes";
 import { Bubblegram } from "@/types";
 import { Avatar } from "@/components/Avatar";
+import { UserName } from "@/components/UserName";
 import { SoapIcon } from "@/components/SoapIcon";
 import { useAuthStore } from "@/features/auth/authStore";
 import { deleteBubblegram } from "@/services/content";
@@ -73,7 +74,7 @@ export const FeedItemCard: React.FC<FeedItemCardProps> = ({
           <Avatar user={post.user} className="w-9 h-9 flex-shrink-0" />
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs font-bold text-slate-900 truncate">{post.user.name}</span>
+              <UserName user={post.user} className="text-xs font-bold text-slate-900 truncate" />
               <span className="text-[11px] text-slate-400">@{post.user.username}</span>
               {post.community && (
                 <>

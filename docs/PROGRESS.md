@@ -56,3 +56,11 @@
 - [x] Phase 5 — Cleanup (owner confirmed, no backup): databases `bubbles` and `bubbles_teste` dropped, recreated and migrated (30 tables, empty); `backend/media` emptied (1 file removed, folders kept); verified that pytest leaves `backend/media` untouched (temporary MEDIA_ROOT) and does not write to the dev databases
 - [x] Phase 6 — Demo data and demo server: `seed_demo` (services-first, pt-BR pet content, cat/dog photos cached, idempotent, `--reset` by manifest, refuses outside demo settings/DB), `config.settings.demo`, `make demo` / `demo-reset` / `demo-frontend` / `demo-scheduler` with a guard against the dev database; 17 tests offline. Verified: seeded twice with identical row counts, reset removes only seeded data and files, demo API serves the data on :8001, dev DB untouched
 
+## Batch 3 — polish 2 (see docs/POLISH_PLAN.md)
+- [x] Phase 1 — Quick fixes: password show/hide, register without description, Portuguese messages everywhere (catalog + `pt-br`, 538 tests), responsive header/community/profile mural/natural scrolling on phones, publish button on the own profile, equipped frame/name color/badge/theme applied on profiles, feed, comments and members. Checked in Chrome at 375/768/1280 px
+- [ ] Phase 2 — Social and letters
+- [ ] Phase 3 — Edit/delete account and community
+- [ ] Phase 4 — Administration (suspend/ban)
+- [ ] Phase 5 — Expanded customization and bubble effect
+- [ ] Phase 6 — Final validation, demo seed and docs
+
