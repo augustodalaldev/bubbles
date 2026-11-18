@@ -1,10 +1,21 @@
 import { bubbleStyle } from "@/utils/theme";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { paths } from "@/routes";
 import { motion } from "framer-motion";
 import { Bubblegram, Bubblepop, Comment } from "@/types";
-import { X, MessageCircle, Send, Clock, Trash2, CornerDownRight, Check, Link as LinkIcon } from "lucide-react";
+import {
+  X,
+  MessageCircle,
+  Send,
+  Clock,
+  Trash2,
+  CornerDownRight,
+  Check,
+  Link as LinkIcon,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { UserName } from "@/components/UserName";
 import { SoapIcon } from "@/components/SoapIcon";
@@ -29,6 +40,9 @@ interface PostDetailModalProps {
   onPostUpdate?: (post: Bubblegram) => void;
   onPostDeleted?: (postId: number) => void;
   onStoryDeleted?: (storyId: number) => void;
+  /** Bubblepops of the tray/profile, in order: lets the viewer step through them like a carousel. */
+  stories?: Bubblepop[];
+  onStoryChange?: (story: Bubblepop) => void;
 }
 
 interface CommentNode {
@@ -61,7 +75,22 @@ const CommentRow: React.FC<{
     <div className={depth > 0 ? "ml-4 border-l border-slate-200 pl-2" : ""}>
       <div className="p-2 bg-slate-50 border border-slate-200 rounded-sm text-xs">
         <div className="flex items-center justify-between mb-0.5 gap-2">
-          <UserName user={comment.user} className="font-bold text-slate-800 truncate" />
+          {comment.user.username.startsWith("deleted_") ? (
+            // an anonymized account has no profile to open
+            <span className="flex items-center gap-2 min-w-0">
+              <Avatar user={comment.user} className="w-6 h-6 flex-shrink-0" />
+              <UserName user={comment.user} className="font-bold text-slate-800 truncate" />
+            </span>
+          ) : (
+            <Link
+              to={paths.profile(comment.user.username)}
+              title={`Ver o perfil de ${comment.user.name}`}
+              className="flex items-center gap-2 min-w-0 hover:opacity-80"
+            >
+              <Avatar user={comment.user} className="w-6 h-6 flex-shrink-0" />
+              <UserName user={comment.user} className="font-bold text-slate-800 truncate" />
+            </Link>
+          )}
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className="text-[10px] text-slate-400">{timeAgo(comment.published_at)}</span>
             <button
@@ -133,9 +162,12 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
   onPostUpdate,
   onPostDeleted,
   onStoryDeleted,
+  stories = [],
+  onStoryChange,
 }) => {
   const currentUser = useAuthStore((s) => s.user)!;
   const refreshUser = useAuthStore((s) => s.refreshUser);
+  const touchX = useRef<number | null>(null);
 
   const support = useSupportBubblegram(post?.id ?? 0, post?.soap_count ?? 0, (count) => {
     if (post) onPostUpdate?.({ ...post, soap_count: count });
@@ -179,6 +211,28 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
   }, [postId, loadComments]);
 
   const tree = useMemo(() => buildTree(comments), [comments]);
+
+  const storyIndex = story ? stories.findIndex((s) => s.id === story.id) : -1;
+  const goToStory = useCallback(
+    (offset: number) => {
+      const next = stories[storyIndex + offset];
+      if (next) onStoryChange?.(next);
+    },
+    [stories, storyIndex, onStoryChange]
+  );
+
+  // Arrow keys step through the bubblepops (ignored while typing in a field).
+  useEffect(() => {
+    if (storyIndex < 0) return;
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && ["INPUT", "TEXTAREA"].includes(target.tagName)) return;
+      if (e.key === "ArrowLeft") goToStory(-1);
+      if (e.key === "ArrowRight") goToStory(1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [storyIndex, goToStory]);
 
   if (!post && !story) return null;
 
@@ -285,8 +339,47 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
         </button>
 
         {mediaUrl ? (
-          <div className="md:w-1/2 bg-slate-900 flex items-center justify-center relative min-h-[280px] md:min-h-[460px]">
-            <img src={mediaUrl} alt="Publicação" className="w-full h-full object-cover max-h-[460px]" />
+          <div
+            className="md:w-1/2 bg-slate-900 flex items-center justify-center relative min-h-[280px] md:min-h-[460px]"
+            onTouchStart={(e) => {
+              touchX.current = e.touches[0].clientX;
+            }}
+            onTouchEnd={(e) => {
+              if (touchX.current === null || storyIndex < 0) return;
+              const delta = e.changedTouches[0].clientX - touchX.current;
+              touchX.current = null;
+              if (Math.abs(delta) > 50) goToStory(delta < 0 ? 1 : -1);
+            }}
+          >
+            <img src={mediaUrl} alt={isStory ? "Bubblepop" : "Publicação"} className="w-full h-full object-cover max-h-[460px]" />
+            {isStory && stories.length > 1 && storyIndex >= 0 && (
+              <>
+                <div className="absolute top-3 left-3 right-12 flex gap-1" aria-hidden="true">
+                  {stories.map((s) => (
+                    <span
+                      key={s.id}
+                      className={`h-1 flex-1 rounded-full ${s.id === story!.id ? "bg-white" : "bg-white/35"}`}
+                    />
+                  ))}
+                </div>
+                <button
+                  onClick={() => goToStory(-1)}
+                  disabled={storyIndex === 0}
+                  aria-label="Bubblepop anterior"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/85 text-slate-800 flex items-center justify-center shadow hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => goToStory(1)}
+                  disabled={storyIndex === stories.length - 1}
+                  aria-label="Próximo bubblepop"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/85 text-slate-800 flex items-center justify-center shadow hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </>
+            )}
             {isStory && (
               <div className="absolute bottom-3 left-3 px-2.5 py-1 bg-slate-900/80 text-white text-xs font-semibold rounded-sm flex items-center gap-1.5 border border-white/20">
                 <Clock className="w-3 h-3 text-pink-400" />

@@ -249,6 +249,8 @@ export const FeedView: React.FC<FeedViewProps> = ({ searchTerm = "" }) => {
         <PostDetailModal
           post={selectedPost}
           story={selectedStory}
+          stories={bubblepops}
+          onStoryChange={setSelectedStory}
           onClose={() => {
             setSelectedPost(null);
             setSelectedStory(null);

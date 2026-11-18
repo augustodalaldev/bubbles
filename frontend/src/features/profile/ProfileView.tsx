@@ -564,6 +564,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         <PostDetailModal
           post={selectedPost}
           story={selectedStory}
+          stories={bubblepops}
+          onStoryChange={setSelectedStory}
           onClose={() => {
             setSelectedPost(null);
             setSelectedStory(null);

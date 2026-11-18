@@ -281,3 +281,8 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 - Profile pictures are the files in `.demo_cache/avatars/` (provided by the owner, not versioned). The generic fish `tom.png` is hue-rotated for the extra fish characters; a missing avatar falls back to generated art and a warning.
 - Badges next to a name: `UserName` has a compact variant (name on one line, truncated with the full name in `title`; below it only the most expensive badge plus "+N") and a full variant for the profile header. The price travels in the equipped snapshot (`price`), so badges equipped before this change sort by slot order until they are equipped again.
 - Pytest and the seed use different settings on purpose; the media guard in `conftest.py` stays.
+
+## Final details (2026-11-18)
+- Bubblepops open in a carousel: `PostDetailModal` receives the tray/profile list (`stories`) and steps through it with arrow buttons, ArrowLeft/ArrowRight keys and a horizontal swipe, with a progress bar per bubblepop. It does not wrap around and does not auto-advance. Deleting one still closes the viewer.
+- Comments show the author's avatar and link to the profile (anonymized `deleted_*` accounts have no profile, so they are not links).
+- The demo no longer ships the tiled "bolinhas" wallpaper; the three remaining wallpapers are full-page images. The app still supports the `tile` fit for catalog items created in the admin.

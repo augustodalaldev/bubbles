@@ -276,7 +276,6 @@ WALLPAPERS = [
     ("papel_ceu", "Papel céu de algodão", 35, "cover", ("#BAE6FD", "#F5D0FE")),
     ("papel_gramado", "Papel gramado", 30, "cover", ("#BBF7D0", "#FEF9C3")),
     ("papel_por_do_sol", "Papel pôr do sol", 40, "cover", ("#FED7AA", "#FBCFE8")),
-    ("papel_bolinhas", "Papel bolinhas (repetido)", 25, "tile", ("#E0E7FF", "#FCE7F3")),
 ]
 
 # Community banners drawn offline, used when a community has none.

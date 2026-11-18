@@ -341,7 +341,7 @@ def test_customization_variations_are_seeded_and_worn(demo):
 
     wallpapers = CustomizationItem.objects.filter(item_type="WALLPAPER")
     assert wallpapers.count() >= 3
-    assert {w.metadata["fit"] for w in wallpapers} == {"cover", "tile"}
+    assert {w.metadata["fit"] for w in wallpapers} == {"cover"}  # no tiled bubble pattern
     for wallpaper in wallpapers:
         assert wallpaper.image and default_storage.exists(wallpaper.image.name)
         wallpaper.full_clean()  # the catalog art passes the same validation as the admin

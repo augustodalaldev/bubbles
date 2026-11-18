@@ -49,7 +49,7 @@ Those character images belong to their owners: they stay in the git-ignored cach
 
 It also shows the administration states and every customization option: a suspended account (`suspenso_demo`), a banned
 one (`banido_demo`, whose login explains the ban), a deleted account (its posts stay as "Conta excluída"), a suspended,
-a banned and a deleted community, four offline-drawn wallpapers (one tiled), three accent colors, a profile section
+a banned and a deleted community, three offline-drawn wallpapers, three accent colors, a profile section
 written by each person who bought one, extra badges (up to three per profile, one granted by staff) and a banner for
 the communities. Sign in as `admin_demo` and open `/moderation` to see the states.
 
