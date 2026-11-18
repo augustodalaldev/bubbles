@@ -26,6 +26,8 @@ class CommunityUpdateSerializer(serializers.Serializer):
     description = serializers.CharField(max_length=500, required=False, allow_blank=True)
     community_photo = SafeImageField(required=False, allow_null=True)
     banner_photo = SafeImageField(required=False, allow_null=True)
+    remove_community_photo = serializers.BooleanField(required=False)
+    remove_banner_photo = serializers.BooleanField(required=False)
     customization_json = serializers.JSONField(required=False)
 
 
@@ -112,6 +114,10 @@ class MemberModerateSerializer(serializers.Serializer):
 
 class TransferLeadershipSerializer(serializers.Serializer):
     new_leader_username = serializers.CharField(required=True)
+
+
+class DeleteCommunitySerializer(serializers.Serializer):
+    confirm_commname = serializers.CharField(required=True)
 
 
 class CommunityWalletSerializer(serializers.Serializer):

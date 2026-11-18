@@ -11,6 +11,8 @@ export const paths = {
   lettersTo: (username: string) => `/letters?to=${encodeURIComponent(username)}`,
   followers: (username: string) => `/u/${encodeURIComponent(username)}/followers`,
   following: (username: string) => `/u/${encodeURIComponent(username)}/following`,
+  account: "/conta",
+  communitySettings: (commname: string) => `/c/${encodeURIComponent(commname)}/configuracoes`,
   letter: (id: number) => `/letters/${id}`,
   post: (id: number) => `/p/${id}`,
   search: (term: string) => (term ? `/?q=${encodeURIComponent(term)}` : "/"),
@@ -39,6 +41,7 @@ export function viewFromPath(pathname: string, ownUsername?: string): AppView | 
   if (pathname === "/") return "feed";
   if (pathname.startsWith("/communities") || pathname.startsWith("/c/")) return "communities";
   if (pathname.startsWith("/store")) return "store";
+  if (pathname === paths.account) return "profile";
   if (pathname.startsWith("/letters")) return "letters";
   if (ownUsername) {
     const own = paths.profile(ownUsername).toLowerCase();

@@ -84,7 +84,18 @@ class UpdateProfileSerializer(serializers.Serializer):
     description = serializers.CharField(max_length=250, required=False, allow_blank=True)
     birth_date = serializers.DateField(required=False)
     profile_photo = SafeImageField(required=False, allow_null=True)
+    remove_profile_photo = serializers.BooleanField(required=False)
     customization_json = serializers.JSONField(required=False)
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True)
+
+
+class ChangeEmailSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True)
+    new_email = serializers.EmailField(max_length=254)
 
 
 class DeleteAccountSerializer(serializers.Serializer):

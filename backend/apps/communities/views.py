@@ -23,12 +23,14 @@ from .serializers import (
     CommunityMemberSerializer,
     CommunityUpdateSerializer,
     CommunityWalletSerializer,
+    DeleteCommunitySerializer,
     MemberModerateSerializer,
     TransferLeadershipSerializer,
 )
 from .services import (
     archive_community,
     create_community,
+    delete_community,
     demote_member,
     join_community,
     leave_community,
@@ -71,6 +73,18 @@ class CommunityDetailView(APIView):
         community = get_community_by_commname(commname=commname)
         serializer = CommunityDetailSerializer(community, context={"request": request})
         return Response(serializer.data)
+
+    @extend_schema(request=DeleteCommunitySerializer, responses={204: None})
+    def delete(self, request, commname: str):
+        community = get_community_by_commname(commname=commname)
+        serializer = DeleteCommunitySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        delete_community(
+            actor=request.user,
+            community=community,
+            confirm_commname=serializer.validated_data["confirm_commname"],
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(request=CommunityUpdateSerializer, responses={200: CommunityDetailSerializer})
     def patch(self, request, commname: str):

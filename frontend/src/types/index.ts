@@ -49,6 +49,7 @@ export interface CommunityPermissions {
   can_manage_admins: boolean;
   can_transfer_leadership: boolean;
   can_archive: boolean;
+  can_delete?: boolean;
   can_view_wallet: boolean;
   can_customize: boolean;
   can_join: boolean;

@@ -11,7 +11,7 @@ User = get_user_model()
 def get_community_by_commname(*, commname: str) -> Community:
     """Retrieve community by its unique handle."""
     clean_commname = commname.strip().lower()
-    community = Community.objects.filter(commname=clean_commname).first()
+    community = Community.objects.filter(commname=clean_commname, deleted_at__isnull=True).first()
     if not community:
         raise DomainError("Community not found.", code="community_not_found", http_status=404)
     return community
@@ -55,6 +55,7 @@ def compute_community_permissions(
             is_staff or (is_leader and not is_archived and not is_blocked)
         ),
         "can_archive": bool((is_staff or is_leader) and not is_archived and not is_blocked),
+        "can_delete": bool(is_leader and not is_blocked),
         "can_view_wallet": bool(is_staff or is_leader or is_admin),
         "can_customize": bool((is_leader or is_admin) and not is_archived and not is_blocked),
         "can_join": bool(
@@ -75,7 +76,7 @@ def list_communities(
     mine: bool = False,
 ) -> QuerySet[Community]:
     """List or search communities (RF004)."""
-    qs = Community.objects.all().order_by("-created_at")
+    qs = Community.objects.filter(deleted_at__isnull=True).order_by("-created_at")
 
     if not getattr(user, "is_staff", False):
         qs = qs.filter(blocked_at__isnull=True)

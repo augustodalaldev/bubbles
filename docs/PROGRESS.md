@@ -59,7 +59,7 @@
 ## Batch 3 — polish 2 (see docs/POLISH_PLAN.md)
 - [x] Phase 1 — Quick fixes: password show/hide, register without description, Portuguese messages everywhere (catalog + `pt-br`, 538 tests), responsive header/community/profile mural/natural scrolling on phones, publish button on the own profile, equipped frame/name color/badge/theme applied on profiles, feed, comments and members. Checked in Chrome at 375/768/1280 px
 - [x] Phase 2 — Social and letters: `/u/:username/followers` and `/following` (paginated lists, linked from the profile, feed sidebar and "Seguidores" block); `/letters/:id` opens the detail modal from the URL (back/F5 work, 404 message); a reply shows the replied-to letter (`reply_to_summary`, clickable) and the original shows "Respondida · ver resposta" (`reply_id`, no N+1); 543 tests. Checked in Chrome at 375/768/1280 px (23 checks)
-- [ ] Phase 3 — Edit/delete account and community
+- [x] Phase 3 — Edit/delete account and community: `/conta` (profile edit with photo removal, password change, e-mail change, account deletion with typed "EXCLUIR" + password + warnings), `/c/:commname/configuracoes` (edit data/photo, transfer leadership, delete community with typed handle); `Community.deleted_at` soft delete (migration 0005); 565 tests. Checked in Chrome at 375/768/1280 px (35 checks, throwaway database)
 - [ ] Phase 4 — Administration (suspend/ban)
 - [ ] Phase 5 — Expanded customization and bubble effect
 - [ ] Phase 6 — Final validation, demo seed and docs

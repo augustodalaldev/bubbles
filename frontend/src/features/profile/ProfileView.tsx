@@ -215,6 +215,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 </p>
               )}
 
+              {isOwn && (
+                <Link to={paths.account} className="btn-outline w-full py-1.5 px-2 mb-4 text-xs font-semibold text-center">
+                  Editar perfil e conta
+                </Link>
+              )}
+
               {!isOwn && (
                 <div className="w-full grid grid-cols-2 gap-2 mb-4">
                   <button

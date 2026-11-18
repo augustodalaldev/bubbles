@@ -7,6 +7,7 @@ from django.db.models import F
 from django.utils import timezone
 
 from apps.core.exceptions import DomainError
+from apps.core.uploads import delete_file_on_commit
 from apps.economy.services import ensure_user_wallet
 
 from .models import Community, CommunityMember, MemberRole, MemberState
@@ -208,6 +209,8 @@ def update_community(
     description: str | None = None,
     community_photo: Any = None,
     banner_photo: Any = None,
+    remove_community_photo: bool = False,
+    remove_banner_photo: bool = False,
     customization_json: dict[str, Any] | None = None,
 ) -> Community:
     """Update community details (RF013). Allowed for COMM_ADMIN and LEADER."""
@@ -247,9 +250,17 @@ def update_community(
     if community_photo is not None:
         community.community_photo = community_photo
         update_fields.append("community_photo")
+    elif remove_community_photo and community.community_photo:
+        delete_file_on_commit(community.community_photo)
+        community.community_photo = ""
+        update_fields.append("community_photo")
 
     if banner_photo is not None:
         community.banner_photo = banner_photo
+        update_fields.append("banner_photo")
+    elif remove_banner_photo and community.banner_photo:
+        delete_file_on_commit(community.banner_photo)
+        community.banner_photo = ""
         update_fields.append("banner_photo")
 
     if customization_json is not None:
@@ -611,3 +622,52 @@ def archive_community(*, actor: User, community: Community) -> Community:
     community.archived_at = timezone.now()
     community.save(update_fields=["archived_at"])
     return community
+
+
+@transaction.atomic
+def delete_community(*, actor: User, community: Community, confirm_commname: str) -> None:
+    """Delete a community (soft delete, leader only).
+
+    Invariants:
+    1. Only the active leader may delete; the leader must type the community handle.
+    2. Memberships are removed, photos are deleted, text is cleared and the handle becomes
+       `deleted_<id>`, which frees the original handle and makes the old URL a 404.
+    3. The row, its wallet and the ledger stay (append-only history). The community soap and
+       purchased items are lost: nothing can reach them anymore.
+    """
+    _lock_community(community)
+    if community.is_deleted:
+        raise DomainError("Community not found.", code="community_not_found", http_status=404)
+    # A blocked community is under moderation: deleting it would dodge that.
+    _reject_if_blocked(community)
+    membership = CommunityMember.objects.filter(community=community, user=actor).first()
+    if (
+        not membership
+        or membership.role != MemberRole.LEADER
+        or membership.current_state != MemberState.ACTIVE
+    ):
+        raise DomainError(
+            "Only the community leader can delete it.",
+            code="permission_denied",
+            http_status=403,
+        )
+    if confirm_commname.strip().lower() != community.commname:
+        raise DomainError(
+            "The typed name does not match the community.",
+            code="confirmation_mismatch",
+            extra={"fields": {"confirm_commname": ["The typed name does not match."]}},
+        )
+
+    CommunityMember.objects.filter(community=community).delete()
+    for field in (community.community_photo, community.banner_photo):
+        delete_file_on_commit(field)
+    community.commname = f"deleted_{community.pk}"
+    community.name = "Comunidade excluída"
+    community.description = ""
+    community.guidelines = ""
+    community.community_photo = ""
+    community.banner_photo = ""
+    community.customization_json = {}
+    community.member_count = 0
+    community.deleted_at = timezone.now()
+    community.save()

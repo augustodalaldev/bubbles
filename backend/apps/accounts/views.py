@@ -20,6 +20,8 @@ from .selectors import (
 )
 from .serializers import (
     AuthResponseSerializer,
+    ChangeEmailSerializer,
+    ChangePasswordSerializer,
     CurrentUserSerializer,
     DeleteAccountSerializer,
     FollowerItemSerializer,
@@ -32,6 +34,8 @@ from .serializers import (
     UserProfileDetailSerializer,
 )
 from .services import (
+    change_email,
+    change_password,
     delete_account,
     follow_user,
     register_user,
@@ -209,6 +213,32 @@ class CurrentUserView(APIView):
         response = Response(status=status.HTTP_204_NO_CONTENT)
         clear_refresh_cookie(response)
         return response
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(request=ChangePasswordSerializer, responses={200: OpenApiTypes.OBJECT})
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        change_password(user=request.user, **serializer.validated_data)
+        # Every earlier session was ended; keep this one alive with fresh tokens.
+        refresh = RefreshToken.for_user(request.user)
+        response = Response({"access": str(refresh.access_token)}, status=status.HTTP_200_OK)
+        set_refresh_cookie(response, str(refresh))
+        return response
+
+
+class ChangeEmailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(request=ChangeEmailSerializer, responses={200: CurrentUserSerializer})
+    def post(self, request):
+        serializer = ChangeEmailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = change_email(user=request.user, **serializer.validated_data)
+        return Response(CurrentUserSerializer(user, context={"request": request}).data)
 
 
 class PublicProfileView(APIView):

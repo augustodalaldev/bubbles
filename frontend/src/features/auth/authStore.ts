@@ -21,6 +21,10 @@ interface AuthState {
   logout: () => Promise<void>;
   /** Re-reads /users/me/ (e.g. to refresh the soap balance after spending). */
   refreshUser: () => Promise<void>;
+  /** Replaces the cached user (after an edit that already returned it). */
+  setUser: (user: User) => void;
+  /** The account no longer exists server-side: drop the session without calling logout. */
+  endSession: () => void;
 }
 
 async function loadEconomy(): Promise<EconomySettings | null> {
@@ -71,6 +75,10 @@ export const useAuthStore = create<AuthState>((set) => {
         set({ status: "anonymous", user: null, sessionEnded: "logout" });
       }
     },
+
+    setUser: (user) => set({ user }),
+
+    endSession: () => set({ status: "anonymous", user: null, sessionEnded: "logout" }),
 
     refreshUser: async () => {
       try {

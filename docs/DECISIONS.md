@@ -236,3 +236,10 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 - Letters expose `reply_to_summary` (id, sender, 140-char excerpt, sent_at) and `reply_id` (the answer, via a Subquery in the selectors). The excerpt keeps the replied-to letter visible without a second request, and neither field adds queries per row.
 - The open letter is part of the URL (`/letters/:id?`, a single route so the list is not remounted). Closing goes back in history, or to `/letters` on a direct visit. An answered letter hides "Responder" (the backend rejects a second reply with `already_replied`).
 - Follower/following lists are their own routes, so the counters are plain links and the own-profile tab stays highlighted on them.
+
+## Polish 2 — Phase 3 (2026-11-17)
+- Community deletion is a soft delete (`Community.deleted_at`): memberships and photos are removed, text is cleared and the handle becomes `deleted_<id>`, so the old URL is a 404 and the handle is reusable. The row, wallet and ledger stay (append-only). Posts of the community are hidden (post detail 404, excluded from suggestions). A leader of a *blocked* community cannot delete it (it would dodge moderation). Staff and admins cannot delete (leader only, D2).
+- Account deletion also removes the user's bubblepops (and their images). A leader must transfer leadership or delete the community first (409 `must_transfer_leadership` lists them; the UI links to their settings).
+- Password change requires the current password, ends every other session (outstanding refresh tokens blacklisted) and returns fresh tokens for the current one. E-mail change requires the password. Username stays immutable (D11).
+- Photos are removed with explicit `remove_profile_photo` / `remove_community_photo` flags instead of sending `null` in multipart.
+- Destructive dialogs (`ConfirmDialog`) state the consequences and require typed text (`EXCLUIR`, or the community handle); the server re-checks the handle and the password.

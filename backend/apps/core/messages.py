@@ -59,6 +59,7 @@ MESSAGES: dict[str, str] = {
     "invalid_guidelines": "As diretrizes ultrapassam o limite de 2000 caracteres.",
     "community_archived": "Esta comunidade foi arquivada e está somente para leitura.",
     "community_blocked": "Esta comunidade está bloqueada pela administração.",
+    "confirmation_mismatch": "O texto digitado não confere. Confira e tente de novo.",
     "already_archived": "Esta comunidade já está arquivada.",
     "already_member": "Você já participa desta comunidade.",
     "not_member": "Você não participa desta comunidade.",

@@ -33,6 +33,10 @@ const CommunityDetailView = lazy(() =>
 const FollowListView = lazy(() =>
   import("@/features/profile/FollowListView").then((m) => ({ default: m.FollowListView }))
 );
+const AccountView = lazy(() => import("@/features/account/AccountView").then((m) => ({ default: m.AccountView })));
+const CommunitySettingsView = lazy(() =>
+  import("@/features/communities/CommunitySettingsView").then((m) => ({ default: m.CommunitySettingsView }))
+);
 const StoreView = lazy(() => import("@/features/customization/StoreView").then((m) => ({ default: m.StoreView })));
 const LettersInboxView = lazy(() =>
   import("@/features/letters/LettersInboxView").then((m) => ({ default: m.LettersInboxView }))
@@ -101,6 +105,12 @@ function FollowRoute({ kind }: { kind: "followers" | "following" }) {
   const { username = "" } = useParams();
   const handle = username.toLowerCase();
   return <FollowListView key={`${kind}:${handle}`} username={handle} kind={kind} />;
+}
+
+function CommunitySettingsRoute() {
+  const { commname = "" } = useParams();
+  const handle = commname.toLowerCase();
+  return <CommunitySettingsView key={handle} commname={handle} />;
 }
 
 function CommunityRoute() {
@@ -195,6 +205,8 @@ export function AppRoutes() {
             <Route path="u/:username/following" element={<FollowRoute kind="following" />} />
             <Route path="communities" element={<CommunityListView />} />
             <Route path="c/:commname" element={<CommunityRoute />} />
+            <Route path="c/:commname/configuracoes" element={<CommunitySettingsRoute />} />
+            <Route path="conta" element={<AccountView />} />
             <Route path="store" element={<StoreView />} />
             <Route path="letters/:id?" element={<LettersRoute />} />
             <Route path="p/:id" element={<PostRoute />} />

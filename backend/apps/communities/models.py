@@ -43,6 +43,9 @@ class Community(models.Model):
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     archived_at = models.DateTimeField(null=True, blank=True)
     blocked_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    # Soft delete by the leader: the row stays (ledger and content keep their references) but the
+    # community is hidden everywhere and its handle is freed (see `delete_community`).
+    deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     class Meta:
         verbose_name_plural = "communities"
@@ -59,6 +62,10 @@ class Community(models.Model):
     @property
     def is_archived(self) -> bool:
         return self.archived_at is not None
+
+    @property
+    def is_deleted(self) -> bool:
+        return self.deleted_at is not None
 
     @property
     def is_blocked(self) -> bool:

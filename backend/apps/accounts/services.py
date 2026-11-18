@@ -148,6 +148,7 @@ def update_profile(
     description: str | None = None,
     birth_date: date | None = None,
     profile_photo: Any = None,
+    remove_profile_photo: bool = False,
     customization_json: dict[str, Any] | None = None,
 ) -> User:
     """Update profile data for an existing user."""
@@ -189,6 +190,10 @@ def update_profile(
     if profile_photo is not None:
         user.profile_photo = profile_photo
         update_fields.append("profile_photo")
+    elif remove_profile_photo and user.profile_photo:
+        delete_file_on_commit(user.profile_photo)
+        user.profile_photo = ""
+        update_fields.append("profile_photo")
 
     if customization_json is not None:
         if not isinstance(customization_json, dict):
@@ -209,6 +214,53 @@ def update_profile(
     return user
 
 
+def _require_password(user: User, password: str) -> None:
+    if not user.check_password(password):
+        raise DomainError(
+            "Invalid password.",
+            code="invalid_password",
+            http_status=400,
+            extra={"fields": {"password": ["Invalid password."]}},
+        )
+
+
+@transaction.atomic
+def change_password(*, user: User, current_password: str, new_password: str) -> None:
+    """Change the password after confirming the current one. Other sessions are ended."""
+    _require_password(user, current_password)
+    try:
+        validate_password(new_password, user=user)
+    except ValidationError as exc:
+        raise DomainError(
+            " ".join(exc.messages),
+            code="weak_password",
+            extra={"fields": {"new_password": list(exc.messages)}},
+        ) from exc
+    user.set_password(new_password)
+    user.save(update_fields=["password"])
+
+    from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+
+    for token in OutstandingToken.objects.filter(user=user):
+        BlacklistedToken.objects.get_or_create(token=token)
+
+
+@transaction.atomic
+def change_email(*, user: User, password: str, new_email: str) -> User:
+    """Change the e-mail address after confirming the password."""
+    _require_password(user, password)
+    clean_email = new_email.strip().lower()
+    if User.objects.filter(email__iexact=clean_email).exclude(pk=user.pk).exists():
+        raise DomainError(
+            "This email is already in use.",
+            code="email_already_registered",
+            extra={"fields": {"new_email": ["This email is already in use."]}},
+        )
+    user.email = clean_email
+    user.save(update_fields=["email"])
+    return user
+
+
 @transaction.atomic
 def delete_account(*, user: User, password: str) -> None:
     """Soft delete and anonymize user account (RF002).
@@ -220,13 +272,7 @@ def delete_account(*, user: User, password: str) -> None:
     4. Anonymizes personal info, deactivates login, sets deleted_at.
     5. Keeps wallet, ledger rows and published content (shown as deleted account).
     """
-    if not user.check_password(password):
-        raise DomainError(
-            "Invalid password.",
-            code="invalid_password",
-            http_status=400,
-            extra={"fields": {"password": ["Invalid password."]}},
-        )
+    _require_password(user, password)
 
     from apps.communities.models import Community, CommunityMember, MemberRole, MemberState
 
@@ -235,6 +281,7 @@ def delete_account(*, user: User, password: str) -> None:
             user=user,
             role=MemberRole.LEADER,
             community__archived_at__isnull=True,
+            community__deleted_at__isnull=True,
         ).select_related("community")
     )
     if leader_memberships:
@@ -258,6 +305,11 @@ def delete_account(*, user: User, password: str) -> None:
         Community.objects.filter(id__in=active_comm_ids).update(member_count=F("member_count") - 1)
 
     CommunityMember.objects.filter(user=user).delete()
+
+    # Bubblepops are ephemeral and personal: remove them with their images.
+    for bubblepop in user.bubblepops.all():
+        delete_file_on_commit(bubblepop.image)
+    user.bubblepops.all().delete()
 
     # Remove follow connections
     user.following_connections.all().delete()

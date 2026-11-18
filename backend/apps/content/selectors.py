@@ -19,6 +19,7 @@ def get_bubblegram_by_id(*, bubblegram_id: int) -> Bubblegram:
         Bubblegram.objects.select_related("user", "community")
         .prefetch_related("media")
         .filter(pk=bubblegram_id)
+        .exclude(community__deleted_at__isnull=False)
         .first()
     )
     if not bubblegram:
@@ -146,6 +147,7 @@ def list_feed_bubblegrams(
                 user__is_active=True,
             )
             .exclude(community__blocked_at__isnull=False)
+            .exclude(community__deleted_at__isnull=False)
             .exclude(normal_q)
             .order_by("-soap_count", "-published_at")
             .values_list("id", flat=True)[:max_popular_suggestions]

@@ -6,6 +6,7 @@ import { Avatar } from "@/components/Avatar";
 import { UserName } from "@/components/UserName";
 import { BubbleOverlay } from "@/components/BubbleOverlay";
 import { SoapIcon } from "@/components/SoapIcon";
+import { NotFoundView } from "@/components/NotFoundView";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { useAuthStore } from "@/features/auth/authStore";
 import { FeedItemCard } from "@/features/feed/FeedItemCard";
@@ -72,6 +73,8 @@ const MemberLine: React.FC<{
   </Link>
 );
 
+const NOT_FOUND = "not_found";
+
 export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commname }) => {
   const economy = useAuthStore((s) => s.economy);
   const refreshUser = useAuthStore((s) => s.refreshUser);
@@ -126,7 +129,7 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
         setWalletBalance(null);
       }
     } catch (err) {
-      setLoadError(toApiError(err).status === 404 ? "Comunidade não encontrada." : errorMessage(err));
+      setLoadError(toApiError(err).status === 404 ? NOT_FOUND : errorMessage(err));
       setStatus("error");
     }
   }, [commname]);
@@ -173,6 +176,7 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
   }, [loadCommunity, loadPosts, loadMembers]);
 
   if (status === "loading") return <LoadingState label="Carregando comunidade..." />;
+  if (loadError === NOT_FOUND) return <NotFoundView message="Esta comunidade não existe ou foi excluída." />;
   if (status === "error" || !community) {
     return (
       <div className="max-w-xl mx-auto px-4 py-10">
@@ -359,6 +363,14 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
               ) : myState === "BANNED" ? (
                 <p className="text-xs text-red-700 font-semibold">Você foi banido desta comunidade.</p>
               ) : null}
+              {(permissions?.can_edit || permissions?.can_delete) && (
+                <Link
+                  to={paths.communitySettings(community.commname)}
+                  className="mt-2 block w-full py-1.5 text-xs font-bold rounded-sm border border-slate-300 text-slate-700 hover:bg-slate-100 text-center"
+                >
+                  Configurações da comunidade
+                </Link>
+              )}
               {membershipError && (
                 <p role="alert" className="mt-2 text-[11px] text-red-700">
                   {membershipError}

@@ -39,6 +39,31 @@ export async function updateCommunityPhoto(commname: string, photo: File): Promi
   return data;
 }
 
+export interface UpdateCommunityInput {
+  name: string;
+  description: string;
+  photo?: File | null;
+  removePhoto?: boolean;
+}
+
+export async function updateCommunity(commname: string, input: UpdateCommunityInput): Promise<Community> {
+  const form = new FormData();
+  form.append("name", input.name);
+  form.append("description", input.description);
+  if (input.photo) form.append("community_photo", input.photo);
+  else if (input.removePhoto) form.append("remove_community_photo", "true");
+  const { data } = await api.patch<Community>(`/communities/${commname}/`, form);
+  return data;
+}
+
+export async function deleteCommunity(commname: string, confirmCommname: string): Promise<void> {
+  await api.delete(`/communities/${commname}/`, { data: { confirm_commname: confirmCommname } });
+}
+
+export async function transferLeadership(commname: string, newLeaderUsername: string): Promise<void> {
+  await api.post(`/communities/${commname}/transfer-leadership/`, { new_leader_username: newLeaderUsername });
+}
+
 export async function updateGuidelines(commname: string, guidelines: string): Promise<Community> {
   const { data } = await api.patch<Community>(`/communities/${commname}/guidelines/`, { guidelines });
   return data;
