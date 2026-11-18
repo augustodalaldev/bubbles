@@ -114,7 +114,8 @@ def test_seeds_every_kind_of_entity_through_the_services(demo):
     ))  # fmt: skip
     for name, value in counts.items():
         assert value > 0, f"nothing was created for {name}"
-    assert counts["communities"] == 3
+    # 3 themed communities plus the 3 showcase ones (suspended, banned, deleted)
+    assert counts["communities"] == 6
 
 
 def test_people_and_credentials(demo):
@@ -127,7 +128,8 @@ def test_people_and_credentials(demo):
     assert not moderator.is_staff
     assert CommunityMember.objects.filter(user=moderator, role=MemberRole.COMM_ADMIN).exists()
     assert "admin_demo" in out and "moderador_demo" in out and "DemoPets2026!" in out
-    assert all(u.email.endswith("@demo.bubbles.test") for u in User.objects.all())
+    live = User.objects.filter(deleted_at__isnull=True)
+    assert all(u.email.endswith("@demo.bubbles.test") for u in live)
 
 
 def test_soap_ledger_and_counters_stay_consistent(demo):
@@ -204,6 +206,8 @@ def test_no_images_flag_creates_everything_without_them(demo):
     assert Bubblegram.objects.exists() and User.objects.count() >= 6
     assert not BubblegramMedia.objects.exists()
     assert not User.objects.exclude(profile_photo="").exists()
+    assert not CustomizationItem.objects.filter(item_type="WALLPAPER").exists()
+    assert not Community.objects.exclude(banner_photo="").exists()
     assert not Bubblepop.objects.exists()  # bubblepops require an image
     assert not (demo / "images").exists()
 
@@ -242,13 +246,21 @@ def test_running_twice_does_not_duplicate_anything(demo):
 
 def test_same_seed_gives_the_same_people_and_a_different_seed_differs(demo):
     seed("--seed", "7")
-    names = sorted(User.objects.values_list("username", flat=True))
+
+    def names_now():
+        # the deleted demo account is renamed `deleted_<id>`, and ids differ between runs
+        return sorted(
+            User.objects.exclude(username__startswith="deleted_").values_list("username", flat=True)
+        )
+
+    seed("--seed", "7")
+    names = names_now()
     seed("--reset")
     seed("--seed", "7")
-    assert sorted(User.objects.values_list("username", flat=True)) == names
+    assert names_now() == names
     seed("--reset")
     seed("--seed", "8")
-    assert sorted(User.objects.values_list("username", flat=True)) != names
+    assert names_now() != names
 
 
 def test_reset_removes_only_what_the_seed_created(demo):
@@ -305,9 +317,99 @@ def test_reset_does_not_delete_catalog_items_someone_else_owns(demo):
 
 def test_community_posts_come_only_from_active_members(demo):
     seed()
-    for post in Bubblegram.objects.filter(community__isnull=False):
+    # (the community the leader deleted keeps its posts but loses every membership)
+    for post in Bubblegram.objects.filter(community__isnull=False, community__deleted_at=None):
         assert CommunityMember.objects.filter(community=post.community, user=post.user).exists()
     totals = Bubblegram.objects.aggregate(
         n=Count("id"), personal=Count("id", filter=Q(community__isnull=True))
     )
     assert totals["personal"] > 0 and totals["n"] > totals["personal"]
+
+
+# ------------------------------------------------------------------- polish 2 showcase
+
+
+def test_customization_variations_are_seeded_and_worn(demo):
+    seed()
+
+    wallpapers = CustomizationItem.objects.filter(item_type="WALLPAPER")
+    assert wallpapers.count() >= 3
+    assert {w.metadata["fit"] for w in wallpapers} == {"cover", "tile"}
+    for wallpaper in wallpapers:
+        assert wallpaper.image and default_storage.exists(wallpaper.image.name)
+        wallpaper.full_clean()  # the catalog art passes the same validation as the admin
+    assert CustomizationItem.objects.filter(item_type="ACCENT_COLOR").count() >= 3
+    assert CustomizationItem.objects.filter(item_type="SECTION").count() >= 2
+    assert CustomizationItem.objects.filter(item_type="BADGE").count() >= 5
+    # every variation is owned by someone
+    for kind in ("WALLPAPER", "ACCENT_COLOR", "SECTION"):
+        for item in CustomizationItem.objects.filter(item_type=kind, price__lte=60):
+            assert UserInventoryItem.objects.filter(item=item).exists(), item.code
+
+    worn = User.objects.filter(customization_json__has_key="wallpaper")
+    assert worn.exists()
+    first = worn.order_by("pk").first()
+    assert first.customization_json["wallpaper"]["image"].startswith("/media/customization/")
+    assert {"wallpaper", "accent_color", "section"} <= set(first.customization_json)
+    # up to three badges on one profile, one of them handed out by staff (no purchase)
+    three = [
+        u
+        for u in User.objects.all()
+        if all(slot in u.customization_json for slot in ("badge", "badge_2", "badge_3"))
+    ]
+    assert three
+    team = UserInventoryItem.objects.get(item__code="selo_equipe")
+    assert team.transaction is None
+    # the section text is plain pt-BR text stored on the user
+    with_section = User.objects.exclude(section_text="")
+    assert with_section.exists() and all(len(u.section_text) <= 500 for u in with_section)
+
+
+def test_every_themed_community_gets_a_banner(demo):
+    seed()
+    themed = Community.objects.exclude(commname__startswith="pets_").exclude(
+        commname__startswith="deleted_"
+    )
+    assert themed.count() == 3
+    assert not themed.filter(banner_photo="").exists()
+
+
+def test_moderation_showcase_states(demo):
+    seed()
+
+    suspended = User.objects.get(username="suspenso_demo")
+    assert suspended.is_suspended and suspended.moderation_reason
+    banned = User.objects.get(username="banido_demo")
+    assert banned.is_banned and not banned.is_active and banned.moderation_reason
+    assert authenticate(username="banido_demo", password="DemoPets2026!") is None
+    deleted = User.objects.get(deleted_at__isnull=False)
+    assert deleted.username.startswith("deleted_") and deleted.name == "Conta excluída"
+    assert Bubblegram.objects.filter(user=deleted).exists()  # content stays, anonymized
+
+    susp = Community.objects.get(commname="pets_suspensa")
+    assert susp.is_suspended and susp.moderation_reason
+    ban = Community.objects.get(commname="pets_banida")
+    assert ban.is_blocked and ban.moderation_reason
+    gone = Community.objects.get(deleted_at__isnull=False)
+    assert gone.commname.startswith("deleted_") and gone.member_count == 0
+    assert not CommunityMember.objects.filter(community=gone).exists()
+    # the app really treats them as moderated: the staff list and the audit log show them
+    assert AuditLog.objects.filter(action="USER_SUSPEND").exists()
+    assert AuditLog.objects.filter(action="COMMUNITY_BLOCK").exists()
+    assert AuditLog.objects.filter(action="COMMUNITY_SUSPEND").exists()
+
+
+def test_reset_removes_the_showcase_and_catalog_images(demo):
+    seed()
+    images = list(
+        CustomizationItem.objects.filter(item_type="WALLPAPER").values_list("image", flat=True)
+    )
+    banners = list(
+        Community.objects.exclude(banner_photo="").values_list("banner_photo", flat=True)
+    )
+    assert images and banners
+
+    call_command("seed_demo", "--reset", stdout=io.StringIO())
+
+    assert not User.objects.exists() and not Community.objects.exists()
+    assert not any(default_storage.exists(name) for name in images + banners)

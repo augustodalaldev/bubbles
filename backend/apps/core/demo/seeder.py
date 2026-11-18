@@ -20,13 +20,15 @@ from django.utils.text import slugify
 from faker import Faker
 
 from apps.accounts.models import User, UserConnection
-from apps.accounts.services import follow_user, register_user
-from apps.communities.models import Community, CommunityMember, MemberState
+from apps.accounts.services import delete_account, follow_user, register_user
+from apps.communities.models import Community, CommunityMember, MemberState, not_moderated_q
 from apps.communities.services import (
     create_community,
+    delete_community,
     join_community,
     moderate_member,
     promote_member,
+    update_community,
 )
 from apps.content.models import (
     Bubblegram,
@@ -44,7 +46,7 @@ from apps.content.services import (
     support_comment,
 )
 from apps.core.demo import content
-from apps.core.demo.images import ImageLibrary
+from apps.core.demo.images import ImageLibrary, banner_image, wallpaper_image
 from apps.core.exceptions import DomainError
 from apps.customization.models import (
     CommunityInventoryItem,
@@ -56,6 +58,7 @@ from apps.customization.services import (
     equip_customization,
     purchase_community_item,
     purchase_customization_item,
+    update_profile_section,
 )
 from apps.economy.models import SoapTransaction, Wallet
 from apps.economy.services import ensure_community_wallet
@@ -66,7 +69,15 @@ from apps.moderation.models import (
     ReportStatus,
     ReportTargetType,
 )
-from apps.moderation.services import admin_adjust_soap, file_report, review_report
+from apps.moderation.services import (
+    admin_adjust_soap,
+    ban_user,
+    block_community,
+    file_report,
+    review_report,
+    suspend_community,
+    suspend_user,
+)
 from apps.social.models import Letter
 from apps.social.services import send_letter
 
@@ -89,6 +100,7 @@ def load_manifest(cache_dir: Path) -> dict:
         try:
             data = json.loads(path.read_text())
             if data.get("version") == MANIFEST_VERSION:
+                data.setdefault("special", {})  # manifests written before the showcase step
                 return data
         except (ValueError, OSError):
             pass
@@ -100,6 +112,7 @@ def load_manifest(cache_dir: Path) -> dict:
         "items": [],
         "reports": [],
         "audit_logs": [],
+        "special": {},
     }
 
 
@@ -212,11 +225,14 @@ class DemoSeeder:
         self._memberships()
         self._community_customization()
         self._user_customization()
+        self._banners()
+        self._customization_showcase()
         self._posts()
         self._interactions()
         self._bubblepops()
         self._letters()
         self._reports()
+        self._moderation_showcase()
         self._backdate()
         self._finish()
         return {"stats": dict(self.stats), "credentials": self.credentials()}
@@ -237,6 +253,24 @@ class DemoSeeder:
             if created:
                 self._count("customization items")
                 self._remember("items", item.pk)
+        # Wallpapers are staff-uploaded images; they need the image library switched on.
+        if not self.images.enabled:
+            return
+        for code, name, price, fit, (top, bottom) in content.WALLPAPERS:
+            if CustomizationItem.objects.filter(code=code).exists():
+                continue
+            item = CustomizationItem.objects.create(
+                code=code,
+                name=name,
+                item_type="WALLPAPER",
+                scope="USER",
+                price=price,
+                description=name,
+                metadata={"fit": fit},
+                image=wallpaper_image(code, top, bottom, fit),
+            )
+            self._count("customization items")
+            self._remember("items", item.pk)
 
     def _identity(self, index: int, taken: set[str]) -> tuple[str, str]:
         first, last = self.fake.first_name(), self.fake.last_name()
@@ -438,7 +472,12 @@ class DemoSeeder:
     def _user_customization(self) -> None:
         eligible = list(
             CustomizationItem.objects.filter(
-                scope__in=("USER", "BOTH"), is_active=True, price__lte=45
+                scope__in=("USER", "BOTH"),
+                is_active=True,
+                price__lte=45,
+                # the newer types (wallpaper, accent, section, badges) are placed on purpose by
+                # `_customization_showcase`, so every variation shows up somewhere
+                item_type__in=("AVATAR_FRAME", "PROFILE_THEME", "CHAT_BUBBLE", "NAME_COLOR"),
             ).order_by("price", "pk")
         )
         for user in self.users[: max(4, len(self.users) // 2)]:
@@ -452,6 +491,72 @@ class DemoSeeder:
                         equip_customization, user=user, slots={item.item_type.lower(): item.id}
                     )
 
+    def _banners(self) -> None:
+        """Give every community without a banner an offline-drawn one."""
+        if not self.images.enabled:
+            return
+        for index, (community, leader, _theme) in enumerate(self.communities):
+            if community.banner_photo:
+                continue
+            top, bottom = content.BANNER_COLORS[index % len(content.BANNER_COLORS)]
+            updated = self._try(
+                update_community,
+                actor=leader,
+                community=community,
+                banner_photo=banner_image(f"banner_{community.commname}", top, bottom),
+            )
+            if updated:
+                self._count("community banners")
+
+    def _customization_showcase(self) -> None:
+        """Every new customization option (wallpaper, accent, section, badges) on a few profiles.
+
+        Profile `i` gets wallpaper `i`, accent `i`, section item `i` and up to three badges, all
+        modulo the number of variations, so each variation shows up on at least one profile.
+        """
+        items = {
+            kind: list(
+                CustomizationItem.objects.filter(
+                    item_type=kind, is_active=True, price__lte=60, scope__in=("USER", "BOTH")
+                ).order_by("price", "code")
+            )
+            for kind in ("WALLPAPER", "ACCENT_COLOR", "SECTION", "BADGE", "NAME_COLOR")
+        }
+        team_badge = CustomizationItem.objects.filter(code=content.TEAM_BADGE_CODE).first()
+        owners = self.users[: min(len(self.users), 6)]
+        for index, user in enumerate(owners):
+            if UserInventoryItem.objects.filter(user=user, item__item_type="ACCENT_COLOR").exists():
+                continue
+            self._ensure_balance(user, 450)
+            chosen = []
+            for kind in ("WALLPAPER", "ACCENT_COLOR", "SECTION"):
+                if items[kind]:
+                    chosen.append(items[kind][index % len(items[kind])])
+            badges = items["BADGE"]
+            wanted_badges = [badges[(index + k) % len(badges)] for k in range(min(3, len(badges)))]
+            slots: dict[str, int] = {}
+            for item in chosen:
+                if self._try(purchase_customization_item, user=user, item=item):
+                    self._count("user purchases")
+                    slots[item.item_type.lower()] = item.id
+            for slot, badge in zip(("badge", "badge_2", "badge_3"), wanted_badges, strict=False):
+                if UserInventoryItem.objects.filter(user=user, item=badge).exists() or self._try(
+                    purchase_customization_item, user=user, item=badge
+                ):
+                    slots[slot] = badge.id
+            if index == 0 and team_badge is not None:
+                # What staff do in the admin: hand out a badge that is not for sale.
+                UserInventoryItem.objects.get_or_create(user=user, item=team_badge)
+                slots["badge_3"] = team_badge.id
+            if slots:
+                # equip one slot at a time: a failure in one must not drop the others
+                for slot, item_id in slots.items():
+                    self._try(equip_customization, user=user, slots={slot: item_id})
+            if "section" in slots:
+                title, text = content.SECTION_TEXTS[index % len(content.SECTION_TEXTS)]
+                self._try(update_profile_section, user=user, title=title, text=text)
+                self._count("profile sections")
+
     def _posts(self) -> None:
         self.posts = []
         index = 0
@@ -459,6 +564,7 @@ class DemoSeeder:
             u.pk: [
                 m.community
                 for m in CommunityMember.objects.filter(user=u, current_state="ACTIVE")
+                .filter(not_moderated_q("community__"), community__deleted_at__isnull=True)
                 .select_related("community")
                 .order_by("community_id")
             ]
@@ -638,8 +744,9 @@ class DemoSeeder:
             return
         reasons = [r for r, _label in ReportReason.choices]
         statuses = [None, ReportStatus.INVESTIGATING, ReportStatus.RESOLVED, ReportStatus.DISMISSED]
-        for target_type, target_id in targets[: max(3, self.n_users // 3)]:
-            self.rng = self._rng("report", target_type, target_id)
+        for position, (target_type, target_id) in enumerate(targets[: max(3, self.n_users // 3)]):
+            # Keyed by position, not by id: ids differ between databases, the choices must not.
+            self.rng = self._rng("report", target_type, position)
             reporter = self.rng.choice([u for u in self.users if str(u.pk) != target_id])
             if Report.objects.filter(
                 reporter=reporter, target_type=target_type, target_id=target_id
@@ -658,7 +765,7 @@ class DemoSeeder:
             self.new["reports"].append(report)
             self._remember("reports", report.pk)
             self._count("reports")
-            status = self.rng.choice(statuses)
+            status = statuses[position % len(statuses)]  # pending first, then the other states
             if status:
                 self._try(
                     review_report,
@@ -667,6 +774,92 @@ class DemoSeeder:
                     status=status,
                     resolution_notes="Analisado na demonstração.",
                 )
+
+    def _moderation_showcase(self) -> None:
+        """Accounts and communities in every administration state, to try the moderation screens.
+
+        Done once: the deleted account and community change their handles, so the manifest
+        (not the handle) tells whether a previous run already created them.
+        """
+        special = self.manifest["special"]
+        reasons = {
+            "suspended": "Publicações repetidas (spam) nas comunidades.",
+            "banned": "Assédio a outros tutores nas comunidades.",
+        }
+        for role, (username, name) in content.SHOWCASE_USERS.items():
+            if role in special:
+                continue
+            if User.objects.filter(username=username).exists():
+                continue
+            user, created = self._register(
+                username, name, photo_species="cat", bio="Conta de demonstração."
+            )
+            if not created:
+                continue
+            special[role] = user.pk
+            self._ensure_balance(user, 120)
+            self._try(
+                create_bubblegram,
+                author=user,
+                type="TEXT",
+                text="Meu pet adora aparecer nas fotos!",
+                community=None,
+                media_files=None,
+            )
+            if role == "suspended":
+                suspend_user(
+                    actor=self.admin, user=user, duration_hours=24 * 7, reason=reasons[role]
+                )
+            elif role == "banned":
+                ban_user(actor=self.admin, user=user, reason=reasons[role])
+            else:
+                delete_account(user=user, password=PASSWORD)  # content stays as "Conta excluída"
+            self._count(f"{role} accounts")
+
+        leaders = list(reversed(self.users))
+        for index, (commname, name, action, description) in enumerate(content.SHOWCASE_COMMUNITIES):
+            if action in special or Community.objects.filter(commname=commname).exists():
+                continue
+            leader = leaders[index % len(leaders)]
+            self._ensure_balance(leader, FOUNDING_RESERVE + 100)
+            community = self._try(
+                create_community,
+                creator=leader,
+                commname=commname,
+                name=name,
+                description=description,
+                guidelines="Comunidade de demonstração das telas de moderação.",
+            )
+            if community is None:
+                continue
+            self._remember("communities", community.pk)
+            self.new["communities"].append(community)  # back-dated with the others
+            special[action] = community.pk
+            self._count("showcase communities")
+            for member in self.users[:2]:
+                if member.pk != leader.pk:
+                    self._try(join_community, user=member, community=community)
+            self._try(
+                create_bubblegram,
+                author=leader,
+                type="TEXT",
+                text="Primeira bolha da comunidade!",
+                community=community,
+                media_files=None,
+            )
+            if action == "suspend":
+                suspend_community(
+                    actor=self.admin,
+                    community=community,
+                    duration_hours=24 * 10,
+                    reason="Muitas discussões fora do tema.",
+                )
+            elif action == "ban":
+                block_community(
+                    actor=self.admin, community=community, reason="Conteúdo contra as regras."
+                )
+            else:
+                delete_community(actor=leader, community=community, confirm_commname=commname)
 
     def _backdate(self) -> None:
         """Spread timestamps over the recent past, keeping every event after what it depends on."""
@@ -751,10 +944,15 @@ class DemoSeeder:
 
     def credentials(self) -> list[tuple[str, str, str]]:
         sample = [u for u in self.users if u != self.moderator][:3]
+        showcase = [
+            ("Suspensa (pode ler, não publica)", content.SHOWCASE_USERS["suspended"][0], PASSWORD),
+            ("Banido (o login mostra o motivo)", content.SHOWCASE_USERS["banned"][0], PASSWORD),
+        ]
         return [
-            ("Administrador (acessa /admin/)", ADMIN_USERNAME, PASSWORD),
+            ("Administrador (acessa /admin/ e /moderacao)", ADMIN_USERNAME, PASSWORD),
             ("Moderador de comunidades", MODERATOR_USERNAME, PASSWORD),
             *[("Usuário", u.username, PASSWORD) for u in sample],
+            *showcase,
         ]
 
 
@@ -803,9 +1001,12 @@ def reset_demo(cache_dir: Path, log=print) -> dict[str, int]:
         AuditLog.objects.filter(pk__in=manifest["audit_logs"]).delete()
         users.delete()
         communities.delete()
-        counts["items"] = CustomizationItem.objects.filter(
+        removable = CustomizationItem.objects.filter(
             pk__in=manifest["items"], user_holdings__isnull=True, community_holdings__isnull=True
-        ).delete()[0]
+        )
+        # Only the images of items that are really removed (a manual holder keeps its item).
+        files.update(removable.exclude(image="").values_list("image", flat=True))
+        counts["items"] = removable.delete()[0]
 
     removed = 0
     for name in files:

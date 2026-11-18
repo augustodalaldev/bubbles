@@ -19,6 +19,8 @@ E (personalização): 12 wallpapers, cor dos elementos, seção personalizável 
 5. Personalização expandida e efeito de bolha: 12 e 13 (migration: `CustomizationItem.image` e novos tipos).
 6. Validação final, seed de demonstração e documentação.
 
+Status: todas as 6 fases concluídas (ver `docs/PROGRESS.md`, bloco "Batch 3").
+
 ## Decisões aprovadas
 - D1 exclusão de conta: lógica com anonimização; conteúdo permanece como "Conta excluída"; bubblepops, foto, vínculos e participações removidos; soap perdido com aviso; líder precisa transferir a liderança ou excluir a comunidade antes; exige senha e digitar "EXCLUIR".
 - D2 exclusão de comunidade: só o líder, digitando o nome; exclusão lógica (some de tudo, URL 404, membros removidos); carteira e itens perdidos, com aviso.

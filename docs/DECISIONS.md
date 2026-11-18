@@ -258,3 +258,9 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 - Profile section: unlocked by owning a SECTION item (`section_locked` otherwise); shown only while the item is equipped and the text is non-empty; plain text rendered by React (never HTML).
 - Bubble effect (D10): CSS-only look on photo posts of the profile mural (Mural and Grade): highlight, rim and glassy edge; static, with a small hover tilt only under `prefers-reduced-motion: no-preference`.
 - Community banner: `banner_photo` (already supported by the API) is now shown larger above the community mural and can be set or removed from the community settings.
+
+## Polish 2 — Phase 6 (2026-11-18)
+- The demo seed places every new customization option on purpose (`_customization_showcase`) instead of drawing them at random, so each wallpaper, accent color and section item is worn by at least one profile; the older random purchase step is limited to the older item types. The staff badge (`selo_equipe`, priced out of reach) is inserted directly into the inventory, like an admin would.
+- The administration showcase runs once: the deleted account and community are renamed (`deleted_<id>`), so the manifest (`special`) rather than the handle tells a later run that they exist. Moderated and deleted communities are skipped when the seed picks where to post.
+- Seed report choices are keyed by position, not by database id (ids differ between runs, which made the pending/resolved mix depend on the id sequence).
+- Pytest must run with the test settings: with the demo settings it would use the demo's real media folder.

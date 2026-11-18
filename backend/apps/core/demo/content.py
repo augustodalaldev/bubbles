@@ -240,4 +240,77 @@ CATALOG = [
     ),
     ("cor_rosa", "Nome rosa", "NAME_COLOR", "USER", 10, {"color": "#DB2777"}),
     ("cor_roxo", "Nome roxo", "NAME_COLOR", "USER", 10, {"color": "#6949F5"}),
+    ("cor_azul", "Nome azul", "NAME_COLOR", "USER", 10, {"color": "#2563EB"}),
+    # More badges (a profile shows up to three). The team badge is priced out of reach on
+    # purpose: it is granted by staff through the admin, never bought.
+    (
+        "selo_veterano",
+        "Selo veterano",
+        "BADGE",
+        "USER",
+        25,
+        {"label": "Veterano", "badge_color": "#F97316"},
+    ),
+    (
+        "selo_equipe",
+        "Selo da equipe",
+        "BADGE",
+        "USER",
+        9999,
+        {"label": "Equipe", "badge_color": "#0F172A"},
+    ),
+    # Accent colors: the highlight of buttons and panel headers.
+    ("destaque_framboesa", "Destaque framboesa", "ACCENT_COLOR", "USER", 20, {"color": "#DB2777"}),
+    ("destaque_azul", "Destaque azul-céu", "ACCENT_COLOR", "USER", 20, {"color": "#2563EB"}),
+    ("destaque_verde", "Destaque verde-folha", "ACCENT_COLOR", "USER", 20, {"color": "#16A34A"}),
+    # Profile section: unlocks a free-text block on the profile.
+    ("secao_sobre", "Seção: sobre mim", "SECTION", "USER", 40, {}),
+    ("secao_rotina", "Seção: rotina do pet", "SECTION", "USER", 55, {}),
+]
+
+TEAM_BADGE_CODE = "selo_equipe"  # granted by staff, never bought
+
+# Wallpapers need an uploaded image, so they are drawn by `images.wallpaper_image`.
+# (code, name, price, fit, (top color, bottom color))
+WALLPAPERS = [
+    ("papel_ceu", "Papel céu de algodão", 35, "cover", ("#BAE6FD", "#F5D0FE")),
+    ("papel_gramado", "Papel gramado", 30, "cover", ("#BBF7D0", "#FEF9C3")),
+    ("papel_por_do_sol", "Papel pôr do sol", 40, "cover", ("#FED7AA", "#FBCFE8")),
+    ("papel_bolinhas", "Papel bolinhas (repetido)", 25, "tile", ("#E0E7FF", "#FCE7F3")),
+]
+
+# Community banners drawn offline, used when a community has none.
+BANNER_COLORS = [("#FBCFE8", "#C7D2FE"), ("#BAE6FD", "#BBF7D0"), ("#FED7AA", "#FDE68A")]
+
+# Text for the profile sections ((title, text)).
+SECTION_TEXTS = [
+    ("Sobre mim", "Tutora de dois gatos e uma cachorra. Fotografo tudo, principalmente cochilos."),
+    ("Rotina do pet", "Passeio às 7h, petisco às 15h e muito carinho depois do jantar."),
+    (
+        "Meus bichos",
+        "Mel (labradora), Pipoca (gato laranja) e Nuvem (gata cinza que manda na casa).",
+    ),
+    ("Dicas rápidas", "Água fresca sempre, consulta anual e muita paciência com adoções difíceis."),
+]
+
+# Accounts and communities that show the administration states of the app.
+SHOWCASE_USERS = {
+    "suspended": ("suspenso_demo", "Sofia Suspensa"),
+    "banned": ("banido_demo", "Bento Banido"),
+    "deleted": ("excluido_demo", "Elis Excluída"),
+}
+SHOWCASE_COMMUNITIES = [
+    (
+        "pets_suspensa",
+        "Pets em pausa",
+        "suspend",
+        "Comunidade suspensa pela equipe (demonstração).",
+    ),
+    ("pets_banida", "Pets fora das regras", "ban", "Comunidade banida pela equipe (demonstração)."),
+    (
+        "pets_excluida",
+        "Pets que partiram",
+        "delete",
+        "Comunidade excluída pela líder (demonstração).",
+    ),
 ]

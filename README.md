@@ -39,9 +39,17 @@ users with avatars, follows, communities with photos/banners, memberships and ro
 and a banned member), posts with cat/dog photos, threaded comments, supports, bubblepops (active and expired ones for
 the cleanup job), letters and replies, reports (some reviewed, with audit entries), the customization catalog,
 purchases by users and by communities (community wallets are funded), and soap balances to found communities.
+It also shows the administration states and every customization option: a suspended account
+(`suspenso_demo`), a banned one (`banido_demo`, whose login explains the ban), a deleted account (its posts stay as
+"Conta excluída"), a suspended, a banned and a deleted community, offline-drawn wallpapers (four variations, one tiled),
+three accent colors, two profile sections, extra badges (up to three per profile, one granted by staff) and a banner
+for every community. Sign in as `admin_demo` and open `/moderacao` to see them.
 Dates are spread over the last 30 days. Photos come from The Cat API and Dog CEO (free, no key), are downloaded once to
 `backend/.demo_cache/` (git-ignored) and reused; offline it uses the cache or skips images with a warning.
 Photos are stored through the normal upload fields in `backend/media/`.
+
+> Never run `pytest` with `DJANGO_SETTINGS_MODULE` pointing at the demo settings: the tests would use the demo's real
+> `backend/media/`. `make test` uses the test settings (a temporary media folder).
 
 Run it directly with `DJANGO_SETTINGS_MODULE=config.settings.demo uv run python manage.py seed_demo` (from `backend/`):
 `--seed 42`, `--users 12`, `--communities 6` (max 8), `--posts-per-user 3`, `--comments-per-post 3`,
@@ -56,10 +64,12 @@ on any database other than the demo one.
 |---|---|
 | `/` · `/?q=term` | Feed · search |
 | `/login` · `/register` | Authentication (`?next=/path` returns to the page you wanted) |
-| `/u/:username` | Profile (your own too) |
-| `/communities` · `/c/:commname` | Community hub · community |
-| `/store` | Customization store |
-| `/letters` · `/letters?to=username` | Mailbox · composer addressed to someone |
+| `/u/:username` · `/u/:username/followers` · `/u/:username/following` | Profile (your own too) · follower and following lists |
+| `/conta` | Your account: edit profile, change password/e-mail, delete account |
+| `/communities` · `/c/:commname` · `/c/:commname/configuracoes` | Community hub · community · its settings (edit, transfer leadership, delete) |
+| `/store` | Customization store (frames, themes, badges, name color, wallpapers, accent colors, profile section) |
+| `/letters` · `/letters/:id` · `/letters?to=username` | Mailbox · a letter · composer addressed to someone |
+| `/moderacao` | Staff only: suspend, ban and restore users and communities; audit history |
 | `/p/:id` | A single post (shareable link) |
 | anything else | 404 page |
 

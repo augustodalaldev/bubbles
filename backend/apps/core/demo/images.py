@@ -122,3 +122,67 @@ class ImageLibrary:
         except ValidationError:
             return None
         return upload
+
+
+# ---------------------------------------------------------------------------- generated art
+# Wallpapers and banners are drawn offline with Pillow: the demo needs them even without network
+# (and they are staff-made catalog art, not user photos).
+
+
+def _hex_to_rgb(value: str) -> tuple[int, int, int]:
+    value = value.lstrip("#")
+    return tuple(int(value[i : i + 2], 16) for i in (0, 2, 4))  # type: ignore[return-value]
+
+
+def _bubbles(image: Image.Image, rng: random.Random, count: int) -> None:
+    """Soft translucent circles, like soap bubbles."""
+    from PIL import ImageDraw
+
+    layer = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    width, height = image.size
+    for _ in range(count):
+        radius = rng.randint(max(8, height // 14), max(16, height // 5))
+        x, y = rng.randint(0, width), rng.randint(0, height)
+        draw.ellipse(
+            (x - radius, y - radius, x + radius, y + radius),
+            fill=(255, 255, 255, 46),
+            outline=(255, 255, 255, 120),
+            width=2,
+        )
+        draw.ellipse(
+            (x - radius * 0.55, y - radius * 0.6, x - radius * 0.25, y - radius * 0.3),
+            fill=(255, 255, 255, 110),
+        )
+    image.paste(layer, (0, 0), layer)
+
+
+def gradient_art(
+    seed: str, top: str, bottom: str, size: tuple[int, int], bubbles: int
+) -> ContentFile:
+    """A vertical gradient with bubbles, as a JPEG upload (`ContentFile`)."""
+    rng = random.Random(seed)
+    width, height = size
+    (r1, g1, b1), (r2, g2, b2) = _hex_to_rgb(top), _hex_to_rgb(bottom)
+    image = Image.new("RGB", size)
+    pixels = image.load()
+    for y in range(height):
+        t = y / max(1, height - 1)
+        color = (int(r1 + (r2 - r1) * t), int(g1 + (g2 - g1) * t), int(b1 + (b2 - b1) * t))
+        for x in range(width):
+            pixels[x, y] = color
+    _bubbles(image, rng, bubbles)
+    buffer = BytesIO()
+    image.save(buffer, "JPEG", quality=82)
+    return ContentFile(buffer.getvalue(), name=f"{seed}.jpg")
+
+
+def wallpaper_image(seed: str, top: str, bottom: str, fit: str) -> ContentFile:
+    """Full-page wallpaper (`cover`) or a small seamless-looking tile (`tile`)."""
+    if fit == "tile":
+        return gradient_art(seed, top, bottom, (180, 180), 4)
+    return gradient_art(seed, top, bottom, (1280, 720), 26)
+
+
+def banner_image(seed: str, top: str, bottom: str) -> ContentFile:
+    return gradient_art(seed, top, bottom, (1200, 300), 14)
