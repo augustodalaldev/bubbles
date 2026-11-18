@@ -11,6 +11,17 @@ urlpatterns = [
         views.AdminReportDetailView.as_view(),
         name="admin-reports-detail",
     ),
+    path("admin/users/", views.AdminUserListView.as_view(), name="admin-users-list"),
+    path(
+        "admin/communities/",
+        views.AdminCommunityListView.as_view(),
+        name="admin-communities-list",
+    ),
+    path(
+        "admin/communities/<str:commname>/suspend/",
+        views.AdminCommunitySuspendView.as_view(),
+        name="admin-community-suspend",
+    ),
     # User moderation (suspend, ban, unban)
     path(
         "admin/users/<int:pk>/suspend/",

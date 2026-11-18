@@ -140,15 +140,16 @@ def test_staff_catalog_crud():
         "code": "admin_frame",
         "item_type": CustomizationType.AVATAR_FRAME,
         "price": 50,
+        "metadata": {"border_color": "#FFD700"},
     }
     assert (
-        client.post("/api/v1/customization/items/", payload).status_code
+        client.post("/api/v1/customization/items/", payload, format="json").status_code
         == status.HTTP_403_FORBIDDEN
     )
 
     # Staff user can create
     client.force_authenticate(user=staff_user)
-    res_create = client.post("/api/v1/customization/items/", payload)
+    res_create = client.post("/api/v1/customization/items/", payload, format="json")
     assert res_create.status_code == status.HTTP_201_CREATED
     item_id = res_create.data["id"]
 

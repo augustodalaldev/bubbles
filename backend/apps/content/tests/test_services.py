@@ -460,6 +460,7 @@ def test_support_community_bubblegram_credits_author_and_community():
     Wallet.objects.create(user=author, soap_balance=10)
     Wallet.objects.create(user=donor, soap_balance=10)
     Wallet.objects.create(community=community, soap_balance=50)
+    CommunityMemberFactory(community=community, user=donor)
 
     post = Bubblegram.objects.create(
         user=author, community=community, text="Comm post", type=BubblegramType.TEXT
@@ -793,3 +794,43 @@ def test_feed_suggestions_are_strictly_bounded():
     feed = list(list_feed_bubblegrams(user=viewer, max_popular_suggestions=4))
     suggested = [p for p in feed if p.is_suggested]
     assert len(suggested) == 4
+
+
+def test_non_member_cannot_support_community_bubblegram():
+    author, donor = UserFactory(), UserFactory()
+    community = CommunityFactory()
+    Wallet.objects.create(user=author, soap_balance=10)
+    Wallet.objects.create(user=donor, soap_balance=10)
+    Wallet.objects.create(community=community, soap_balance=50)
+    post = Bubblegram.objects.create(
+        user=author, community=community, text="Comm post", type=BubblegramType.TEXT
+    )
+
+    with pytest.raises(DomainError) as exc:
+        support_bubblegram(donor=donor, bubblegram=post)
+
+    assert exc.value.code == "permission_denied"
+    donor.wallet.refresh_from_db()
+    assert donor.wallet.soap_balance == 10
+    assert not BubblegramSupport.objects.exists()
+
+
+def test_non_member_cannot_support_community_comment():
+    author, donor = UserFactory(), UserFactory()
+    community = CommunityFactory()
+    Wallet.objects.create(user=author, soap_balance=10)
+    Wallet.objects.create(user=donor, soap_balance=10)
+    Wallet.objects.create(community=community, soap_balance=50)
+    CommunityMemberFactory(community=community, user=author)
+    post = Bubblegram.objects.create(
+        user=author, community=community, text="Comm post", type=BubblegramType.TEXT
+    )
+    comment = Comment.objects.create(bubblegram=post, user=author, text="hi")
+
+    with pytest.raises(DomainError) as exc:
+        support_comment(donor=donor, comment=comment)
+
+    assert exc.value.code == "permission_denied"
+    donor.wallet.refresh_from_db()
+    assert donor.wallet.soap_balance == 10
+    assert not CommentSupport.objects.exists()

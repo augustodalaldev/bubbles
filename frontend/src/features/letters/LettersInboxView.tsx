@@ -1,12 +1,14 @@
-import React, { useState, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { paths } from "@/routes";
 import { Letter, User } from "@/types";
+import { Avatar } from "@/components/Avatar";
 import { BubbleOverlay } from "@/components/BubbleOverlay";
-import { 
-  MOCK_INBOX_LETTERS, 
-  MOCK_SENT_LETTERS, 
-  MOCK_USER,
-  MOCK_FRIENDS 
-} from "@/features/profile/mockData";
+import { ErrorState, LoadingState } from "@/components/StateViews";
+import { useAuthStore } from "@/features/auth/authStore";
+import { errorMessage, toApiError } from "@/services/errors";
+import { listInbox, listSent, openLetter } from "@/services/letters";
+import { listFollowing } from "@/services/users";
 import { LetterComposeModal } from "./LetterComposeModal";
 import { LetterDetailModal } from "./LetterDetailModal";
 import { 
@@ -20,97 +22,154 @@ import {
   Compass, 
   User as UserIcon, 
   Store,
-  Layers
+  Layers,
+  Reply
 } from "lucide-react";
 
 interface LettersInboxViewProps {
-  currentUser?: User;
-  onNavigateToView?: (view: string) => void;
-  onNavigateToProfile?: () => void;
+  /** Opens the composer addressed to this username (used by the profile "Carta" button). */
+  composeTo?: string | null;
+  /** Called when the composer closes, so the route can drop `?to=`. */
+  onComposeClosed?: () => void;
+  /** Letter id from the URL (`/letters/:id`); the detail modal follows it. */
+  openLetterId?: number | null;
+  /** The URL had a letter segment that is not a valid id. */
+  invalidLetterId?: boolean;
+  onOpenLetter?: (id: number) => void;
+  onCloseLetter?: () => void;
 }
 
+type Box = {
+  letters: Letter[];
+  next: number | null;
+  status: "loading" | "ready" | "error";
+  error: string | null;
+};
+const emptyBox: Box = { letters: [], next: null, status: "loading", error: null };
+
 export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
-  currentUser = MOCK_USER,
-  onNavigateToView,
-  onNavigateToProfile,
+  composeTo,
+  onComposeClosed,
+  openLetterId = null,
+  invalidLetterId = false,
+  onOpenLetter,
+  onCloseLetter,
 }) => {
-  const [inboxLetters, setInboxLetters] = useState<Letter[]>(MOCK_INBOX_LETTERS);
-  const [sentLetters, setSentLetters] = useState<Letter[]>(MOCK_SENT_LETTERS);
+  const currentUser = useAuthStore((s) => s.user)!;
+  const [inbox, setInbox] = useState<Box>(emptyBox);
+  const [sent, setSent] = useState<Box>(emptyBox);
+  const [following, setFollowing] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState<"inbox" | "sent">("inbox");
   const [activeFilter, setActiveFilter] = useState<"all" | "unread">("all");
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Modals state
   const [selectedLetter, setSelectedLetter] = useState<Letter | null>(null);
+  const [openError, setOpenError] = useState<string | null>(null);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [replyToLetter, setReplyToLetter] = useState<Letter | null>(null);
   const [initialRecipient, setInitialRecipient] = useState<string>("");
 
-  // Calculate unread count
-  const unreadCount = inboxLetters.filter((l) => !l.is_read).length;
-
-  // Handle Mark as Read
-  const handleMarkAsRead = (letterId: number) => {
-    setInboxLetters((prev) =>
-      prev.map((l) =>
-        l.id === letterId
-          ? { ...l, is_read: true, read_at: l.read_at || new Date().toISOString() }
-          : l
-      )
-    );
-  };
-
-  // Handle New Letter Sent
-  const handleLetterSent = (newLetter: Letter) => {
-    setSentLetters((prev) => [newLetter, ...prev]);
-  };
-
-  // Filter letters
-  const filteredLetters = useMemo(() => {
-    let list = activeTab === "inbox" ? inboxLetters : sentLetters;
-
-    if (activeTab === "inbox" && activeFilter === "unread") {
-      list = list.filter((l) => !l.is_read);
+  const loadBox = useCallback(async (which: "inbox" | "sent", page: number, reset: boolean) => {
+    const set = which === "inbox" ? setInbox : setSent;
+    if (reset) set((prev) => ({ ...prev, status: "loading", error: null }));
+    try {
+      const data = await (which === "inbox" ? listInbox(page) : listSent(page));
+      set((prev) => ({
+        letters: reset ? data.results : [...prev.letters, ...data.results],
+        next: data.next ? page + 1 : null,
+        status: "ready",
+        error: null,
+      }));
+    } catch (err) {
+      set((prev) => ({ ...prev, status: reset ? "error" : prev.status, error: errorMessage(err) }));
     }
+  }, []);
 
+  useEffect(() => {
+    void loadBox("inbox", 1, true);
+    void loadBox("sent", 1, true);
+    listFollowing(currentUser.username, 1)
+      .then((data) => setFollowing(data.results.slice(0, 4).map((item) => item.user)))
+      .catch(() => setFollowing([]));
+  }, [loadBox, currentUser.username]);
+
+  useEffect(() => {
+    if (composeTo) {
+      setReplyToLetter(null);
+      setInitialRecipient(composeTo);
+      setIsComposeOpen(true);
+    }
+  }, [composeTo]);
+
+  const unreadCount = inbox.letters.filter((l) => !l.is_read).length;
+
+  // The open letter follows the URL. Opening it as the recipient marks it as read on the server.
+  const [letterNotFound, setLetterNotFound] = useState(false);
+  useEffect(() => {
+    setOpenError(null);
+    setLetterNotFound(false);
+    if (openLetterId === null) {
+      setSelectedLetter(null);
+      return;
+    }
+    let cancelled = false;
+    openLetter(openLetterId)
+      .then((opened) => {
+        if (cancelled) return;
+        setSelectedLetter(opened);
+        setInbox((prev) => ({ ...prev, letters: prev.letters.map((l) => (l.id === opened.id ? opened : l)) }));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (toApiError(err).status === 404) setLetterNotFound(true);
+        else setOpenError(errorMessage(err));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [openLetterId]);
+
+  const handleOpen = (letter: Letter) => onOpenLetter?.(letter.id);
+
+  const handleLetterSent = (letter: Letter) => {
+    setSent((prev) => ({ ...prev, letters: [letter, ...prev.letters] }));
+  };
+
+  const box = activeTab === "inbox" ? inbox : sent;
+
+  const filteredLetters = useMemo(() => {
+    let list = box.letters;
+    if (activeTab === "inbox" && activeFilter === "unread") list = list.filter((l) => !l.is_read);
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       list = list.filter((l) => {
-        const otherPerson = activeTab === "inbox" ? l.sender : l.recipient;
+        const other = activeTab === "inbox" ? l.sender : l.recipient;
         return (
-          otherPerson.name.toLowerCase().includes(term) ||
-          otherPerson.username.toLowerCase().includes(term) ||
+          other.name.toLowerCase().includes(term) ||
+          other.username.toLowerCase().includes(term) ||
           l.text.toLowerCase().includes(term)
         );
       });
     }
-
     return list;
-  }, [inboxLetters, sentLetters, activeTab, activeFilter, searchTerm]);
+  }, [box.letters, activeTab, activeFilter, searchTerm]);
 
-  // Relative time format
-  const formatTime = (dateStr: string) => {
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch {
-      return dateStr;
-    }
-  };
+  const formatTime = (dateStr: string) =>
+    new Date(dateStr).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-3 h-[calc(100vh-3.5rem)] overflow-hidden">
+    <div className="max-w-7xl mx-auto px-4 py-3 lg:h-[calc(100vh-3.5rem)] lg:overflow-hidden">
       
       {/* 3-Column Classic Grid (Left 3 cols, Center 6 cols, Right 3 cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start h-full">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start lg:h-full">
         
         {/* Left Column (3 Cols) - Static Sidebar */}
-        <div className="lg:col-span-3 h-full overflow-y-auto scrollbar-none hidden lg:block space-y-4">
+        <div className="lg:col-span-3 lg:h-full lg:overflow-y-auto scrollbar-none hidden lg:block space-y-4">
           
           {/* Compose Primary Action Button */}
           <button
@@ -122,14 +181,14 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
             className="w-full flex items-center justify-center gap-2 py-2.5 bg-pink-600 hover:bg-pink-700 text-white text-xs font-bold rounded-sm shadow-xs transition-all cursor-pointer active:scale-95"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>Escrever Nova Carta</span>
+            <span>Escrever nova carta</span>
           </button>
 
           {/* Mailbox Status Box */}
           <div className="panel-classic">
             <div className="panel-classic-header">
-              <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-                Pastas de Correspondência
+              <span className="text-xs font-bold text-slate-900">
+                Pastas de correspondência
               </span>
             </div>
             <div className="p-1 text-xs">
@@ -155,7 +214,7 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
                   </span>
                 ) : (
                   <span className="text-slate-400 font-mono text-[11px]">
-                    {inboxLetters.length}
+                    {inbox.letters.length}
                   </span>
                 )}
               </button>
@@ -176,7 +235,7 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
                   <span>Enviadas</span>
                 </div>
                 <span className="text-slate-400 font-mono text-[11px]">
-                  {sentLetters.length}
+                  {sent.letters.length}
                 </span>
               </button>
 
@@ -186,46 +245,46 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
           {/* Quick Navigation */}
           <div className="panel-classic">
             <div className="panel-classic-header">
-              <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+              <span className="text-xs font-bold text-slate-900">
                 Navegação
               </span>
             </div>
             <div className="p-1 text-xs">
-              <button
-                onClick={() => onNavigateToView?.("feed")}
+              <Link to={paths.home}
+                
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left cursor-pointer"
               >
                 <Compass className="w-4 h-4 text-slate-400" />
-                <span>Início (Feed)</span>
-              </button>
-              <button
-                onClick={onNavigateToProfile}
+                <span>Início (feed)</span>
+              </Link>
+              <Link to={paths.profile(currentUser.username)}
+                
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left cursor-pointer"
               >
                 <UserIcon className="w-4 h-4 text-slate-400" />
-                <span>Meu Perfil</span>
-              </button>
-              <button
-                onClick={() => onNavigateToView?.("communities")}
+                <span>Meu perfil</span>
+              </Link>
+              <Link to={paths.communities}
+                
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left cursor-pointer"
               >
                 <Layers className="w-4 h-4 text-slate-400" />
                 <span>Comunidades</span>
-              </button>
-              <button
-                onClick={() => onNavigateToView?.("store")}
+              </Link>
+              <Link to={paths.store}
+                
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left cursor-pointer"
               >
                 <Store className="w-4 h-4 text-slate-400" />
-                <span>Loja de Soap</span>
-              </button>
+                <span>Loja de soap</span>
+              </Link>
             </div>
           </div>
 
         </div>
 
         {/* Center Lane (6 Cols) - THE ONLY SCROLLABLE AREA */}
-        <div className="lg:col-span-6 min-w-0 h-full overflow-y-auto pr-1.5 scrollbar-thin">
+        <div className="lg:col-span-6 min-w-0 lg:h-full lg:overflow-y-auto pr-1.5 scrollbar-thin">
           
           {/* Top Mailbox Header Card */}
           <div className="panel-classic mb-4">
@@ -266,7 +325,7 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-200"
                   }`}
                 >
-                  Recebidas ({inboxLetters.length})
+                  Recebidas ({inbox.letters.length})
                 </button>
 
                 {activeTab === "inbox" && unreadCount > 0 && (
@@ -278,7 +337,7 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
                         : "bg-pink-50 border border-pink-200 text-pink-700 hover:bg-pink-100"
                     }`}
                   >
-                    Não Lidas ({unreadCount})
+                    Não lidas ({unreadCount})
                   </button>
                 )}
 
@@ -293,7 +352,7 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-200"
                   }`}
                 >
-                  Enviadas ({sentLetters.length})
+                  Enviadas ({sent.letters.length})
                 </button>
               </div>
 
@@ -314,7 +373,11 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
 
           {/* Letters Stream */}
           <div className="space-y-3">
-            {filteredLetters.length > 0 ? (
+            {box.status === "loading" ? (
+              <LoadingState label="Carregando cartas..." />
+            ) : box.status === "error" ? (
+              <ErrorState message={box.error ?? "Não foi possível carregar as cartas."} onRetry={() => void loadBox(activeTab, 1, true)} />
+            ) : filteredLetters.length > 0 ? (
               filteredLetters.map((letter) => {
                 const otherPerson = activeTab === "inbox" ? letter.sender : letter.recipient;
                 const isUnread = !letter.is_read && activeTab === "inbox";
@@ -322,10 +385,7 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
                 return (
                   <article
                     key={letter.id}
-                    onClick={() => {
-                      setSelectedLetter(letter);
-                      if (isUnread) handleMarkAsRead(letter.id);
-                    }}
+                    onClick={() => handleOpen(letter)}
                     className={`panel-classic p-3.5 transition-all hover:shadow-md cursor-pointer border ${
                       isUnread
                         ? "bg-pink-50/40 border-pink-200"
@@ -336,11 +396,7 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
                       
                       {/* Avatar with BubbleOverlay */}
                       <div className="relative w-11 h-11 rounded-full overflow-hidden flex-shrink-0 border border-slate-200">
-                        <img
-                          src={otherPerson.profile_photo || ""}
-                          alt={otherPerson.name}
-                          className="w-full h-full object-cover"
-                        />
+                        <Avatar user={otherPerson} className="w-full h-full" />
                         <BubbleOverlay opacity={0.4} />
                       </div>
 
@@ -370,6 +426,15 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
                         }`}>
                           {letter.text}
                         </p>
+
+                        {(letter.reply_to_summary || letter.reply_id) && (
+                          <p className="mt-1 text-[10px] font-semibold text-slate-500 flex items-center gap-1">
+                            <Reply className="w-3 h-3" />
+                            {letter.reply_to_summary
+                              ? `Em resposta a ${letter.reply_to_summary.sender.name}`
+                              : "Já respondida"}
+                          </p>
+                        )}
 
                         {/* Badges footer: Image attachment indicator & Read receipt */}
                         <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400">
@@ -412,11 +477,36 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
                     : "Você ainda não enviou nenhuma carta."}
                 </p>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Envie uma correspondência privada para seus amigos para iniciar uma conversa!
+                  Cartas só podem ser iniciadas com pessoas que você segue.
                 </p>
               </div>
             )}
           </div>
+
+          {(letterNotFound || invalidLetterId) && (
+            <p role="alert" className="mt-2 text-[11px] text-red-700">
+              Esta carta não existe ou você não tem acesso a ela.{" "}
+              <Link to={paths.letters} className="underline font-semibold">
+                Ver minhas cartas
+              </Link>
+            </p>
+          )}
+          {openError && (
+            <p role="alert" className="mt-2 text-[11px] text-red-700">
+              {openError}
+            </p>
+          )}
+
+          {box.status === "ready" && box.next !== null && (
+            <div className="text-center my-4">
+              <button
+                onClick={() => void loadBox(activeTab, box.next as number, false)}
+                className="btn-outline px-4 py-1.5 text-xs font-semibold"
+              >
+                Carregar mais
+              </button>
+            </div>
+          )}
 
           {/* Footer note inside the scrollable stream at the bottom */}
           <div className="py-6 text-center text-[11px] text-slate-400">
@@ -426,27 +516,23 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
         </div>
 
         {/* Right Column (3 Cols) - Static Sidebar */}
-        <div className="lg:col-span-3 h-full overflow-y-auto scrollbar-none hidden lg:block space-y-4">
+        <div className="lg:col-span-3 lg:h-full lg:overflow-y-auto scrollbar-none hidden lg:block space-y-4">
           
           {/* Quick Contacts to Send Letter */}
           <div className="panel-classic">
             <div className="panel-classic-header">
-              <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-                Contatos Frequentes
+              <span className="text-xs font-bold text-slate-900">
+                Quem você segue
               </span>
             </div>
             <div className="p-2 divide-y divide-slate-100">
-              {MOCK_FRIENDS.slice(0, 4).map((friend) => (
+              {following.map((friend) => (
                 <div
                   key={friend.id}
                   className="py-2 px-1 flex items-center justify-between gap-2"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <img
-                      src={friend.avatar}
-                      alt={friend.name}
-                      className="w-7 h-7 rounded-full object-cover border border-slate-200 flex-shrink-0"
-                    />
+                    <Avatar user={friend} className="w-7 h-7 flex-shrink-0" />
                     <div className="min-w-0">
                       <span className="text-xs font-bold text-slate-800 block truncate">
                         {friend.name}
@@ -498,6 +584,7 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
             setIsComposeOpen(false);
             setReplyToLetter(null);
             setInitialRecipient("");
+            if (composeTo) onComposeClosed?.();
           }}
           onLetterSent={handleLetterSent}
         />
@@ -508,12 +595,12 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
         <LetterDetailModal
           letter={selectedLetter}
           currentUser={currentUser}
-          onClose={() => setSelectedLetter(null)}
+          onClose={() => onCloseLetter?.()}
+          onOpenLetter={(id) => onOpenLetter?.(id)}
           onReply={(letterToReply) => {
             setReplyToLetter(letterToReply);
             setIsComposeOpen(true);
           }}
-          onMarkAsRead={handleMarkAsRead}
         />
       )}
 

@@ -1,7 +1,55 @@
 import uuid
 from pathlib import PurePath
 
+from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.utils.deconstruct import deconstructible
+from PIL import Image
+
+MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB per file (docs/frontend/PLAN.md section 6)
+ALLOWED_IMAGE_FORMATS = {
+    "JPEG": {".jpg", ".jpeg"},
+    "PNG": {".png"},
+    "WEBP": {".webp"},
+    "GIF": {".gif"},
+}
+
+
+def delete_file_on_commit(file_field) -> None:
+    """Delete a stored file once the surrounding transaction commits.
+
+    Deleting inside `atomic()` is unsafe: if the transaction rolls back, the database
+    rows survive but the file is already gone. Outside a transaction it runs immediately.
+    """
+    if not file_field:
+        return
+    storage, name = file_field.storage, file_field.name
+    transaction.on_commit(lambda: storage.delete(name))
+
+
+def validate_image_upload(file) -> None:
+    """Reject files that are too large or are not JPEG/PNG/WebP/GIF.
+
+    The real format is read by Pillow (never trusting the client's content type). The
+    extension is kept in the stored file name, so it must also be an image extension.
+    """
+    if file.size > MAX_IMAGE_UPLOAD_BYTES:
+        raise ValidationError("A imagem deve ter no máximo 10 MB.", code="image_too_large")
+    extension = PurePath(file.name or "").suffix.lower()
+    try:
+        position = file.tell()
+    except (AttributeError, OSError):
+        position = 0
+    try:
+        with Image.open(file) as image:
+            image_format = image.format
+    except Exception as exc:
+        raise ValidationError("Envie uma imagem válida.", code="invalid_image") from exc
+    finally:
+        file.seek(position)
+    allowed_extensions = set().union(*ALLOWED_IMAGE_FORMATS.values())
+    if image_format not in ALLOWED_IMAGE_FORMATS or extension not in allowed_extensions:
+        raise ValidationError("Use imagens JPEG, PNG, WebP ou GIF.", code="invalid_image_type")
 
 
 @deconstructible

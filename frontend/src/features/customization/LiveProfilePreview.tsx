@@ -1,5 +1,6 @@
 import React from "react";
 import { User } from "@/types";
+import { Avatar } from "@/components/Avatar";
 import { SoapIcon } from "@/components/SoapIcon";
 import { ShieldCheck, Eye } from "lucide-react";
 
@@ -26,8 +27,8 @@ export const LiveProfilePreview: React.FC<LiveProfilePreviewProps> = ({
       <div className="panel-classic-header flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <Eye className="w-3.5 h-3.5 text-pink-600" />
-          <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-            Pré-visualização ao Vivo
+          <h2 className="text-xs font-bold text-slate-900">
+            Pré-visualização ao vivo
           </h2>
         </div>
         <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-sm border border-emerald-200 font-semibold">
@@ -43,8 +44,8 @@ export const LiveProfilePreview: React.FC<LiveProfilePreviewProps> = ({
             background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
           }}
         >
-          <span className="text-[10px] font-bold text-white tracking-wide uppercase">
-            {profileTheme?.name || "Tema Padrão"}
+          <span className="text-[10px] font-bold text-white">
+            {profileTheme?.name || "Tema padrão"}
           </span>
           <div className="flex items-center gap-1 bg-white/20 px-1.5 py-0.5 rounded-sm backdrop-blur-xs text-[10px] text-white">
             <SoapIcon size={12} />
@@ -64,11 +65,7 @@ export const LiveProfilePreview: React.FC<LiveProfilePreviewProps> = ({
                 boxShadow: glow,
               }}
             >
-              <img
-                src={currentUser.profile_photo || ""}
-                alt={currentUser.name}
-                className="w-full h-full object-cover rounded-full"
-              />
+              <Avatar user={currentUser} className="w-full h-full border-0" />
             </div>
           </div>
 
@@ -98,14 +95,14 @@ export const LiveProfilePreview: React.FC<LiveProfilePreviewProps> = ({
           <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-around text-[10px] text-slate-500">
             <div>
               <span className="font-bold text-slate-900 block text-xs">
-                {currentUser.followers_count ?? 148}
+                {currentUser.followers_count ?? 0}
               </span>
               seguidores
             </div>
             <div className="h-4 w-px bg-slate-200" />
             <div>
               <span className="font-bold text-slate-900 block text-xs">
-                {currentUser.following_count ?? 92}
+                {currentUser.following_count ?? 0}
               </span>
               seguindo
             </div>

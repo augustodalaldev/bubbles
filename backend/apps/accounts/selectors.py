@@ -2,7 +2,8 @@ from django.contrib.auth import get_user_model
 from django.db.models import QuerySet
 
 from apps.core.exceptions import DomainError
-from apps.economy.models import EconomySettings, SoapTransaction, Wallet
+from apps.economy.models import SoapTransaction, Wallet
+from apps.economy.services import ensure_user_wallet
 
 from .models import UserConnection
 
@@ -16,7 +17,7 @@ def get_user_by_username(*, username: str) -> User:
     """
     clean_username = username.strip().lower()
     user = User.objects.filter(
-        username__iexact=clean_username,
+        username=clean_username,
         is_active=True,
         deleted_at__isnull=True,
     ).first()
@@ -31,14 +32,7 @@ def get_user_wallet_and_transactions(*, user: User) -> tuple[Wallet, QuerySet[So
     If the user has no wallet (e.g. legacy/test instance), initializes one.
     """
     if not hasattr(user, "wallet") or user.wallet is None:
-        settings_obj = EconomySettings.load()
-        wallet, _ = Wallet.objects.get_or_create(
-            user=user,
-            defaults={
-                "soap_balance": 0,
-                "passive_earn_rate": settings_obj.default_passive_earn_rate,
-            },
-        )
+        wallet = ensure_user_wallet(user)
     else:
         wallet = user.wallet
 

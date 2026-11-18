@@ -1,11 +1,63 @@
 from typing import Any
 
-from django.db import transaction
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 
+from apps.communities.models import Community, CommunityMember, MemberRole, MemberState
 from apps.core.exceptions import DomainError
-from apps.customization.models import CustomizationItem, UserInventoryItem
+from apps.customization.models import (
+    CommunityInventoryItem,
+    CustomizationItem,
+    CustomizationScope,
+    UserInventoryItem,
+)
+from apps.customization.validators import clean_section
 from apps.economy.models import Wallet
-from apps.economy.services import spend_customization
+from apps.economy.services import (
+    ensure_community_wallet,
+    ensure_user_wallet,
+    spend_customization,
+)
+
+# Slots equal the lower-cased item type, except badges: a profile shows up to three.
+BADGE_SLOTS = ("badge", "badge_2", "badge_3")
+
+
+def slot_accepts(slot_key: str, item_type: str) -> bool:
+    """Whether an item of `item_type` may sit in slot `slot_key`."""
+    if item_type == "BADGE":
+        return slot_key in BADGE_SLOTS
+    return slot_key == item_type.lower()
+
+
+def item_snapshot(item: CustomizationItem) -> dict[str, Any]:
+    """What gets stored in `customization_json` when an item is equipped."""
+    data: dict[str, Any] = {
+        "id": item.id,
+        "code": item.code,
+        "name": item.name,
+        "item_type": item.item_type,
+        "metadata": item.metadata,
+        # lets the UI show the most valuable badge when there is room for only one
+        "price": item.price,
+    }
+    if item.image:
+        data["image"] = item.image.url
+    return data
+
+
+def _check_unique_badges(slots: dict[str, Any]) -> None:
+    ids = [
+        slots[key]["id"]
+        for key in BADGE_SLOTS
+        if isinstance(slots.get(key), dict) and slots[key].get("id") is not None
+    ]
+    if len(ids) != len(set(ids)):
+        raise DomainError(
+            "The same badge cannot be shown twice.",
+            code="duplicate_badge",
+            http_status=400,
+        )
 
 
 @transaction.atomic
@@ -18,6 +70,13 @@ def purchase_customization_item(*, user: Any, item: CustomizationItem) -> UserIn
             http_status=400,
         )
 
+    if item.scope == CustomizationScope.COMMUNITY:
+        raise DomainError(
+            "This item can only be bought by communities.",
+            code="item_scope_mismatch",
+            http_status=400,
+        )
+
     if UserInventoryItem.objects.filter(user=user, item=item).exists():
         raise DomainError(
             "You already own this customization item.",
@@ -27,14 +86,23 @@ def purchase_customization_item(*, user: Any, item: CustomizationItem) -> UserIn
 
     tx = None
     if item.price > 0:
-        wallet, _ = Wallet.objects.get_or_create(user=user, defaults={"soap_balance": 0})
+        wallet = ensure_user_wallet(user)
         tx = spend_customization(wallet=wallet, cost=item.price)
 
-    inventory_item = UserInventoryItem.objects.create(
-        user=user,
-        item=item,
-        transaction=tx,
-    )
+    try:
+        with transaction.atomic():
+            inventory_item = UserInventoryItem.objects.create(
+                user=user,
+                item=item,
+                transaction=tx,
+            )
+    except IntegrityError:
+        # A concurrent purchase won the race; the outer atomic block rolls back the debit.
+        raise DomainError(
+            "You already own this customization item.",
+            code="already_owned",
+            http_status=400,
+        ) from None
     return inventory_item
 
 
@@ -97,13 +165,7 @@ def equip_customization(
                         http_status=400,
                     )
                 seen_types.add(slot_key)
-                new_equipped[slot_key] = {
-                    "id": item.id,
-                    "code": item.code,
-                    "name": item.name,
-                    "item_type": item.item_type,
-                    "metadata": item.metadata,
-                }
+                new_equipped[slot_key] = item_snapshot(item)
             current_equipped = new_equipped
 
     if slots is not None:
@@ -121,7 +183,7 @@ def equip_customization(
                         http_status=404,
                     ) from None
 
-                if item.item_type.lower() != slot_key:
+                if not slot_accepts(slot_key, item.item_type):
                     raise DomainError(
                         f"Item '{item.code}' of type '{item.item_type}' "
                         f"does not match slot '{slot_key}'.",
@@ -137,14 +199,9 @@ def equip_customization(
                         http_status=400,
                     )
 
-                current_equipped[slot_key] = {
-                    "id": item.id,
-                    "code": item.code,
-                    "name": item.name,
-                    "item_type": item.item_type,
-                    "metadata": item.metadata,
-                }
+                current_equipped[slot_key] = item_snapshot(item)
 
+    _check_unique_badges(current_equipped)
     user.customization_json = current_equipped
     type(user).objects.filter(pk=user.pk).update(customization_json=current_equipped)
     return current_equipped
@@ -170,3 +227,196 @@ def validate_user_customization_ownership(*, user: Any, customization_json: dict
                 code="item_not_owned",
                 http_status=400,
             )
+
+
+def canonical_user_customization(
+    *, user: Any, customization_json: dict[str, Any]
+) -> dict[str, Any]:
+    """Rebuild a client-supplied `customization_json` from the database.
+
+    Only the item ids are read from the client; names, metadata and images come from the catalog,
+    so a client cannot smuggle arbitrary design tokens into its profile.
+    """
+    result: dict[str, Any] = {}
+    for slot_key, data in (customization_json or {}).items():
+        item_id = data.get("id") or data.get("item_id") if isinstance(data, dict) else None
+        if not item_id:
+            raise DomainError(
+                "Each customization slot must reference an item id.",
+                code="invalid_customization",
+                extra={"fields": {"customization_json": ["Each slot needs an item id."]}},
+            )
+        item = CustomizationItem.objects.filter(pk=item_id).first()
+        if item is None or not UserInventoryItem.objects.filter(user=user, item=item).exists():
+            raise DomainError(
+                "Cannot equip items that are not in your inventory.",
+                code="item_not_owned",
+                http_status=400,
+            )
+        if not slot_accepts(str(slot_key).lower(), item.item_type):
+            raise DomainError(
+                f"Item '{item.code}' does not match slot '{slot_key}'.",
+                code="slot_mismatch",
+                http_status=400,
+            )
+        result[str(slot_key).lower()] = item_snapshot(item)
+    _check_unique_badges(result)
+    return result
+
+
+@transaction.atomic
+def update_profile_section(*, user: Any, title: str, text: str) -> Any:
+    """Write the customizable profile section. Requires owning a SECTION item."""
+    if not UserInventoryItem.objects.filter(user=user, item__item_type="SECTION").exists():
+        raise DomainError(
+            "Buy a profile section in the store first.",
+            code="section_locked",
+            http_status=403,
+        )
+    try:
+        title, text = clean_section(title, text)
+    except ValidationError as exc:
+        raise DomainError(
+            "Invalid section.",
+            code="invalid_section",
+            extra={"fields": {"text": [exc.messages[0]]}},
+        ) from exc
+    user.section_title = title
+    user.section_text = text
+    user.save(update_fields=["section_title", "section_text"])
+    return user
+
+
+# --------------------------------------------------------------------------------------
+# Community customization (RF014): paid from the community's own wallet
+# --------------------------------------------------------------------------------------
+
+
+def _require_community_customizer(actor: Any, community: Community) -> None:
+    """Only the ACTIVE leader or an ACTIVE admin may spend the community's soap.
+
+    System staff are deliberately excluded: this is the community's money.
+    """
+    membership = CommunityMember.objects.filter(community=community, user=actor).first()
+    if (
+        membership is None
+        or membership.current_state != MemberState.ACTIVE
+        or membership.role not in (MemberRole.LEADER, MemberRole.COMM_ADMIN)
+    ):
+        raise DomainError(
+            "Only the community leader or admins can customize the community.",
+            code="permission_denied",
+            http_status=403,
+        )
+    if community.is_moderated:
+        raise DomainError("This community is blocked.", code="community_blocked", http_status=403)
+    if community.is_archived:
+        raise DomainError(
+            "Cannot customize an archived community.",
+            code="community_archived",
+            http_status=400,
+        )
+
+
+def _require_community_item(item: CustomizationItem) -> None:
+    if not item.is_active:
+        raise DomainError(
+            "This customization item is currently not available for purchase.",
+            code="item_inactive",
+            http_status=400,
+        )
+    if item.scope == CustomizationScope.USER:
+        raise DomainError(
+            "This item can only be bought by user profiles.",
+            code="item_scope_mismatch",
+            http_status=400,
+        )
+
+
+@transaction.atomic
+def purchase_community_item(
+    *, actor: Any, community: Community, item: CustomizationItem
+) -> CommunityInventoryItem:
+    """Buy a customization item with the community's soap.
+
+    Invariants:
+    1. Runs in one transaction: the debit and the inventory row commit together or not at all.
+    2. The community wallet row is locked first, so concurrent purchases of the same community
+       are serialized: with soap for only one item exactly one succeeds, and buying the same
+       item twice is detected under the lock (the unique constraint is the last line of defense).
+    3. The ledger row (SPEND_CUSTOMIZATION) belongs to the community wallet.
+    """
+    _require_community_customizer(actor, community)
+    _require_community_item(item)
+
+    wallet = ensure_community_wallet(community)
+    Wallet.objects.select_for_update().get(pk=wallet.pk)
+
+    if CommunityInventoryItem.objects.filter(community=community, item=item).exists():
+        raise DomainError(
+            "This community already owns this customization item.",
+            code="already_owned",
+            http_status=400,
+        )
+
+    tx = spend_customization(wallet=wallet, cost=item.price) if item.price > 0 else None
+
+    try:
+        with transaction.atomic():
+            return CommunityInventoryItem.objects.create(
+                community=community, item=item, purchased_by=actor, transaction=tx
+            )
+    except IntegrityError:
+        raise DomainError(
+            "This community already owns this customization item.",
+            code="already_owned",
+            http_status=400,
+        ) from None
+
+
+@transaction.atomic
+def equip_community_customization(
+    *, actor: Any, community: Community, slots: dict[str, int | None]
+) -> dict[str, Any]:
+    """Equip (item id) or unequip (null) items per slot on the community.
+
+    Only items the community owns can be equipped, and an item must match its slot
+    (the lower-cased item type). Other slots are left untouched.
+    """
+    _require_community_customizer(actor, community)
+
+    # Serialize edits of the same community so two equips cannot overwrite each other.
+    locked = Community.objects.select_for_update().get(pk=community.pk)
+    current = dict(locked.customization_json or {})
+
+    for slot_name, item_id in slots.items():
+        slot_key = slot_name.lower()
+        if item_id is None:
+            current.pop(slot_key, None)
+            continue
+
+        holding = (
+            CommunityInventoryItem.objects.select_related("item")
+            .filter(community=community, item_id=item_id)
+            .first()
+        )
+        if holding is None:
+            exists = CustomizationItem.objects.filter(pk=item_id).exists()
+            raise DomainError(
+                "The community does not own this item." if exists else "Item does not exist.",
+                code="item_not_owned" if exists else "item_not_found",
+                http_status=400 if exists else 404,
+            )
+        item = holding.item
+        if not slot_accepts(slot_key, item.item_type):
+            raise DomainError(
+                f"Item '{item.code}' of type '{item.item_type}' does not match slot '{slot_key}'.",
+                code="slot_mismatch",
+                http_status=400,
+            )
+        current[slot_key] = item_snapshot(item)
+
+    _check_unique_badges(current)
+    Community.objects.filter(pk=community.pk).update(customization_json=current)
+    community.customization_json = current
+    return current

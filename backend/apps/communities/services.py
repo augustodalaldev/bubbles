@@ -7,6 +7,8 @@ from django.db.models import F
 from django.utils import timezone
 
 from apps.core.exceptions import DomainError
+from apps.core.uploads import delete_file_on_commit
+from apps.economy.services import ensure_user_wallet
 
 from .models import Community, CommunityMember, MemberRole, MemberState
 from .validators import (
@@ -17,9 +19,30 @@ from .validators import (
 User = get_user_model()
 
 
+def _lock_community(community: Community) -> None:
+    """Serialize membership changes of one community and refresh the instance.
+
+    Locking the community row (not the member rows) keeps `member_count` and the
+    one-leader invariant consistent when two requests touch the same community.
+    Must run inside `transaction.atomic()`.
+    """
+    Community.objects.select_for_update().only("pk").get(pk=community.pk)
+    community.refresh_from_db()
+
+
+def _reject_if_blocked(community: Community) -> None:
+    if community.is_moderated:
+        raise DomainError(
+            "This community is blocked.",
+            code="community_blocked",
+            http_status=403,
+        )
+
+
 def _check_admin_or_leader_permission(actor: User, community: Community) -> CommunityMember | None:
     if actor.is_staff:
         return None
+    _reject_if_blocked(community)
     membership = CommunityMember.objects.filter(community=community, user=actor).first()
     if (
         not membership
@@ -34,9 +57,13 @@ def _check_admin_or_leader_permission(actor: User, community: Community) -> Comm
     return membership
 
 
-def _check_leader_permission(actor: User, community: Community) -> CommunityMember | None:
+def _check_leader_permission(
+    actor: User, community: Community, *, allow_moderated: bool = False
+) -> CommunityMember | None:
     if actor.is_staff:
         return None
+    if not allow_moderated:
+        _reject_if_blocked(community)
     membership = CommunityMember.objects.filter(community=community, user=actor).first()
     if (
         not membership
@@ -87,7 +114,7 @@ def create_community(
             extra={"fields": {"commname": [exc.message]}},
         ) from exc
 
-    if Community.objects.filter(commname__iexact=clean_commname).exists():
+    if Community.objects.filter(commname=clean_commname).exists():
         raise DomainError(
             "This community handle is not available.",
             code="commname_already_registered",
@@ -115,6 +142,16 @@ def create_community(
             extra={"fields": {"guidelines": ["Guidelines cannot exceed 2000 characters."]}},
         )
 
+    if customization_json:
+        raise DomainError(
+            "Community customization is not available yet.",
+            code="customization_not_available",
+            http_status=400,
+            extra={
+                "fields": {"customization_json": ["Community customization is not available yet."]}
+            },
+        )
+
     try:
         community = Community.objects.create(
             commname=clean_commname,
@@ -140,13 +177,7 @@ def create_community(
 
     economy_settings = EconomySettings.load()
 
-    creator_wallet, _ = Wallet.objects.get_or_create(
-        user=creator,
-        defaults={
-            "soap_balance": 0,
-            "passive_earn_rate": economy_settings.default_passive_earn_rate,
-        },
-    )
+    creator_wallet = ensure_user_wallet(creator)
 
     community_wallet = Wallet.objects.create(
         community=community,
@@ -159,7 +190,8 @@ def create_community(
         (creator_wallet, -economy_settings.founding_cost, ActionType.DEBIT_FOUNDING),
         (community_wallet, economy_settings.founding_cost, ActionType.CREDIT_FOUNDING),
     ]
-    economy_services.apply_movements(movements)
+    if economy_settings.founding_cost > 0:
+        economy_services.apply_movements(movements)
 
     CommunityMember.objects.create(
         community=community,
@@ -171,6 +203,7 @@ def create_community(
     return community
 
 
+@transaction.atomic
 def update_community(
     *,
     actor: User,
@@ -179,9 +212,12 @@ def update_community(
     description: str | None = None,
     community_photo: Any = None,
     banner_photo: Any = None,
+    remove_community_photo: bool = False,
+    remove_banner_photo: bool = False,
     customization_json: dict[str, Any] | None = None,
 ) -> Community:
     """Update community details (RF013). Allowed for COMM_ADMIN and LEADER."""
+    _lock_community(community)
     _check_admin_or_leader_permission(actor, community)
 
     if community.is_archived:
@@ -217,9 +253,17 @@ def update_community(
     if community_photo is not None:
         community.community_photo = community_photo
         update_fields.append("community_photo")
+    elif remove_community_photo and community.community_photo:
+        delete_file_on_commit(community.community_photo)
+        community.community_photo = ""
+        update_fields.append("community_photo")
 
     if banner_photo is not None:
         community.banner_photo = banner_photo
+        update_fields.append("banner_photo")
+    elif remove_banner_photo and community.banner_photo:
+        delete_file_on_commit(community.banner_photo)
+        community.banner_photo = ""
         update_fields.append("banner_photo")
 
     if customization_json is not None:
@@ -229,7 +273,18 @@ def update_community(
                 code="invalid_customization",
                 extra={"fields": {"customization_json": ["Must be a valid object."]}},
             )
-        community.customization_json = customization_json
+        if customization_json:
+            raise DomainError(
+                "Community customization is not available yet.",
+                code="customization_not_available",
+                http_status=400,
+                extra={
+                    "fields": {
+                        "customization_json": ["Community customization is not available yet."]
+                    }
+                },
+            )
+        community.customization_json = {}
         update_fields.append("customization_json")
 
     if update_fields:
@@ -238,6 +293,7 @@ def update_community(
     return community
 
 
+@transaction.atomic
 def update_guidelines(
     *,
     actor: User,
@@ -245,6 +301,7 @@ def update_guidelines(
     guidelines: str,
 ) -> Community:
     """Update community guidelines (RF015). Allowed for LEADER only."""
+    _lock_community(community)
     _check_leader_permission(actor, community)
 
     if community.is_archived:
@@ -276,7 +333,7 @@ def join_community(*, user: User, community: Community) -> CommunityMember:
             http_status=400,
         )
 
-    if community.is_blocked:
+    if community.is_moderated:
         raise DomainError(
             "Cannot join a blocked community.",
             code="community_blocked",
@@ -318,6 +375,7 @@ def join_community(*, user: User, community: Community) -> CommunityMember:
 @transaction.atomic
 def leave_community(*, user: User, community: Community) -> None:
     """Leave a community. Leader cannot leave."""
+    _lock_community(community)
     membership = CommunityMember.objects.filter(community=community, user=user).first()
     if not membership:
         raise DomainError(
@@ -333,10 +391,16 @@ def leave_community(*, user: User, community: Community) -> None:
             http_status=400,
         )
 
-    if membership.current_state != MemberState.BANNED:
-        Community.objects.filter(pk=community.pk, member_count__gt=0).update(
-            member_count=F("member_count") - 1
+    if membership.current_state == MemberState.BANNED:
+        raise DomainError(
+            "Banned members cannot leave the community.",
+            code="member_banned",
+            http_status=403,
         )
+
+    Community.objects.filter(pk=community.pk, member_count__gt=0).update(
+        member_count=F("member_count") - 1
+    )
 
     membership.delete()
 
@@ -350,11 +414,12 @@ def moderate_member(
     new_state: str,
 ) -> CommunityMember:
     """Silence/unsilence or ban/unban a member (RF013)."""
+    _lock_community(community)
     _check_admin_or_leader_permission(actor, community)
 
     target_membership = (
         CommunityMember.objects.select_related("user")
-        .filter(community=community, user__username__iexact=target_username.strip())
+        .filter(community=community, user__username=target_username.strip().lower())
         .first()
     )
     if not target_membership:
@@ -420,13 +485,15 @@ def moderate_member(
     return target_membership
 
 
+@transaction.atomic
 def promote_member(*, actor: User, community: Community, target_username: str) -> CommunityMember:
     """Appoint a regular member as COMM_ADMIN (RF015). Leader only."""
+    _lock_community(community)
     _check_leader_permission(actor, community)
 
     target_membership = (
         CommunityMember.objects.select_related("user")
-        .filter(community=community, user__username__iexact=target_username.strip())
+        .filter(community=community, user__username=target_username.strip().lower())
         .first()
     )
     if not target_membership:
@@ -455,13 +522,15 @@ def promote_member(*, actor: User, community: Community, target_username: str) -
     return target_membership
 
 
+@transaction.atomic
 def demote_member(*, actor: User, community: Community, target_username: str) -> CommunityMember:
     """Demote a COMM_ADMIN back to regular MEMBER (RF015). Leader only."""
+    _lock_community(community)
     _check_leader_permission(actor, community)
 
     target_membership = (
         CommunityMember.objects.select_related("user")
-        .filter(community=community, user__username__iexact=target_username.strip())
+        .filter(community=community, user__username=target_username.strip().lower())
         .first()
     )
     if not target_membership:
@@ -490,8 +559,13 @@ def transfer_leadership(
     community: Community,
     new_leader_username: str,
 ) -> CommunityMember:
-    """Transfer community leadership to an active member. Old leader becomes COMM_ADMIN."""
-    _check_leader_permission(actor, community)
+    """Transfer community leadership to an active member. Old leader becomes COMM_ADMIN.
+
+    Allowed while the community is suspended or banned: it changes who leads, not what the
+    community does, and a leader must be able to hand over before leaving or deleting an account.
+    """
+    _lock_community(community)
+    _check_leader_permission(actor, community, allow_moderated=True)
 
     if community.is_archived:
         raise DomainError(
@@ -502,7 +576,7 @@ def transfer_leadership(
 
     new_leader = (
         CommunityMember.objects.select_related("user")
-        .filter(community=community, user__username__iexact=new_leader_username.strip())
+        .filter(community=community, user__username=new_leader_username.strip().lower())
         .first()
     )
     if not new_leader:
@@ -539,8 +613,10 @@ def transfer_leadership(
     return new_leader
 
 
+@transaction.atomic
 def archive_community(*, actor: User, community: Community) -> Community:
     """Permanently archive community (RF015). Leader only."""
+    _lock_community(community)
     _check_leader_permission(actor, community)
 
     if community.is_archived:
@@ -553,3 +629,52 @@ def archive_community(*, actor: User, community: Community) -> Community:
     community.archived_at = timezone.now()
     community.save(update_fields=["archived_at"])
     return community
+
+
+@transaction.atomic
+def delete_community(*, actor: User, community: Community, confirm_commname: str) -> None:
+    """Delete a community (soft delete, leader only).
+
+    Invariants:
+    1. Only the active leader may delete; the leader must type the community handle.
+    2. Memberships are removed, photos are deleted, text is cleared and the handle becomes
+       `deleted_<id>`, which frees the original handle and makes the old URL a 404.
+    3. The row, its wallet and the ledger stay (append-only history). The community soap and
+       purchased items are lost: nothing can reach them anymore.
+    """
+    _lock_community(community)
+    if community.is_deleted:
+        raise DomainError("Community not found.", code="community_not_found", http_status=404)
+    # A blocked community is under moderation: deleting it would dodge that.
+    _reject_if_blocked(community)
+    membership = CommunityMember.objects.filter(community=community, user=actor).first()
+    if (
+        not membership
+        or membership.role != MemberRole.LEADER
+        or membership.current_state != MemberState.ACTIVE
+    ):
+        raise DomainError(
+            "Only the community leader can delete it.",
+            code="permission_denied",
+            http_status=403,
+        )
+    if confirm_commname.strip().lower() != community.commname:
+        raise DomainError(
+            "The typed name does not match the community.",
+            code="confirmation_mismatch",
+            extra={"fields": {"confirm_commname": ["The typed name does not match."]}},
+        )
+
+    CommunityMember.objects.filter(community=community).delete()
+    for field in (community.community_photo, community.banner_photo):
+        delete_file_on_commit(field)
+    community.commname = f"deleted_{community.pk}"
+    community.name = "Comunidade excluída"
+    community.description = ""
+    community.guidelines = ""
+    community.community_photo = ""
+    community.banner_photo = ""
+    community.customization_json = {}
+    community.member_count = 0
+    community.deleted_at = timezone.now()
+    community.save()

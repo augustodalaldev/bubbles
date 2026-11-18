@@ -17,3 +17,13 @@ class AuditLogAdmin(admin.ModelAdmin):
     list_filter = ("action", "target_type")
     search_fields = ("target_id", "actor__username", "reason")
     raw_id_fields = ("actor",)
+
+    # The audit trail is append-only: nobody edits or deletes it from the admin.
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

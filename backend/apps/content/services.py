@@ -9,6 +9,9 @@ from django.utils import timezone
 
 from apps.communities.models import Community, CommunityMember, MemberRole, MemberState
 from apps.core.exceptions import DomainError
+from apps.core.locks import advisory_lock
+from apps.core.uploads import delete_file_on_commit
+from apps.economy.services import ensure_community_wallet, ensure_user_wallet
 
 from .models import (
     Bubblegram,
@@ -96,7 +99,7 @@ def create_bubblegram(
                 code="community_archived",
                 http_status=400,
             )
-        if community.is_blocked:
+        if community.is_moderated:
             raise DomainError(
                 "Cannot publish in a blocked community.",
                 code="community_blocked",
@@ -113,7 +116,7 @@ def create_bubblegram(
 
     # Debit publishing cost from author
     import apps.economy.services as economy_services
-    from apps.economy.models import EconomySettings, Wallet
+    from apps.economy.models import EconomySettings
 
     settings_obj = EconomySettings.load()
     if community:
@@ -121,15 +124,10 @@ def create_bubblegram(
     else:
         cost = settings_obj.bubblegram_profile_cost
 
-    author_wallet, _ = Wallet.objects.get_or_create(
-        user=author,
-        defaults={
-            "soap_balance": 0,
-            "passive_earn_rate": settings_obj.default_passive_earn_rate,
-        },
-    )
+    author_wallet = ensure_user_wallet(author)
 
-    economy_services.debit_bubblegram(author_wallet, cost)
+    if cost > 0:
+        economy_services.debit_bubblegram(author_wallet, cost)
 
     bubblegram = Bubblegram.objects.create(
         user=author,
@@ -187,7 +185,7 @@ def delete_bubblegram(*, actor: User, bubblegram: Bubblegram) -> None:
     media_files = [m.media for m in bubblegram.media.all() if m.media]
     bubblegram.delete()
     for media in media_files:
-        media.delete(save=False)
+        delete_file_on_commit(media)
 
 
 @transaction.atomic
@@ -235,7 +233,7 @@ def create_comment(
                 code="community_archived",
                 http_status=400,
             )
-        if bubblegram.community.is_blocked:
+        if bubblegram.community.is_moderated:
             raise DomainError(
                 "Cannot comment in a blocked community.",
                 code="community_blocked",
@@ -349,7 +347,7 @@ def support_bubblegram(*, donor: User, bubblegram: Bubblegram) -> BubblegramSupp
                 code="community_archived",
                 http_status=400,
             )
-        if bubblegram.community.is_blocked:
+        if bubblegram.community.is_moderated:
             raise DomainError(
                 "Cannot interact in a blocked community.",
                 code="community_blocked",
@@ -358,25 +356,19 @@ def support_bubblegram(*, donor: User, bubblegram: Bubblegram) -> BubblegramSupp
         membership = CommunityMember.objects.filter(
             community_id=bubblegram.community_id, user=donor
         ).first()
-        if membership and membership.current_state in (MemberState.SILENCED, MemberState.BANNED):
+        if not membership or membership.current_state != MemberState.ACTIVE:
             raise DomainError(
-                "Silenced or banned members cannot interact in this community.",
+                "Only active members can interact in this community.",
                 code="permission_denied",
                 http_status=403,
             )
 
-    from apps.economy.models import ActionType, EconomySettings, Wallet
+    from apps.economy.models import ActionType, EconomySettings
     from apps.economy.services import Movement, apply_movements
 
     settings_obj = EconomySettings.load()
-    donor_wallet, _ = Wallet.objects.get_or_create(
-        user=donor,
-        defaults={"soap_balance": 0, "passive_earn_rate": settings_obj.default_passive_earn_rate},
-    )
-    author_wallet, _ = Wallet.objects.get_or_create(
-        user=bubblegram.user,
-        defaults={"soap_balance": 0, "passive_earn_rate": settings_obj.default_passive_earn_rate},
-    )
+    donor_wallet = ensure_user_wallet(donor)
+    author_wallet = ensure_user_wallet(bubblegram.user)
 
     try:
         support = BubblegramSupport.objects.create(bubblegram=bubblegram, donor=donor)
@@ -401,10 +393,7 @@ def support_bubblegram(*, donor: User, bubblegram: Bubblegram) -> BubblegramSupp
     ]
 
     if bubblegram.community_id:
-        community_wallet, _ = Wallet.objects.get_or_create(
-            community=bubblegram.community,
-            defaults={"soap_balance": 0},
-        )
+        community_wallet = ensure_community_wallet(bubblegram.community)
         movements.append(
             Movement(
                 wallet=community_wallet,
@@ -413,7 +402,9 @@ def support_bubblegram(*, donor: User, bubblegram: Bubblegram) -> BubblegramSupp
             )
         )
 
-    apply_movements(movements, origin=support)
+    movements = [m for m in movements if m.amount != 0]
+    if movements:
+        apply_movements(movements, origin=support)
 
     Bubblegram.objects.filter(pk=bubblegram.pk).update(soap_count=F("soap_count") + 1)
     bubblegram.soap_count += 1
@@ -462,32 +453,26 @@ def support_comment(*, donor: User, comment: Comment) -> CommentSupport:
                 code="community_archived",
                 http_status=400,
             )
-        if community.is_blocked:
+        if community.is_moderated:
             raise DomainError(
                 "Cannot interact in a blocked community.",
                 code="community_blocked",
                 http_status=403,
             )
         membership = CommunityMember.objects.filter(community=community, user=donor).first()
-        if membership and membership.current_state in (MemberState.SILENCED, MemberState.BANNED):
+        if not membership or membership.current_state != MemberState.ACTIVE:
             raise DomainError(
-                "Silenced or banned members cannot interact in this community.",
+                "Only active members can interact in this community.",
                 code="permission_denied",
                 http_status=403,
             )
 
-    from apps.economy.models import ActionType, EconomySettings, Wallet
+    from apps.economy.models import ActionType, EconomySettings
     from apps.economy.services import Movement, apply_movements
 
     settings_obj = EconomySettings.load()
-    donor_wallet, _ = Wallet.objects.get_or_create(
-        user=donor,
-        defaults={"soap_balance": 0, "passive_earn_rate": settings_obj.default_passive_earn_rate},
-    )
-    author_wallet, _ = Wallet.objects.get_or_create(
-        user=comment.user,
-        defaults={"soap_balance": 0, "passive_earn_rate": settings_obj.default_passive_earn_rate},
-    )
+    donor_wallet = ensure_user_wallet(donor)
+    author_wallet = ensure_user_wallet(comment.user)
 
     try:
         support = CommentSupport.objects.create(comment=comment, donor=donor)
@@ -512,10 +497,7 @@ def support_comment(*, donor: User, comment: Comment) -> CommentSupport:
     ]
 
     if community:
-        community_wallet, _ = Wallet.objects.get_or_create(
-            community=community,
-            defaults={"soap_balance": 0},
-        )
+        community_wallet = ensure_community_wallet(community)
         movements.append(
             Movement(
                 wallet=community_wallet,
@@ -524,7 +506,9 @@ def support_comment(*, donor: User, comment: Comment) -> CommentSupport:
             )
         )
 
-    apply_movements(movements, origin=support)
+    movements = [m for m in movements if m.amount != 0]
+    if movements:
+        apply_movements(movements, origin=support)
 
     Comment.objects.filter(pk=comment.pk).update(soap_count=F("soap_count") + 1)
     comment.soap_count += 1
@@ -549,6 +533,13 @@ def create_bubblepop(
     4. Cost = ceil(duration_hours / hours_per_soap) soap via DEBIT_BUBBLEPOP.
     5. expires_at is set to timezone.now() + timedelta(hours=duration_hours).
     """
+    if getattr(author, "is_suspended", False):
+        raise DomainError(
+            "Suspended accounts cannot publish bubblepops.",
+            code="account_suspended",
+            http_status=403,
+        )
+
     if not image:
         raise DomainError(
             "An image is required for a bubblepop.",
@@ -565,7 +556,7 @@ def create_bubblepop(
         )
 
     import apps.economy.services as economy_services
-    from apps.economy.models import EconomySettings, Wallet
+    from apps.economy.models import EconomySettings
 
     settings_obj = EconomySettings.load()
 
@@ -581,13 +572,7 @@ def create_bubblepop(
 
     cost = math.ceil(duration_hours / settings_obj.bubblepop_hours_per_soap)
 
-    author_wallet, _ = Wallet.objects.get_or_create(
-        user=author,
-        defaults={
-            "soap_balance": 0,
-            "passive_earn_rate": settings_obj.default_passive_earn_rate,
-        },
-    )
+    author_wallet = ensure_user_wallet(author)
 
     economy_services.debit_bubblepop(author_wallet, cost)
 
@@ -615,13 +600,22 @@ def delete_bubblepop(*, actor: User, bubblepop: Bubblepop) -> None:
 
     image_file = bubblepop.image
     bubblepop.delete()
-    if image_file:
-        image_file.delete(save=False)
+    delete_file_on_commit(image_file)
+
+
+def cleanup_expired_bubblepops(*, now: Any = None) -> int:
+    """Hard-delete all expired Bubblepop stories and their media files.
+
+    Idempotent: a second run finds nothing left. Overlapping runs are serialized by an advisory
+    lock so they cannot both report (or try to delete) the same rows.
+    """
+    with advisory_lock("cleanup_expired_bubblepops"):
+        return _cleanup_expired_bubblepops(now=now)
 
 
 @transaction.atomic
-def cleanup_expired_bubblepops(*, now: Any = None) -> int:
-    """Hard-delete all expired Bubblepop stories and their media files."""
+def _cleanup_expired_bubblepops(*, now: Any = None) -> int:
+    """Delete the rows in one transaction; the files go away only after it commits."""
     current_time = now or timezone.now()
     expired_pops = list(Bubblepop.objects.filter(expires_at__lte=current_time))
     if not expired_pops:
@@ -632,6 +626,6 @@ def cleanup_expired_bubblepops(*, now: Any = None) -> int:
     Bubblepop.objects.filter(id__in=[pop.id for pop in expired_pops]).delete()
 
     for image in image_files:
-        image.delete(save=False)
+        delete_file_on_commit(image)
 
     return count

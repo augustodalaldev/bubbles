@@ -14,7 +14,7 @@ erDiagram
 
     User ||--o{ Bubblegram : "authors"
     Community ||--o{ Bubblegram : "contains (optional)"
-    Bubblegram ||--o{ BubblegramMedia : "has media (1..N for MEDIA type)"
+    Bubblegram ||--o{ BubblegramMedia : "has media (1..4 images for MEDIA type, enforced in the service)"
 
     User ||--o{ Bubblepop : "creates ephemeral post"
 
@@ -37,6 +37,10 @@ erDiagram
     User ||--o{ UserInventoryItem : "owns in inventory"
     CustomizationItem ||--o{ UserInventoryItem : "held by user"
     SoapTransaction ||--o| UserInventoryItem : "payment link (optional)"
+    Community ||--o{ CommunityInventoryItem : "owns in inventory"
+    CustomizationItem ||--o{ CommunityInventoryItem : "held by community"
+    User ||--o{ CommunityInventoryItem : "purchased by (leader/admin)"
+    SoapTransaction ||--o| CommunityInventoryItem : "payment link (community wallet)"
 
     User ||--o{ Report : "files report"
     User ||--o| Report : "reviewed by (optional)"
@@ -81,6 +85,9 @@ erDiagram
         datetime created_at
         datetime archived_at "nullable, archived = read-only"
         datetime blocked_at "nullable, admin blocked"
+        datetime deleted_at "nullable, soft-deleted by the leader; handle becomes deleted_id"
+        datetime suspended_until "nullable, staff suspension (blocked_at is the ban)"
+        string moderation_reason "shown to members"
     }
 
     CommunityMember {
@@ -163,7 +170,7 @@ erDiagram
         bigint bubblegram_id FK
         bigint user_id FK "author"
         bigint parent_id FK "nullable, reply to comment on same post"
-        text text "max 1000"
+        text text "max 2000"
         integer soap_count "cached counter"
         datetime published_at
     }
@@ -197,7 +204,8 @@ erDiagram
         bigint id PK
         string name "max 100"
         string code UK "unique slug"
-        string item_type "AVATAR_FRAME, PROFILE_THEME, CHAT_BUBBLE, BADGE, NAME_COLOR"
+        string item_type "AVATAR_FRAME, PROFILE_THEME, CHAT_BUBBLE, BADGE, NAME_COLOR, WALLPAPER, ACCENT_COLOR, SECTION"
+        string scope "USER | COMMUNITY | BOTH (who may buy it)"
         text description
         integer price "cost in soap (0 for free/starter)"
         json metadata "design tokens / styles consumed by frontend"
@@ -211,6 +219,15 @@ erDiagram
         bigint item_id FK
         bigint transaction_id FK "nullable SPEND_CUSTOMIZATION transaction"
         datetime acquired_at
+    }
+
+    CommunityInventoryItem {
+        bigint id PK
+        bigint community_id FK
+        bigint item_id FK
+        bigint purchased_by_id FK "nullable, leader/admin who spent the community soap"
+        bigint transaction_id FK "nullable SPEND_CUSTOMIZATION on the community wallet"
+        datetime acquired_at "unique (community, item)"
     }
 
     Report {

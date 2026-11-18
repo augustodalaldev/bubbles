@@ -201,13 +201,19 @@ def test_current_user_me_patch(auth_client):
     payload = {
         "name": "Updated Name",
         "description": "Updated Description",
-        "customization_json": {"theme": "dark-bubbles"},
+        "customization_json": {},
     }
     response = client.patch("/api/v1/users/me/", data=payload, format="json")
     assert response.status_code == status.HTTP_200_OK
     assert response.data["name"] == "Updated Name"
     assert response.data["description"] == "Updated Description"
-    assert response.data["customization_json"] == {"theme": "dark-bubbles"}
+    assert response.data["customization_json"] == {}
+
+    # Free-form customization is rejected: slots must reference catalog items.
+    junk = client.patch(
+        "/api/v1/users/me/", data={"customization_json": {"theme": "dark-bubbles"}}, format="json"
+    )
+    assert junk.status_code == status.HTTP_400_BAD_REQUEST
 
     user.refresh_from_db()
     assert user.name == "Updated Name"
@@ -399,3 +405,105 @@ def test_user_followers_and_following_lists_api(auth_client):
     assert resp_following.status_code == status.HTTP_200_OK
     assert resp_following.data["count"] == 1
     assert resp_following.data["results"][0]["user"]["username"] == "friend1"
+
+
+@pytest.mark.parametrize(
+    ("path", "expected_status"),
+    [("/api/v1/auth/login/", 200), ("/api/v1/auth/register/", 400)],
+)
+def test_auth_endpoints_ignore_stale_bearer_header(api_client, path, expected_status):
+    """An expired access token in the header must not turn login/register into a 401."""
+    user = UserFactory(username="stale_user")
+    Wallet.objects.create(user=user, soap_balance=20)
+    api_client.credentials(HTTP_AUTHORIZATION="Bearer expired.or.garbage")
+    payload = {"identifier": "stale_user", "password": DEFAULT_PASSWORD}
+    response = api_client.post(path, data=payload, format="json")
+    assert response.status_code == expected_status
+
+
+def test_refresh_endpoint_ignores_stale_bearer_header(api_client):
+    user = UserFactory(username="refresh_user")
+    Wallet.objects.create(user=user, soap_balance=20)
+    login = api_client.post(
+        "/api/v1/auth/login/",
+        data={"identifier": "refresh_user", "password": DEFAULT_PASSWORD},
+        format="json",
+    )
+    assert login.status_code == status.HTTP_200_OK
+    api_client.credentials(HTTP_AUTHORIZATION="Bearer expired.or.garbage")
+    response = api_client.post("/api/v1/auth/refresh/")
+    assert response.status_code == status.HTTP_200_OK
+    assert "access" in response.data
+
+
+def _login(client, username):
+    return client.post(
+        "/api/v1/auth/login/",
+        data={"identifier": username, "password": DEFAULT_PASSWORD},
+        format="json",
+    )
+
+
+def test_logout_works_without_valid_access_token_and_blacklists_refresh(api_client):
+    user = UserFactory(username="logout_user")
+    Wallet.objects.create(user=user, soap_balance=20)
+    assert _login(api_client, "logout_user").status_code == status.HTTP_200_OK
+    refresh_cookie = api_client.cookies["refresh_token"].value
+
+    api_client.credentials(HTTP_AUTHORIZATION="Bearer expired.or.garbage")
+    response = api_client.post("/api/v1/auth/logout/")
+    assert response.status_code == status.HTTP_200_OK
+    assert response.cookies["refresh_token"].value == ""
+
+    api_client.credentials()
+    api_client.cookies["refresh_token"] = refresh_cookie
+    reuse = api_client.post("/api/v1/auth/refresh/")
+    assert reuse.status_code == status.HTTP_401_UNAUTHORIZED
+    assert reuse.data["error"]["code"] == "token_invalid"
+
+
+def test_refresh_token_cannot_be_reused_after_rotation(api_client):
+    user = UserFactory(username="rotate_user")
+    Wallet.objects.create(user=user, soap_balance=20)
+    _login(api_client, "rotate_user")
+    old_cookie = api_client.cookies["refresh_token"].value
+
+    first = api_client.post("/api/v1/auth/refresh/")
+    assert first.status_code == status.HTTP_200_OK
+    assert api_client.cookies["refresh_token"].value != old_cookie
+
+    api_client.cookies["refresh_token"] = old_cookie
+    second = api_client.post("/api/v1/auth/refresh/")
+    assert second.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.parametrize("change", ["inactive", "deleted"])
+def test_refresh_is_refused_for_inactive_or_deleted_users(api_client, change):
+    user = UserFactory(username="gone_user")
+    Wallet.objects.create(user=user, soap_balance=20)
+    _login(api_client, "gone_user")
+
+    if change == "inactive":
+        user.is_active = False
+    else:
+        user.deleted_at = timezone.now()
+    user.save()
+
+    response = api_client.post("/api/v1/auth/refresh/")
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.data["error"]["code"] == "token_invalid"
+
+
+def test_me_and_login_return_absolute_profile_photo_url(api_client):
+    from apps.accounts.models import User
+
+    user = UserFactory(username="photo_user")
+    Wallet.objects.create(user=user, soap_balance=20)
+    User.objects.filter(pk=user.pk).update(profile_photo="profile_photos/me.png")
+
+    login = _login(api_client, "photo_user")
+    assert login.data["user"]["profile_photo"].startswith("http://testserver/media/")
+
+    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['access']}")
+    me = api_client.get("/api/v1/users/me/")
+    assert me.data["profile_photo"].startswith("http://testserver/media/")

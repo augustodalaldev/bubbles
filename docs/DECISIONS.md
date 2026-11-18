@@ -143,8 +143,146 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 | Community blocking (`Community.blocked_at`) | Blocks malicious communities (`blocked_at is not None`) preventing joins, publishing, comments, and supports |
 | Administrative soap adjustments (`admin_adjust_soap`) | Staff can credit or debit wallets with `ActionType.ADMIN_ADJUSTMENT`, with mandatory reason and audit entry recording before and after balances |
 
+## Review & integration (2026-11-17) — see docs/REVIEW_PLAN.md
+| Decision | Reason |
+|---|---|
+| Image uploads validated by `core.uploads.validate_image_upload` (Pillow-detected JPEG/PNG/WebP/GIF, image extension, max 10 MB) through `core.fields.SafeImageField` | `FILE_UPLOAD_MAX_MEMORY_SIZE` is only a memory/temp-file threshold, not a limit; arbitrary files were being stored and served from `/media/` |
+| Only `ACTIVE` members can support community content; a banned member cannot `leave` | Supporting charged soap to non-members; leaving erased the ban row and allowed re-joining |
+| `user` throttle raised to 10000/day | The heartbeat alone consumed 1440 of the previous 1000/day |
+| Auth endpoints (`login`, `register`, `refresh`, `logout`) use no authentication classes | A stale `Authorization` header turned them into 401s; logout must clear the cookie even with an expired access token |
+| Refresh rejects inactive/deleted users and is throttled (`auth` scope) | Banned/deleted users kept receiving tokens |
+| Every error uses `{"error": {code, message, fields}}`, including Django `Http404`/`PermissionDenied`/`ValidationError`/`IntegrityError`, nested serializer errors (`media_files[1]`) and `/api/` 404/500 (with `DEBUG=False`); headers (`Retry-After`, `WWW-Authenticate`) are preserved | The frontend maps stable codes to pt-BR copy; unhandled cases returned HTML |
+| `delete_file_on_commit` for stored files | Deleting inside `atomic()` lost files when the transaction rolled back |
+| `EconomySettings` values of 0 are valid and skip the corresponding movement | They previously made signup/publishing/supports fail |
+| Passive daily cap and its idempotency key use the local (America/Sao_Paulo) day | The cap reset at 21:00 local time (UTC midnight) |
+| Community `customization_json` is rejected (`customization_not_available`) | Communities could be customized for free; buying with the community wallet (S4) is not implemented yet |
+| Community row is locked (`select_for_update`) for membership changes; blocked communities reject leader/admin management (staff exempt) | `member_count` drifted under concurrency; service rules disagreed with the `permissions` map |
+| Members list ordered LEADER, COMM_ADMIN, MEMBER, then newest | The moderation team must be on the first page |
+| `GET /letters/{id}/` is a pure read; the view marks the letter read for its recipient; outsiders get 404 | Replying marked the original as read; 403 leaked the existence of letters |
+| `/customization/equipped/` is an alias of `/customization/equip/` (GET reads, POST equips); the frontend uses `slots` (`item_ids` replaces every slot) | Documents an endpoint that existed but was undocumented |
+| Production settings fail fast on a placeholder/short `DJANGO_SECRET_KEY` or empty `DJANGO_ALLOWED_HOSTS`; HTTPS redirect, HSTS (default 3600 s), CSRF origins and proxy header come from the environment | `check --deploy` warnings and unsafe defaults |
+| Periodic commands (`distribute_passive_soap`, `cleanup_expired_bubblepops`) have no scheduler in the repo | Run them from cron/CronJob; bubblepop reads already filter by `expires_at`, so correctness does not depend on the job |
+| Frontend: access token in memory + single-flight refresh through the httpOnly cookie; no Bearer on `/auth/*`; no React Router/TanStack Query (kept zustand + axios) | Matches the Pillar 1.3 decision; avoids new dependencies |
+| Frontend: costs and balances come from `GET /economy/settings/` and the API responses; supports/purchases update from server data, never optimistically | Rule 6 of the project guide: the frontend never decides economics |
+| Frontend: removed fake features without backend (notifications bell, forgot-password link, share link, suggested users, "popular" tab, fake counters) and `canvas-confetti` | `docs/frontend/PLAN.md` principles (100% faithful to the API, no useless animation) |
+
+## Community customization (2026-11-17)
+| Decision | Reason |
+|---|---|
+| `CustomizationItem.scope` (USER / COMMUNITY / BOTH, default USER); the user store lists USER+BOTH, a community store COMMUNITY+BOTH | A community and a profile need different catalogs; existing items stay user-only |
+| `CommunityInventoryItem` (unique community+item, `purchased_by`, ledger link) | Ownership by the community, one purchase per item, audit of who spent the soap |
+| Only the ACTIVE leader or an ACTIVE admin can buy and equip; system staff cannot spend a community's soap | RF014/S4: it is the community's money; staff keep the Django Admin |
+| Purchases debit the **community wallet** (`SPEND_CUSTOMIZATION`); the buyer's personal wallet is never touched | Soap rule S4 |
+| `purchase_community_item` locks the community wallet row first, re-checks ownership under the lock and keeps the unique constraint as backstop | Concurrent purchases are serialized: soap for one item never buys two, the same item is charged once |
+| Blocked/archived communities cannot buy or equip | Consistent with the other management rules |
+| Equipping uses `slots` (item id or null) through `POST /communities/{c}/customization/equip/`; writing `customization_json` directly stays rejected | Ownership is always validated; other slots are untouched |
+| New endpoints: `POST /communities/{c}/customization/items/{id}/purchase/`, `GET /communities/{c}/customization/inventory/`, `GET|POST /communities/{c}/customization/equip/`, `GET /customization/items/?community={c}`; new `permissions.can_customize` | The frontend renders what the API reports |
+
+## Scheduler (2026-11-17)
+| Decision | Reason |
+|---|---|
+| `manage.py run_scheduler` (stdlib loop, `core/scheduler.py`) + `make scheduler` / `make scheduler-once`; no Celery/Redis, no new dependency | The brief asks for something lightweight; it runs identically inside and outside Docker |
+| No scheduler service in `docker-compose.yml` | The compose file only runs PostgreSQL and no backend image exists (Django runs natively); a service would require a new Dockerfile. `make scheduler` or cron covers it |
+| `distribute_passive_soap` every `passive_interval_minutes`, aligned to epoch multiples of the interval | Payment is idempotent per window (`floor(epoch/interval)`), so exactly one run per window |
+| `cleanup_expired_bubblepops` hourly | Reads already filter `expires_at`; the job only reclaims rows and disk |
+| A PostgreSQL session advisory lock (`core/locks.py`) serializes each job across processes | Two overlapping runs could both read the daily total before either paid |
+| Passive soap pays each user in its own short transaction; failures are logged, not swallowed | The previous single transaction held every wallet lock and hid errors with `except Exception: pass` |
+| Job failure never stops the loop; `--once` exits non-zero if a job failed | Fault tolerance in the daemon, observability for cron |
+
+## URL navigation (2026-11-17)
+| Decision | Reason |
+|---|---|
+| `react-router-dom` 6.x (BrowserRouter), instead of syncing the store with the History API by hand | Back/forward, reload, deep links, real `<a>` links (middle click, copy address) and route guards come for free; hand-rolled routing would re-implement them with more risk. Cost: one dependency (~20 kB gzip) |
+| URLs: `/`, `/login`, `/register`, `/u/:username`, `/communities`, `/c/:commname`, `/store`, `/letters`, `/p/:id`, `*` = 404 | One URL per existing screen; no new screens. `/p/:id` reuses the post modal |
+| Only the search term (`?q=`) and the letter recipient (`?to=`) live in the URL; feed filters and community tabs stay in component state | Keeps URLs meaningful without turning every toggle into history entries |
+| Guard: anonymous visitors go to `/login?next=<url>` and return after login; an explicit logout does not keep `next`; an expired session does | Deep links work after signing in; logging out must not leak the last page |
+| `next` accepts only same-origin app paths (no `//`, scheme, backslash or control characters, never the auth screens) | Prevents an open redirect through a crafted login link |
+| Each screen is a lazy chunk (`React.lazy`) | Keeps the first bundle under 500 kB after adding the router |
+| The post modal has "Copiar link" now that `/p/:id` exists | The earlier share button was removed because no URL existed |
+| Servers that serve `frontend/dist` must fall back to `index.html` (README has the nginx snippet) | SPA routing; Vite dev/preview already do it |
+| `VITE_API_TARGET` selects the backend the dev proxy talks to | Lets the demo backend run on another port |
+
+## Demo data (2026-11-17)
+| Decision | Reason |
+|---|---|
+| `config.settings.demo` (dev settings + `DEMO_DB_NAME`, default `bubbles_teste`, must differ from `POSTGRES_DB`) and `seed_demo` refuses to run unless the settings are the demo ones, `DEBUG` is on and the connected database is the demo one | The seed must never be able to touch the development database |
+| The Makefile refuses `DEMO_DB` equal to the `.env` development database or `postgres` before dropping anything | `make demo-reset` drops a database |
+| The seed calls the services (`register_user`, `create_community`, `create_bubblegram`, `support_*`, `send_letter`, purchases, `file_report`, ...) | Business rules, cached counters and the soap ledger stay correct and consistent |
+| ORM directly only for: the customization catalog (admin-maintained table, no service), back-dated timestamps (services always stamp "now"), expired bubblepops (no service creates them), staff flag of the admin | There is no service for these; every use is commented in the code |
+| Soap comes from audited `admin_adjust_soap` (admin actor) once per newly created account, and for community wallets | Mirrors how soap enters the system; running again does not give more soap |
+| Ledger rows keep today's date; everything else is spread over the last 30 days | The ledger is append-only (`created_at` is not editable) |
+| Randomness comes from an independent stream per user/post/community (`seed|step|key`) and DB-driven choices are ordered by pk | Re-running makes the same decisions and finds what it created: idempotent, with the same row counts |
+| `--reset` uses a manifest (`backend/.demo_cache/seed_manifest.json`) of the primary keys the seed created and deletes them in dependency order, including their media files; catalog items still owned by someone else are kept | Only seed data is removed; hand-made data survives. The append-only ledger of the seed's own wallets is removed with `_raw_delete`, and only for those wallets in the demo database |
+| Photos from The Cat API and Dog CEO via `urllib` (no new dependency), cached in `backend/.demo_cache/images/`, validated with the upload validator | Free, no key, downloaded once; offline falls back to the cache or no images |
+| `faker` (pt_BR) as a dev dependency; Portuguese content lives in `apps/core/demo/content.py` | Natural names and texts; fixed seed keeps them reproducible |
+| Accounts share the password `DemoPets2026!`; emails use `@demo.bubbles.test` | Demo credentials only; the reserved domain cannot receive mail |
+
+## Polish 2 — Phase 1 (2026-11-17)
+| Decision | Reason |
+|---|---|
+| `LANGUAGE_CODE = "pt-br"` | Django, DRF and simplejwt built-in messages (invalid e-mail, password validators, throttling, token errors) come out in Portuguese |
+| Central catalog `apps/core/messages.py` (error code -> pt-BR text, with `{cost}`/`{balance}`/`{communities}` placeholders); the exception handler replaces `message` and the per-field messages of every `DomainError` | The 180 raise sites keep English messages for logs/tests; the UI never depends on translating messages one by one in the frontend |
+| A test scans the source for every `code="..."` and fails when one is missing from the catalog | New error codes cannot ship untranslated |
+| User-visible validator/serializer/upload texts written in Portuguese at the source | They are shown through field errors |
+| `auth_refresh` throttle scope (120/min) separate from `auth` (20/min) | Every page load calls `/auth/refresh/`; a reload loop was exhausting login attempts |
+| Anonymized accounts are named "Conta excluída" | The name appears in feeds and threads, which are in Portuguese |
+| `PasswordInput` (show/hide) is the only password field component | One behavior everywhere, including future password fields |
+| Customization tokens are applied only through `utils/theme.ts`: hex colors, a strict glow pattern, label text truncated to 24 chars; anything else is ignored | Tokens reach inline styles, so nothing from the API is trusted |
+| `Avatar` applies the equipped frame and `UserName` the name color and badge, so every place that shows a person gets them | Customization used to apply only to the community photo and the store preview |
+| Phones: the header splits into two rows, side columns stack instead of disappearing, fixed-height two-pane layouts apply only from `lg`, the profile mural lays bubbles out for its real width | At 375 px the logo and avatar shrank to 0 px and the community info column was hidden |
 
 
+## Polish 2 — Phase 2 (2026-11-17)
+- Letters expose `reply_to_summary` (id, sender, 140-char excerpt, sent_at) and `reply_id` (the answer, via a Subquery in the selectors). The excerpt keeps the replied-to letter visible without a second request, and neither field adds queries per row.
+- The open letter is part of the URL (`/letters/:id?`, a single route so the list is not remounted). Closing goes back in history, or to `/letters` on a direct visit. An answered letter hides "Responder" (the backend rejects a second reply with `already_replied`).
+- Follower/following lists are their own routes, so the counters are plain links and the own-profile tab stays highlighted on them.
 
+## Polish 2 — Phase 3 (2026-11-17)
+- Community deletion is a soft delete (`Community.deleted_at`): memberships and photos are removed, text is cleared and the handle becomes `deleted_<id>`, so the old URL is a 404 and the handle is reusable. The row, wallet and ledger stay (append-only). Posts of the community are hidden (post detail 404, excluded from suggestions). A leader of a *blocked* community cannot delete it (it would dodge moderation). Staff and admins cannot delete (leader only, D2).
+- Account deletion also removes the user's bubblepops (and their images). A leader must transfer leadership or delete the community first (409 `must_transfer_leadership` lists them; the UI links to their settings).
+- Password change requires the current password, ends every other session (outstanding refresh tokens blacklisted) and returns fresh tokens for the current one. E-mail change requires the password. Username stays immutable (D11).
+- Photos are removed with explicit `remove_profile_photo` / `remove_community_photo` flags instead of sending `null` in multipart.
+- Destructive dialogs (`ConfirmDialog`) state the consequences and require typed text (`EXCLUIR`, or the community handle); the server re-checks the handle and the password.
 
+## Polish 2 — Phase 4 (2026-11-17)
+- Users: `User.moderation_reason`. Suspension is temporary (end date + reason, expires by itself) and keeps the person able to log in and read; the existing service checks block posting, commenting, support and letters. A ban sets `is_active=False`: login fails with `account_banned` + reason, but only after the password is correct (a wrong password still gets the generic message, so a ban is not revealed to someone guessing usernames). Banned users disappear from profile, search, comments, member lists and the feed (content hidden, not deleted, so a restore brings it back).
+- Communities: `Community.suspended_until` + `moderation_reason`; the existing `blocked_at` is the ban. `is_moderated` (ban or active suspension) drives every interaction check; `not_moderated_q()` drives lists, search and the feed. A moderated community is a 404 for anyone who is not staff or a non-banned member; those members get a read-only page with a banner (status, end date, reason). Leaders cannot delete a moderated community (it would dodge moderation).
+- Restore: one action per target type clears suspension, ban and reason (`/admin/users/<id>/unban/`, `/admin/communities/<name>/unblock/`). Every action is written to the audit log with its reason.
+- Staff UI is minimal on purpose: `/moderation` with Users, Communities and History tabs. Reports and soap adjustments still use the API / Django Admin.
 
+## Polish 2 — Phase 5 (2026-11-17)
+- Customization security: each item type accepts only its own metadata keys (`customization/validators.py`): colors are `#rgb`/`#rrggbb`, glows follow `0 0 Npx #hex`, badge labels are 1-24 characters, wallpaper `fit` is `cover` or `tile`. Validation runs in `CustomizationItem.clean()` (Django Admin) and in the staff catalog API. `PATCH /users/me/` no longer stores the client's `customization_json`: only the item ids are read and the data is rebuilt from the catalog (ownership and slot checked), so metadata cannot be smuggled in. Free-form entries are rejected (`invalid_customization`).
+- Wallpapers are images uploaded by staff only (Django Admin > Customization items, type Wallpaper, image required, same upload validation as every image). Users can only buy them. The equipped snapshot stores the image URL; the frontend only accepts same-origin `/media/...` paths as a background.
+- Accent color sets `--accent` / `--accent-contrast`, read by `.btn-pink` and the panel-header underline. It and the wallpaper are applied to the viewer's own pages, and replaced by the owner's theme while viewing that person's profile.
+- Badges: three slots (`badge`, `badge_2`, `badge_3`); the same badge cannot fill two slots (`duplicate_badge`). Staff grant badges by creating a user inventory row in the admin.
+- Profile section: unlocked by owning a SECTION item (`section_locked` otherwise); shown only while the item is equipped and the text is non-empty; plain text rendered by React (never HTML).
+- Bubble effect (D10): CSS-only look on photo posts of the profile mural (Mural and Grade): highlight, rim and glassy edge; static, with a small hover tilt only under `prefers-reduced-motion: no-preference`.
+- Community banner: `banner_photo` (already supported by the API) is now shown larger above the community mural and can be set or removed from the community settings.
+
+## Polish 2 — Phase 6 (2026-11-18)
+- The demo seed places every new customization option on purpose (`_customization_showcase`) instead of drawing them at random, so each wallpaper, accent color and section item is worn by at least one profile; the older random purchase step is limited to the older item types. The staff badge (`selo_equipe`, priced out of reach) is inserted directly into the inventory, like an admin would.
+- The administration showcase runs once: the deleted account and community are renamed (`deleted_<id>`), so the manifest (`special`) rather than the handle tells a later run that they exist. Moderated and deleted communities are skipped when the seed picks where to post.
+- Seed report choices are keyed by position, not by database id (ids differ between runs, which made the pending/resolved mix depend on the id sequence).
+- Pytest must run with the test settings: with the demo settings it would use the demo's real media folder.
+
+## Review after polish 2 (2026-11-18)
+- Front-end routes are in English like the code: `/account`, `/moderation`, `/c/:commname/settings`. The previous Portuguese paths were not kept as redirects (the app was never published).
+- Heartbeat: only login, register, refresh and logout skip the Bearer header. `/auth/heartbeat/` needs the signed-in user; excluding the whole `/auth/` prefix made it fail with 401 on every call and stopped presence tracking.
+- Popular feed suggestions use only the last 24 hours (unchanged rule). The demo seed makes a few supported posts recent; they age out after a day, so re-seed (`make demo-reset`) to see them again.
+- Moderated communities: a leader may transfer leadership while the community is suspended or banned (it changes who leads, not what the community does), so they can still hand over and delete their account. Members can leave, and the community stays in "Minhas" with a Suspensa/Banida label; it remains hidden from every other list.
+- Chat bubble (customization): the equipped tint/border (hex only, validated like every token) is applied to the owner's comments and letters. Spec: `tint` required, `border` optional.
+- Tests refuse to run unless `MEDIA_ROOT` is a temporary folder, and only then delete it at the end (they once wiped the demo's media when run with the demo settings).
+- Known and accepted: after a password change the access tokens of other devices stay valid until they expire (15 min); refresh tokens are blacklisted immediately. Checking the database on every request to close that window is not worth its cost here.
+- The intermittent test failure seen once in phase 3 did not reproduce in 24 consecutive runs. The likely cause is two pytest processes using the test database at the same time (seen again during this review when a background loop overlapped).
+
+## Demo content by people (2026-11-18)
+- The demo is written, not randomized: 16 people (`demo/personas.py`) with a character as profile picture, a pet and a voice; their posts, threads and letters are in `demo/stories.py`. Random choices remain only for supports, reaction wording and timestamps (hours weighted to lunch and evening). Report statuses and moderated members are fixed.
+- Photos match the author's pet: dogs come from their breed (Dog CEO breed endpoints, pools `dog:<breed>`), cats from the cat pool, so cat captions never name colors or breeds (a test checks it). `ImageLibrary.take` hands out each cached photo once, in a fixed shuffled order, so no picture is shown twice. `--images` caps downloads per pool.
+- Profile pictures are the files in `.demo_cache/avatars/` (provided by the owner, not versioned). The generic fish `tom.png` is hue-rotated for the extra fish characters; a missing avatar falls back to generated art and a warning.
+- Badges next to a name: `UserName` has a compact variant (name on one line, truncated with the full name in `title`; below it only the most expensive badge plus "+N") and a full variant for the profile header. The price travels in the equipped snapshot (`price`), so badges equipped before this change sort by slot order until they are equipped again.
+- Pytest and the seed use different settings on purpose; the media guard in `conftest.py` stays.
+
+## Final details (2026-11-18)
+- Bubblepops open in a carousel: `PostDetailModal` receives the tray/profile list (`stories`) and steps through it with arrow buttons, ArrowLeft/ArrowRight keys and a horizontal swipe, with a progress bar per bubblepop. It does not wrap around and does not auto-advance. Deleting one still closes the viewer.
+- Comments show the author's avatar and link to the profile (anonymized `deleted_*` accounts have no profile, so they are not links).
+- The demo no longer ships the tiled "bolinhas" wallpaper; the three remaining wallpapers are full-page images. The app still supports the `tile` fit for catalog items created in the admin.

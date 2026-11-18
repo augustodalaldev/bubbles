@@ -1,31 +1,38 @@
 import React from "react";
-import { CustomizationItem, User } from "@/types";
+import { CustomizationItem } from "@/types";
 import { SoapIcon } from "@/components/SoapIcon";
 import { Check, ShieldCheck, Sparkles } from "lucide-react";
+import { safeColor, safeGlow } from "@/utils/theme";
 
 interface CustomizationCardProps {
   item: CustomizationItem;
-  currentUser: User;
+  /** Soap available to the buyer: the user's balance or, in a community store, the community's. */
+  balance: number;
+  previewPhoto?: string | null;
+  previewName?: string;
   onPurchase: (item: CustomizationItem) => void;
   onEquipToggle: (item: CustomizationItem) => void;
+  busy?: boolean;
 }
 
 export const CustomizationCard: React.FC<CustomizationCardProps> = ({
   item,
-  currentUser,
+  balance,
+  previewPhoto = null,
+  previewName = "?",
   onPurchase,
   onEquipToggle,
+  busy = false,
 }) => {
   const isOwned = item.is_owned;
   const isEquipped = item.is_equipped;
-  const userSoap = currentUser.soap_balance ?? 0;
-  const canAfford = userSoap >= item.price;
+  const canAfford = balance >= item.price;
 
   // Render Visual Mini Preview according to item type
   const renderPreview = () => {
     if (item.item_type === "AVATAR_FRAME") {
-      const borderColor = item.metadata?.border_color || "#F465AC";
-      const glow = item.metadata?.glow || "none";
+      const borderColor = safeColor(item.metadata?.border_color) ?? "#F465AC";
+      const glow = safeGlow(item.metadata?.glow) ?? "none";
 
       return (
         <div className="h-24 bg-slate-50 flex items-center justify-center p-3 border-b border-slate-200">
@@ -36,19 +43,21 @@ export const CustomizationCard: React.FC<CustomizationCardProps> = ({
               boxShadow: glow,
             }}
           >
-            <img
-              src={currentUser.profile_photo || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"}
-              alt="Preview"
-              className="w-full h-full object-cover rounded-full"
-            />
+            {previewPhoto ? (
+              <img src={previewPhoto} alt="Prévia" className="w-full h-full object-cover rounded-full" />
+            ) : (
+              <span className="w-full h-full rounded-full bg-pink-50 text-pink-700 font-bold flex items-center justify-center text-sm">
+                {previewName.charAt(0).toUpperCase()}
+              </span>
+            )}
           </div>
         </div>
       );
     }
 
     if (item.item_type === "PROFILE_THEME") {
-      const primary = item.metadata?.primary || "#F465AC";
-      const secondary = item.metadata?.secondary || "#7B63FF";
+      const primary = safeColor(item.metadata?.primary) ?? "#F465AC";
+      const secondary = safeColor(item.metadata?.secondary) ?? "#7B63FF";
 
       return (
         <div className="h-24 bg-slate-50 flex flex-col justify-between p-3 border-b border-slate-200">
@@ -80,8 +89,8 @@ export const CustomizationCard: React.FC<CustomizationCardProps> = ({
     }
 
     if (item.item_type === "CHAT_BUBBLE") {
-      const border = item.metadata?.border || "#F465AC";
-      const tint = item.metadata?.tint || "rgba(244, 101, 172, 0.1)";
+      const border = safeColor(item.metadata?.border) ?? "#F465AC";
+      const tint = safeColor(item.metadata?.tint) ?? "#FCE7F3";
 
       return (
         <div className="h-24 bg-slate-50 flex items-center justify-center p-3 border-b border-slate-200">
@@ -98,8 +107,57 @@ export const CustomizationCard: React.FC<CustomizationCardProps> = ({
       );
     }
 
+    if (item.item_type === "WALLPAPER") {
+      return (
+        <div className="h-24 border-b border-slate-200 bg-slate-100 overflow-hidden">
+          {item.image ? (
+            <img src={item.image} alt={`Prévia: ${item.name}`} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-pink-600" />
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (item.item_type === "ACCENT_COLOR" || item.item_type === "NAME_COLOR") {
+      const color = safeColor(item.metadata?.color) ?? "#F465AC";
+      return (
+        <div className="h-24 bg-slate-50 flex items-center justify-center gap-3 p-3 border-b border-slate-200">
+          <span className="w-9 h-9 rounded-full border border-slate-300" style={{ backgroundColor: color }} title={color} />
+          {item.item_type === "ACCENT_COLOR" ? (
+            <span
+              className="px-3 py-1 text-xs font-bold rounded-sm border"
+              style={{ backgroundColor: color, borderColor: color, color: "#fff", textShadow: "0 0 2px rgba(0,0,0,0.5)" }}
+            >
+              Botão
+            </span>
+          ) : (
+            <span className="text-sm font-bold" style={{ color }}>
+              {previewName}
+            </span>
+          )}
+        </div>
+      );
+    }
+
+    if (item.item_type === "SECTION") {
+      return (
+        <div className="h-24 bg-slate-50 flex items-center justify-center p-3 border-b border-slate-200">
+          <div className="w-full max-w-[170px] bg-white border border-slate-200 rounded-sm shadow-2xs">
+            <div className="px-2 py-1 border-b border-slate-200 text-[10px] font-bold text-slate-700">Minha seção</div>
+            <div className="p-2 space-y-1">
+              <span className="block h-1.5 w-full bg-slate-200 rounded-sm" />
+              <span className="block h-1.5 w-2/3 bg-slate-200 rounded-sm" />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     if (item.item_type === "BADGE") {
-      const badgeColor = item.metadata?.badge_color || "#7B63FF";
+      const badgeColor = safeColor(item.metadata?.badge_color) ?? "#7B63FF";
 
       return (
         <div className="h-24 bg-slate-50 flex items-center justify-center p-3 border-b border-slate-200">
@@ -108,7 +166,7 @@ export const CustomizationCard: React.FC<CustomizationCardProps> = ({
             style={{ backgroundColor: badgeColor }}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
-            {item.name}
+            {(item.metadata?.label as string | undefined) ?? item.name}
           </span>
         </div>
       );
@@ -133,6 +191,12 @@ export const CustomizationCard: React.FC<CustomizationCardProps> = ({
         return "Insígnia";
       case "NAME_COLOR":
         return "Cor de Nome";
+      case "WALLPAPER":
+        return "Papel de Parede";
+      case "ACCENT_COLOR":
+        return "Cor de Destaque";
+      case "SECTION":
+        return "Seção do Perfil";
       default:
         return "Item";
     }
@@ -186,6 +250,7 @@ export const CustomizationCard: React.FC<CustomizationCardProps> = ({
         <div>
           {isOwned ? (
             <button
+              disabled={busy}
               onClick={() => onEquipToggle(item)}
               className={`px-3 py-1 text-xs font-bold rounded-sm transition-all shadow-xs ${
                 isEquipped
@@ -198,7 +263,7 @@ export const CustomizationCard: React.FC<CustomizationCardProps> = ({
           ) : (
             <button
               onClick={() => onPurchase(item)}
-              disabled={!canAfford}
+              disabled={busy || !canAfford}
               className={`px-3 py-1 text-xs font-bold rounded-sm transition-all shadow-xs ${
                 !canAfford
                   ? "bg-slate-200 text-slate-400 cursor-not-allowed"

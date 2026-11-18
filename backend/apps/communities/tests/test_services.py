@@ -1,4 +1,5 @@
 import pytest
+from django.utils import timezone
 
 from apps.accounts.tests.factories import UserFactory
 from apps.communities.models import Community, CommunityMember, MemberRole, MemberState
@@ -120,13 +121,11 @@ def test_update_community_success():
         community=community,
         name="New Name",
         description="New Desc",
-        customization_json={"primary": "#ff00ff"},
     )
 
     community.refresh_from_db()
     assert updated.name == "New Name"
     assert updated.description == "New Desc"
-    assert updated.customization_json == {"primary": "#ff00ff"}
 
 
 def test_update_guidelines_leader_only():
@@ -364,3 +363,108 @@ def test_archive_community():
     with pytest.raises(DomainError) as exc_info:
         join_community(user=other_user, community=community)
     assert exc_info.value.code == "community_archived"
+
+
+def test_banned_member_cannot_leave_and_ban_row_stays():
+    community = CommunityFactory(member_count=1)
+    user = UserFactory()
+    CommunityMemberFactory(community=community, user=user, current_state=MemberState.BANNED)
+
+    with pytest.raises(DomainError) as exc:
+        leave_community(user=user, community=community)
+
+    assert exc.value.code == "member_banned"
+    assert CommunityMember.objects.filter(community=community, user=user).exists()
+    community.refresh_from_db()
+    assert community.member_count == 1
+
+
+def test_banned_member_cannot_rejoin_after_failed_leave():
+    community = CommunityFactory()
+    user = UserFactory()
+    CommunityMemberFactory(community=community, user=user, current_state=MemberState.BANNED)
+    with pytest.raises(DomainError):
+        leave_community(user=user, community=community)
+    with pytest.raises(DomainError):
+        join_community(user=user, community=community)
+
+
+def test_community_customization_json_is_rejected_until_purchases_exist():
+    leader = UserFactory()
+    community = CommunityFactory()
+    CommunityMemberFactory(community=community, user=leader, role=MemberRole.LEADER)
+
+    with pytest.raises(DomainError) as exc:
+        update_community(
+            actor=leader, community=community, customization_json={"primary": "#ff00ff"}
+        )
+    assert exc.value.code == "customization_not_available"
+
+    # Clearing it is still allowed
+    update_community(actor=leader, community=community, customization_json={})
+
+
+def test_create_community_rejects_free_customization():
+    creator = UserFactory()
+    Wallet.objects.create(user=creator, soap_balance=1000)
+    with pytest.raises(DomainError) as exc:
+        create_community(
+            creator=creator,
+            commname="styled_comm",
+            name="Styled",
+            customization_json={"primary": "#ff00ff"},
+        )
+    assert exc.value.code == "customization_not_available"
+    assert not Community.objects.filter(commname="styled_comm").exists()
+    creator.wallet.refresh_from_db()
+    assert creator.wallet.soap_balance == 1000
+
+
+@pytest.mark.parametrize("operation", ["update", "guidelines", "archive", "moderate", "promote"])
+def test_blocked_community_rejects_management_by_leader(operation):
+    leader, member = UserFactory(), UserFactory()
+    community = CommunityFactory(blocked_at=timezone.now())
+    CommunityMemberFactory(community=community, user=leader, role=MemberRole.LEADER)
+    CommunityMemberFactory(community=community, user=member)
+
+    calls = {
+        "update": lambda: update_community(actor=leader, community=community, name="x"),
+        "guidelines": lambda: update_guidelines(actor=leader, community=community, guidelines="x"),
+        "archive": lambda: archive_community(actor=leader, community=community),
+        "moderate": lambda: moderate_member(
+            actor=leader,
+            community=community,
+            target_username=member.username,
+            new_state=MemberState.SILENCED,
+        ),
+        "promote": lambda: promote_member(
+            actor=leader, community=community, target_username=member.username
+        ),
+    }
+    with pytest.raises(DomainError) as exc:
+        calls[operation]()
+    assert exc.value.code == "community_blocked"
+
+
+def test_staff_can_still_manage_a_blocked_community():
+    staff = UserFactory(is_staff=True)
+    community = CommunityFactory(blocked_at=timezone.now())
+    updated = update_community(actor=staff, community=community, name="Renamed by staff")
+    assert updated.name == "Renamed by staff"
+
+
+def test_member_count_stays_consistent_across_ban_unban_cycle():
+    leader, member = UserFactory(), UserFactory()
+    community = CommunityFactory(member_count=2)
+    CommunityMemberFactory(community=community, user=leader, role=MemberRole.LEADER)
+    CommunityMemberFactory(community=community, user=member)
+
+    for state in (MemberState.BANNED, MemberState.BANNED, MemberState.ACTIVE):
+        moderate_member(
+            actor=leader,
+            community=community,
+            target_username=member.username,
+            new_state=state,
+        )
+    community.refresh_from_db()
+    assert community.member_count == 2

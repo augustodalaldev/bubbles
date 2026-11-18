@@ -1,9 +1,9 @@
 from django.contrib.auth import get_user_model
-from django.db.models import Q, QuerySet
+from django.db.models import Case, IntegerField, Q, QuerySet, When
 
 from apps.core.exceptions import DomainError
 
-from .models import Community, CommunityMember, MemberRole, MemberState
+from .models import Community, CommunityMember, MemberRole, MemberState, not_moderated_q
 
 User = get_user_model()
 
@@ -11,10 +11,19 @@ User = get_user_model()
 def get_community_by_commname(*, commname: str) -> Community:
     """Retrieve community by its unique handle."""
     clean_commname = commname.strip().lower()
-    community = Community.objects.filter(commname__iexact=clean_commname).first()
+    community = Community.objects.filter(commname=clean_commname, deleted_at__isnull=True).first()
     if not community:
         raise DomainError("Community not found.", code="community_not_found", http_status=404)
     return community
+
+
+def assert_community_visible(*, community: Community, viewer: User) -> None:
+    """A banned/suspended community is only visible to staff and its own (non-banned) members."""
+    if not community.is_moderated or getattr(viewer, "is_staff", False):
+        return
+    membership = get_community_membership(community=community, user=viewer)
+    if membership is None or membership.current_state == MemberState.BANNED:
+        raise DomainError("Community not found.", code="community_not_found", http_status=404)
 
 
 def get_community_membership(*, community: Community, user: User) -> CommunityMember | None:
@@ -42,7 +51,7 @@ def compute_community_permissions(
     is_leader = is_member and membership.role == MemberRole.LEADER and is_active
     is_admin = is_member and membership.role == MemberRole.COMM_ADMIN and is_active
     is_archived = community.is_archived
-    is_blocked = getattr(community, "is_blocked", False)
+    is_blocked = getattr(community, "is_moderated", False)
 
     return {
         "can_edit": bool(
@@ -51,11 +60,11 @@ def compute_community_permissions(
         "can_edit_guidelines": bool(is_staff or (is_leader and not is_archived and not is_blocked)),
         "can_manage_members": bool(is_staff or ((is_leader or is_admin) and not is_blocked)),
         "can_manage_admins": bool(is_staff or (is_leader and not is_blocked)),
-        "can_transfer_leadership": bool(
-            is_staff or (is_leader and not is_archived and not is_blocked)
-        ),
+        "can_transfer_leadership": bool(is_staff or (is_leader and not is_archived)),
         "can_archive": bool((is_staff or is_leader) and not is_archived and not is_blocked),
+        "can_delete": bool(is_leader and not is_blocked),
         "can_view_wallet": bool(is_staff or is_leader or is_admin),
+        "can_customize": bool((is_leader or is_admin) and not is_archived and not is_blocked),
         "can_join": bool(
             is_authenticated
             and not is_member
@@ -63,7 +72,7 @@ def compute_community_permissions(
             and not is_archived
             and not is_blocked
         ),
-        "can_leave": bool(is_member and not is_leader and not is_blocked),
+        "can_leave": bool(is_member and not is_leader and not is_banned),
     }
 
 
@@ -74,10 +83,12 @@ def list_communities(
     mine: bool = False,
 ) -> QuerySet[Community]:
     """List or search communities (RF004)."""
-    qs = Community.objects.all().order_by("-created_at")
+    qs = Community.objects.filter(deleted_at__isnull=True).order_by("-created_at")
 
-    if not getattr(user, "is_staff", False):
-        qs = qs.filter(blocked_at__isnull=True)
+    # "Mine" keeps the person's own moderated communities (read-only, with a notice) so a member
+    # can still open or leave them; every other listing hides them.
+    if not getattr(user, "is_staff", False) and not (mine and user.is_authenticated):
+        qs = qs.filter(not_moderated_q())
 
     if mine and user.is_authenticated:
         member_comm_ids = (
@@ -99,8 +110,23 @@ def list_community_members(
     community: Community,
     state: str | None = None,
 ) -> QuerySet[CommunityMember]:
-    """List members of a community, selecting user to avoid N+1."""
-    qs = community.memberships.select_related("user").order_by("-joined_at")
+    """List members of a community, selecting user to avoid N+1.
+
+    Leader first, then admins, then regular members (newest first inside each group), so the
+    moderation team is always on the first page.
+    """
+    role_rank = Case(
+        When(role=MemberRole.LEADER, then=0),
+        When(role=MemberRole.COMM_ADMIN, then=1),
+        default=2,
+        output_field=IntegerField(),
+    )
+    qs = (
+        community.memberships.select_related("user")
+        .exclude(user__status="BANNED")
+        .annotate(role_rank=role_rank)
+        .order_by("role_rank", "-joined_at", "-id")
+    )
     if state:
         clean_state = state.strip().upper()
         if clean_state in MemberState.values:

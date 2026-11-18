@@ -1,9 +1,15 @@
-import React, { useState, useMemo } from "react";
-import { CustomizationItem, User } from "@/types";
-import { MOCK_STORE_ITEMS, MOCK_USER } from "@/features/profile/mockData";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { paths } from "@/routes";
+import { CustomizationItem } from "@/types";
 import { CustomizationCard } from "./CustomizationCard";
 import { LiveProfilePreview } from "./LiveProfilePreview";
 import { SoapIcon } from "@/components/SoapIcon";
+import { ErrorState, LoadingState } from "@/components/StateViews";
+import { useAuthStore } from "@/features/auth/authStore";
+import { equipSlots, listItems, purchaseItem } from "@/services/customization";
+import { errorMessage } from "@/services/errors";
+import { BADGE_SLOTS } from "@/utils/theme";
 import { 
   Store, 
   Compass, 
@@ -13,167 +19,127 @@ import {
   Package,
   Layers
 } from "lucide-react";
-import confetti from "canvas-confetti";
 
 interface StoreViewProps {
-  onNavigateToView?: (view: string) => void;
-  onNavigateToProfile?: () => void;
 }
 
 export const StoreView: React.FC<StoreViewProps> = ({
-  onNavigateToView,
-  onNavigateToProfile,
 }) => {
-  const [currentUser, setCurrentUser] = useState<User>(MOCK_USER);
-  const [items, setItems] = useState<CustomizationItem[]>(MOCK_STORE_ITEMS);
+  const currentUser = useAuthStore((s) => s.user)!;
+  const economy = useAuthStore((s) => s.economy);
+  const refreshUser = useAuthStore((s) => s.refreshUser);
+
+  const [items, setItems] = useState<CustomizationItem[]>([]);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"catalog" | "inventory">("catalog");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [notice, setNotice] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
-  // Trigger soap confetti / bubbles shower
-  const triggerConfetti = () => {
-    confetti({
-      particleCount: 20,
-      angle: 90,
-      spread: 60,
-      startVelocity: 16,
-      decay: 0.92,
-      gravity: -0.2, // Rising bubble effect
-      colors: ["#F465AC", "#7B63FF", "#FFFFFF", "#4BF521"],
-    });
+  const passiveHint = economy
+    ? `+${economy.default_passive_earn_rate} a cada ${economy.passive_interval_minutes} min`
+    : "";
+
+  const showNotice = (message: string, type: "success" | "error") => {
+    setNotice({ message, type });
+    window.setTimeout(() => setNotice(null), 3500);
   };
 
-  // Handle Purchase of item with soap
-  const handlePurchase = (item: CustomizationItem) => {
-    const userSoap = currentUser.soap_balance ?? 0;
-    if (userSoap < item.price) {
-      setNotice({
-        message: `Saldo insuficiente (${userSoap} soap). São necessários ${item.price} soap.`,
-        type: "error",
-      });
-      setTimeout(() => setNotice(null), 3000);
+  const loadItems = useCallback(async () => {
+    try {
+      const data = await listItems();
+      setItems(data.results);
+      setStatus("ready");
+    } catch (err) {
+      setLoadError(errorMessage(err));
+      setStatus("error");
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadItems();
+  }, [loadItems]);
+
+  const handlePurchase = async (item: CustomizationItem) => {
+    setBusyId(item.id);
+    try {
+      await purchaseItem(item.id);
+      await Promise.all([loadItems(), refreshUser()]);
+      showNotice(`Você adquiriu "${item.name}". O item já está no seu inventário.`, "success");
+    } catch (err) {
+      showNotice(errorMessage(err), "error");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // Slot names are the lower-cased item types; `null` unequips the slot.
+  const handleEquipToggle = async (item: CustomizationItem) => {
+    // One change at a time: the slot is chosen from the current state, which an in-flight request
+    // is about to change.
+    if (busyId !== null) return;
+    // A profile shows up to three badges (badge, badge_2, badge_3); every other type has one slot.
+    const equipped = (useAuthStore.getState().user?.customization_json ?? {}) as Record<string, { id?: number } | undefined>;
+    const candidates: string[] = item.item_type === "BADGE" ? [...BADGE_SLOTS] : [item.item_type.toLowerCase()];
+    const current = candidates.find((s) => equipped[s]?.id === item.id);
+    const free = candidates.find((s) => !equipped[s]);
+    const target = item.is_equipped ? (current ?? candidates[0]) : (free ?? (item.item_type === "BADGE" ? null : candidates[0]));
+    if (!target) {
+      showNotice("Você já exibe 3 selos. Desequipe um antes de equipar outro.", "error");
       return;
     }
-
-    triggerConfetti();
-
-    // Deduct soap
-    setCurrentUser((prev) => ({
-      ...prev,
-      soap_balance: Math.max(0, (prev.soap_balance ?? 0) - item.price),
-    }));
-
-    // Mark as owned
-    setItems((prev) =>
-      prev.map((i) => (i.id === item.id ? { ...i, is_owned: true } : i))
-    );
-
-    setNotice({
-      message: `Você adquiriu "${item.name}" por ${item.price} soap! O item já está no seu inventário.`,
-      type: "success",
-    });
-    setTimeout(() => setNotice(null), 3500);
-  };
-
-  // Handle Equip / Unequip Toggle
-  const handleEquipToggle = (item: CustomizationItem) => {
-    const slotKeyMap: Record<string, string> = {
-      AVATAR_FRAME: "avatar_frame",
-      PROFILE_THEME: "profile_theme",
-      CHAT_BUBBLE: "chat_bubble",
-      BADGE: "badge",
-    };
-
-    const slotKey = slotKeyMap[item.item_type] || "other";
-    const currentlyEquipped = item.is_equipped;
-
-    if (currentlyEquipped) {
-      // Unequip
-      setCurrentUser((prev) => {
-        const nextCustomization = { ...(prev.customization_json || {}) };
-        delete nextCustomization[slotKey];
-        return {
-          ...prev,
-          customization_json: nextCustomization,
-        };
-      });
-
-      setItems((prev) =>
-        prev.map((i) => (i.id === item.id ? { ...i, is_equipped: false } : i))
+    setBusyId(item.id);
+    try {
+      await equipSlots({ [target]: item.is_equipped ? null : item.id });
+      await Promise.all([loadItems(), refreshUser()]);
+      showNotice(
+        item.is_equipped ? `"${item.name}" foi desequipado.` : `"${item.name}" equipado com sucesso.`,
+        "success"
       );
-
-      setNotice({
-        message: `Item "${item.name}" foi desequipado.`,
-        type: "success",
-      });
-    } else {
-      // Equip (replaces anything in the same slot)
-      setCurrentUser((prev) => ({
-        ...prev,
-        customization_json: {
-          ...(prev.customization_json || {}),
-          [slotKey]: {
-            id: item.id,
-            code: item.code,
-            name: item.name,
-            metadata: item.metadata,
-          },
-        },
-      }));
-
-      setItems((prev) =>
-        prev.map((i) => {
-          if (i.item_type === item.item_type) {
-            return { ...i, is_equipped: i.id === item.id };
-          }
-          return i;
-        })
-      );
-
-      setNotice({
-        message: `"${item.name}" equipado com sucesso!`,
-        type: "success",
-      });
+    } catch (err) {
+      showNotice(errorMessage(err), "error");
+    } finally {
+      setBusyId(null);
     }
-
-    setTimeout(() => setNotice(null), 3000);
   };
 
-  // Filtered Items by tab and category
   const filteredItems = useMemo(() => {
     let list = items;
-
-    if (activeTab === "inventory") {
-      list = list.filter((i) => i.is_owned);
-    }
-
-    if (selectedCategory !== "ALL") {
-      list = list.filter((i) => i.item_type === selectedCategory);
-    }
-
+    if (activeTab === "inventory") list = list.filter((i) => i.is_owned);
+    if (selectedCategory !== "ALL") list = list.filter((i) => i.item_type === selectedCategory);
     return list;
   }, [items, activeTab, selectedCategory]);
 
   const ownedCount = items.filter((i) => i.is_owned).length;
   const equippedCount = items.filter((i) => i.is_equipped).length;
 
+  if (status === "loading") return <LoadingState label="Carregando a loja..." />;
+  if (status === "error") {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-10">
+        <ErrorState message={loadError ?? "Não foi possível carregar a loja."} onRetry={() => void loadItems()} />
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-3 h-[calc(100vh-3.5rem)] overflow-hidden">
+    <div className="max-w-7xl mx-auto px-4 py-3 lg:h-[calc(100vh-3.5rem)] lg:overflow-hidden">
       
       {/* 3-Column Classic Grid (Left 3 cols, Center 6 cols, Right 3 cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start h-full">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start lg:h-full">
         
         {/* Left Column (3 Cols) - Static Sidebar */}
-        <div className="lg:col-span-3 h-full overflow-y-auto scrollbar-none hidden lg:block space-y-4">
+        <div className="lg:col-span-3 lg:h-full lg:overflow-y-auto scrollbar-none hidden lg:block space-y-4">
           
           {/* Soap Wallet Box */}
           <div className="panel-classic">
             <div className="panel-classic-header flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-                Minha Carteira
+              <span className="text-xs font-bold text-slate-900">
+                Minha carteira
               </span>
               <span className="text-[10px] font-semibold text-pink-700 bg-pink-50 px-1.5 py-0.2 rounded-sm border border-pink-200">
-                +5/dia
+                {passiveHint}
               </span>
             </div>
             <div className="p-3">
@@ -203,32 +169,32 @@ export const StoreView: React.FC<StoreViewProps> = ({
           {/* Quick Navigation Panel */}
           <div className="panel-classic">
             <div className="panel-classic-header">
-              <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+              <span className="text-xs font-bold text-slate-900">
                 Navegação
               </span>
             </div>
             <div className="p-1 text-xs">
-              <button
-                onClick={() => onNavigateToView?.("feed")}
+              <Link to={paths.home}
+                
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left cursor-pointer"
               >
                 <Compass className="w-4 h-4 text-slate-400" />
-                <span>Início (Feed)</span>
-              </button>
-              <button
-                onClick={onNavigateToProfile}
+                <span>Início (feed)</span>
+              </Link>
+              <Link to={paths.profile(currentUser.username)}
+                
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left cursor-pointer"
               >
                 <UserIcon className="w-4 h-4 text-slate-400" />
-                <span>Meu Perfil</span>
-              </button>
-              <button
-                onClick={() => onNavigateToView?.("communities")}
+                <span>Meu perfil</span>
+              </Link>
+              <Link to={paths.communities}
+                
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-sm transition-colors text-left cursor-pointer"
               >
                 <Layers className="w-4 h-4 text-slate-400" />
                 <span>Comunidades</span>
-              </button>
+              </Link>
             </div>
           </div>
 
@@ -247,7 +213,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
         </div>
 
         {/* Center Lane (6 Cols) - THE ONLY SCROLLABLE AREA */}
-        <div className="lg:col-span-6 min-w-0 h-full overflow-y-auto pr-1.5 scrollbar-thin">
+        <div className="lg:col-span-6 min-w-0 lg:h-full lg:overflow-y-auto pr-1.5 scrollbar-thin">
           
           {/* Notification Feedback Toast */}
           {notice && (
@@ -278,7 +244,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                   </h1>
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  Personalize sua presença visual na rede com molduras translúcidas, temas e insígnias.
+                  Personalize sua presença com molduras, temas, selos (até 3), papéis de parede, cores de destaque e uma seção só sua.
                 </p>
               </div>
 
@@ -291,7 +257,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
               </div>
             </div>
 
-            {/* Main Tabs: Catálogo vs Meu Inventário */}
+            {/* Main Tabs: Catálogo vs Meu inventário */}
             <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2">
               <div className="flex items-center gap-1">
                 <button
@@ -302,7 +268,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-200"
                   }`}
                 >
-                  Catálogo da Loja ({items.length})
+                  Catálogo da loja ({items.length})
                 </button>
                 <button
                   onClick={() => setActiveTab("inventory")}
@@ -312,7 +278,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-200"
                   }`}
                 >
-                  Meu Inventário ({ownedCount})
+                  Meu inventário ({ownedCount})
                 </button>
               </div>
 
@@ -331,6 +297,10 @@ export const StoreView: React.FC<StoreViewProps> = ({
                 { id: "PROFILE_THEME", label: "Temas de Perfil" },
                 { id: "CHAT_BUBBLE", label: "Bolhas de Chat" },
                 { id: "BADGE", label: "Insígnias" },
+                { id: "NAME_COLOR", label: "Cores de Nome" },
+                { id: "WALLPAPER", label: "Papéis de Parede" },
+                { id: "ACCENT_COLOR", label: "Cores de Destaque" },
+                { id: "SECTION", label: "Seção do Perfil" },
               ].map((cat) => (
                 <button
                   key={cat.id}
@@ -354,9 +324,12 @@ export const StoreView: React.FC<StoreViewProps> = ({
                 <CustomizationCard
                   key={item.id}
                   item={item}
-                  currentUser={currentUser}
-                  onPurchase={handlePurchase}
-                  onEquipToggle={handleEquipToggle}
+                  balance={currentUser.soap_balance ?? 0}
+                  previewPhoto={currentUser.profile_photo}
+                  previewName={currentUser.name}
+                  busy={busyId === item.id}
+                  onPurchase={(i) => void handlePurchase(i)}
+                  onEquipToggle={(i) => void handleEquipToggle(i)}
                 />
               ))}
             </div>
@@ -382,7 +355,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
         </div>
 
         {/* Right Column (3 Cols) - Static Sidebar */}
-        <div className="lg:col-span-3 h-full overflow-y-auto scrollbar-none hidden lg:block space-y-4">
+        <div className="lg:col-span-3 lg:h-full lg:overflow-y-auto scrollbar-none hidden lg:block space-y-4">
           
           {/* Live Profile Preview with Active Equips */}
           <LiveProfilePreview currentUser={currentUser} />
@@ -390,8 +363,8 @@ export const StoreView: React.FC<StoreViewProps> = ({
           {/* How Soap Works Box */}
           <div className="panel-classic bg-slate-50/50">
             <div className="panel-classic-header">
-              <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-                Como Conseguir Soap
+              <span className="text-xs font-bold text-slate-900">
+                Como conseguir soap
               </span>
             </div>
             <div className="p-3 text-xs text-slate-600 space-y-2">
@@ -400,7 +373,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                   1
                 </span>
                 <span>
-                  <strong>Geração Diária:</strong> Receba +5 soap automaticamente todos os dias ao acessar a rede.
+                  <strong>Ganho passivo:</strong> {economy ? `receba ${economy.default_passive_earn_rate} soap a cada ${economy.passive_interval_minutes} minutos de uso, até ${economy.passive_daily_cap} por dia.` : "receba soap enquanto usa a rede."}
                 </span>
               </div>
               <div className="flex items-start gap-2">

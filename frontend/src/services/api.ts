@@ -1,50 +1,76 @@
-import axios from "axios";
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+
+/**
+ * The access token lives only in memory (docs/DECISIONS.md): an XSS cannot read it from
+ * storage. After a page reload the session is recovered through the httpOnly refresh cookie.
+ */
+let accessToken: string | null = null;
+let onSessionExpired: (() => void) | null = null;
+
+export const setAccessToken = (token: string | null) => {
+  accessToken = token;
+};
+export const getAccessToken = () => accessToken;
+export const setSessionExpiredHandler = (handler: (() => void) | null) => {
+  onSessionExpired = handler;
+};
 
 export const api = axios.create({
   baseURL: "/api/v1",
-  headers: {
-    "Content-Type": "application/json",
-  },
   withCredentials: true,
 });
 
-// Request interceptor to attach JWT access token from localStorage
+/**
+ * Endpoints that must not receive a (possibly expired) Bearer header and must not trigger a
+ * refresh on 401. `/auth/heartbeat/` is NOT one of them: it needs the signed-in user.
+ */
+const PUBLIC_AUTH_URLS = ["/auth/login/", "/auth/register/", "/auth/refresh/", "/auth/logout/"];
+const isAuthUrl = (url?: string) => !!url && PUBLIC_AUTH_URLS.some((p) => url.startsWith(p));
+
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("bubbles_access_token");
-  if (token && config.headers) {
-    config.headers.Authorization = `Bearer ${token}`;
+  // Auth endpoints must not receive a (possibly expired) Bearer header.
+  if (accessToken && !isAuthUrl(config.url)) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
   }
   return config;
 });
 
-// Response interceptor to auto-refresh expired JWT tokens
+let refreshing: Promise<string | null> | null = null;
+
+/** Single-flight refresh: concurrent callers share one request, so the rotating cookie is used once. */
+export function refreshAccessToken(): Promise<string | null> {
+  if (!refreshing) {
+    refreshing = axios
+      .post<{ access: string }>("/api/v1/auth/refresh/", {}, { withCredentials: true })
+      .then((response) => {
+        accessToken = response.data.access;
+        return accessToken;
+      })
+      .catch(() => {
+        accessToken = null;
+        return null;
+      })
+      .finally(() => {
+        refreshing = null;
+      });
+  }
+  return refreshing;
+}
+
+type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean };
+
 api.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-    if (
-      error.response?.status === 401 &&
-      !originalRequest._retry &&
-      !originalRequest.url?.includes("/auth/login") &&
-      !originalRequest.url?.includes("/auth/refresh")
-    ) {
-      originalRequest._retry = true;
-      try {
-        const refreshResponse = await axios.post(
-          "/api/v1/auth/refresh/",
-          {},
-          { withCredentials: true }
-        );
-        const newAccess = refreshResponse.data?.access;
-        if (newAccess) {
-          localStorage.setItem("bubbles_access_token", newAccess);
-          originalRequest.headers.Authorization = `Bearer ${newAccess}`;
-          return api(originalRequest);
-        }
-      } catch (refreshErr) {
-        localStorage.removeItem("bubbles_access_token");
-        // Optional: redirect to login or trigger auth store reset
+  async (error: AxiosError) => {
+    const original = error.config as RetriableConfig | undefined;
+    if (error.response?.status === 401 && original && !original._retried && !isAuthUrl(original.url)) {
+      original._retried = true;
+      const token = await refreshAccessToken();
+      if (token) {
+        original.headers.Authorization = `Bearer ${token}`;
+        return api(original);
       }
+      onSessionExpired?.();
     }
     return Promise.reject(error);
   }

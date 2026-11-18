@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from apps.accounts.serializers import PublicUserSerializer
+from apps.core.fields import SafeImageField
 
 from .models import Community, CommunityMember, MemberState
 from .selectors import compute_community_permissions, get_community_membership
@@ -15,16 +16,18 @@ class CommunityCreateSerializer(serializers.Serializer):
     guidelines = serializers.CharField(
         max_length=2000, required=False, allow_blank=True, default=""
     )
-    community_photo = serializers.ImageField(required=False, allow_null=True, default=None)
-    banner_photo = serializers.ImageField(required=False, allow_null=True, default=None)
+    community_photo = SafeImageField(required=False, allow_null=True, default=None)
+    banner_photo = SafeImageField(required=False, allow_null=True, default=None)
     customization_json = serializers.JSONField(required=False, default=dict)
 
 
 class CommunityUpdateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=60, required=False)
     description = serializers.CharField(max_length=500, required=False, allow_blank=True)
-    community_photo = serializers.ImageField(required=False, allow_null=True)
-    banner_photo = serializers.ImageField(required=False, allow_null=True)
+    community_photo = SafeImageField(required=False, allow_null=True)
+    banner_photo = SafeImageField(required=False, allow_null=True)
+    remove_community_photo = serializers.BooleanField(required=False)
+    remove_banner_photo = serializers.BooleanField(required=False)
     customization_json = serializers.JSONField(required=False)
 
 
@@ -39,19 +42,12 @@ class MyMembershipSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class CommunityPermissionsSerializer(serializers.Serializer):
-    can_edit = serializers.BooleanField()
-    can_edit_guidelines = serializers.BooleanField()
-    can_manage_members = serializers.BooleanField()
-    can_manage_admins = serializers.BooleanField()
-    can_transfer_leadership = serializers.BooleanField()
-    can_archive = serializers.BooleanField()
-    can_view_wallet = serializers.BooleanField()
-    can_join = serializers.BooleanField()
-    can_leave = serializers.BooleanField()
-
-
 class CommunityListSerializer(serializers.ModelSerializer):
+    moderation_status = serializers.SerializerMethodField()
+
+    def get_moderation_status(self, obj: Community) -> str | None:
+        return obj.moderation_status
+
     class Meta:
         model = Community
         fields = [
@@ -65,11 +61,13 @@ class CommunityListSerializer(serializers.ModelSerializer):
             "member_count",
             "created_at",
             "is_archived",
+            "moderation_status",
         ]
         read_only_fields = fields
 
 
 class CommunityDetailSerializer(serializers.ModelSerializer):
+    moderation = serializers.SerializerMethodField()
     my_membership = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
 
@@ -88,10 +86,22 @@ class CommunityDetailSerializer(serializers.ModelSerializer):
             "created_at",
             "is_archived",
             "archived_at",
+            "moderation",
             "my_membership",
             "permissions",
         ]
         read_only_fields = fields
+
+    def get_moderation(self, obj: Community) -> dict | None:
+        """Banner data for a suspended/banned community (only people who can see the page)."""
+        status = obj.moderation_status
+        if status is None:
+            return None
+        return {
+            "status": status,
+            "reason": obj.moderation_reason,
+            "suspended_until": obj.suspended_until if status == "SUSPENDED" else None,
+        }
 
     def get_my_membership(self, obj: Community) -> dict | None:
         request = self.context.get("request")
@@ -123,6 +133,10 @@ class MemberModerateSerializer(serializers.Serializer):
 
 class TransferLeadershipSerializer(serializers.Serializer):
     new_leader_username = serializers.CharField(required=True)
+
+
+class DeleteCommunitySerializer(serializers.Serializer):
+    confirm_commname = serializers.CharField(required=True)
 
 
 class CommunityWalletSerializer(serializers.Serializer):

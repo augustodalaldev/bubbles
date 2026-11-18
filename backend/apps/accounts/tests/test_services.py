@@ -176,14 +176,14 @@ def test_update_profile_success():
         name="New Name",
         description="New Desc",
         birth_date=new_birth_date,
-        customization_json={"border_color": "bubble-blue"},
+        customization_json={},
     )
 
     user.refresh_from_db()
     assert updated.name == "New Name"
     assert updated.description == "New Desc"
     assert updated.birth_date == new_birth_date
-    assert updated.customization_json == {"border_color": "bubble-blue"}
+    assert updated.customization_json == {}
 
 
 def test_update_profile_validations():
@@ -229,7 +229,7 @@ def test_delete_account_success():
     # User anonymized
     assert user.username == f"deleted_{user.id}"
     assert user.email == f"deleted_{user.id}@deleted.invalid"
-    assert user.name == "Deleted User"
+    assert user.name == "Conta excluída"
     assert user.description == ""
     assert user.is_active is False
     assert user.deleted_at is not None

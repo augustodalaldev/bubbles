@@ -12,7 +12,8 @@ env = environ.Env()
 environ.Env.read_env(REPO_ROOT / ".env")
 
 SECRET_KEY = env("DJANGO_SECRET_KEY")
-DEBUG = True
+# Off unless an environment settings module (dev/test) turns it on.
+DEBUG = False
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 
 DJANGO_APPS = [
@@ -95,7 +96,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-LANGUAGE_CODE = "en-us"
+LANGUAGE_CODE = "pt-br"  # Django/DRF/simplejwt built-in messages come out in Portuguese
 TIME_ZONE = "America/Sao_Paulo"  # stored as UTC, displayed in local time
 USE_I18N = True
 USE_TZ = True
@@ -120,9 +121,11 @@ STORAGES = {
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }
 
-# Upload Limits: Support high-resolution photos up to 10MB per file
-DATA_UPLOAD_MAX_MEMORY_SIZE = 15 * 1024 * 1024  # 15 MB request payload ceiling
-FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB per uploaded photo
+# Uploads: the 10 MB per-image cap is enforced by apps.core.uploads.validate_image_upload
+# (via SafeImageField). FILE_UPLOAD_MAX_MEMORY_SIZE only decides when Django spills an
+# upload to a temp file, and DATA_UPLOAD_MAX_MEMORY_SIZE excludes file bodies.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 15 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -144,8 +147,10 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_THROTTLE_RATES": {
         "anon": "100/day",
-        "user": "1000/day",
+        "user": "10000/day",
         "auth": "20/minute",
+        # Every page load calls /auth/refresh/, so it gets a much higher limit than login.
+        "auth_refresh": "120/minute",
     },
 }
 

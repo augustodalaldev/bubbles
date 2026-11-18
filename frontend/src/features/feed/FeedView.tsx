@@ -1,275 +1,261 @@
-import React, { useState, useMemo } from "react";
-import { Bubblegram, Bubblepop, Community, User } from "@/types";
-import { 
-  MOCK_USER, 
-  MOCK_COMMUNITIES, 
-  MOCK_FEED_BUBBLEGRAMS, 
-  MOCK_FEED_BUBBLEPOPS, 
-  MOCK_SUGGESTED_USERS 
-} from "@/features/profile/mockData";
-import { FeedBubblepopsTray } from "./FeedBubblepopsTray";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Bubblegram, Bubblepop, Community, SearchResult } from "@/types";
+import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
+import { useAuthStore } from "@/features/auth/authStore";
+import { PostDetailModal } from "@/features/profile/PostDetailModal";
+import { getFeed, getFeedBubblepops } from "@/services/feed";
+import { listCommunities } from "@/services/communities";
+import { listInbox } from "@/services/letters";
+import { search } from "@/services/users";
+import { errorMessage } from "@/services/errors";
+import { CheckCircle2 } from "lucide-react";
 import { CreateBubblePopup } from "./CreateBubblePopup";
+import { FeedBubblepopsTray } from "./FeedBubblepopsTray";
 import { FeedItemCard } from "./FeedItemCard";
 import { FeedSidebarLeft } from "./FeedSidebarLeft";
 import { FeedSidebarRight } from "./FeedSidebarRight";
-import { PostDetailModal } from "@/features/profile/PostDetailModal";
-import { CheckCircle2, Compass, Search, X } from "lucide-react";
+import { SearchResultsPanel } from "./SearchResultsPanel";
 
 interface FeedViewProps {
-  onNavigateToProfile: () => void;
-  onNavigateToView?: (view: string) => void;
-  onSelectCommunity?: (community: Community) => void;
+  /** Search term from the URL (`?q=`). */
   searchTerm?: string;
-  onClearSearch?: () => void;
 }
 
-export const FeedView: React.FC<FeedViewProps> = ({
-  onNavigateToProfile,
-  onNavigateToView,
-  onSelectCommunity,
-  searchTerm = "",
-  onClearSearch,
-}) => {
-  const [currentUser, setCurrentUser] = useState<User>(MOCK_USER);
-  const [bubblegrams, setBubblegrams] = useState<Bubblegram[]>(MOCK_FEED_BUBBLEGRAMS);
-  const [bubblepops] = useState<Bubblepop[]>(MOCK_FEED_BUBBLEPOPS);
-  const [activeFilter, setActiveFilter] = useState<"all" | "following" | "communities" | "popular">("all");
+type FeedFilter = "all" | "following" | "communities";
 
-  // Modal inspection state
+const FILTERS: { id: FeedFilter; label: string }[] = [
+  { id: "all", label: "Todos" },
+  { id: "following", label: "Seguindo" },
+  { id: "communities", label: "Comunidades" },
+];
+
+export const FeedView: React.FC<FeedViewProps> = ({ searchTerm = "" }) => {
+  const currentUser = useAuthStore((s) => s.user)!;
+
+  const [posts, setPosts] = useState<Bubblegram[]>([]);
+  const [nextPage, setNextPage] = useState<number | null>(1);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FeedFilter>("all");
+
+  const [bubblepops, setBubblepops] = useState<Bubblepop[]>([]);
+  const [myCommunities, setMyCommunities] = useState<Community[] | null>(null);
+  const [communitiesError, setCommunitiesError] = useState<string | null>(null);
+  const [unreadLetters, setUnreadLetters] = useState(0);
+
   const [selectedPost, setSelectedPost] = useState<Bubblegram | null>(null);
   const [selectedStory, setSelectedStory] = useState<Bubblepop | null>(null);
 
-  // Handle post creation with soap deduction
-  const handlePostCreated = (newPost: Bubblegram) => {
-    setBubblegrams((prev) => [newPost, ...prev]);
-  };
+  const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
 
-  const handleDeductSoap = (amount: number) => {
-    setCurrentUser((prev) => ({
-      ...prev,
-      soap_balance: Math.max(0, (prev.soap_balance ?? 0) - amount),
-    }));
-  };
-
-  const handleDeletePost = (postId: number) => {
-    setBubblegrams((prev) => prev.filter((p) => p.id !== postId));
-  };
-
-  const handleSupportPost = (postId: number) => {
-    setBubblegrams((prev) =>
-      prev.map((p) => (p.id === postId ? { ...p, soap_count: p.soap_count + 1 } : p))
-    );
-  };
-
-  // Filtered bubblegrams based on tab and search term
-  const filteredBubblegrams = useMemo(() => {
-    let list = bubblegrams;
-
-    // Apply Tab Filter
-    if (activeFilter === "following") {
-      list = list.filter((p) => !p.is_suggested || p.user.id === currentUser.id);
-    } else if (activeFilter === "communities") {
-      list = list.filter((p) => p.community !== null);
-    } else if (activeFilter === "popular") {
-      list = [...list].sort((a, b) => b.soap_count - a.soap_count);
+  const loadFeed = useCallback(async (page: number, reset: boolean) => {
+    if (reset) setStatus("loading");
+    else setLoadingMore(true);
+    try {
+      const data = await getFeed(page);
+      // Suggestions are recomputed per page, so the same post can reappear: dedupe by id.
+      setPosts((prev) => {
+        const base = reset ? [] : prev;
+        const seen = new Set(base.map((p) => p.id));
+        return [...base, ...data.results.filter((p) => !seen.has(p.id))];
+      });
+      setNextPage(data.next ? page + 1 : null);
+      setStatus("ready");
+    } catch (err) {
+      setError(errorMessage(err));
+      if (reset) setStatus("error");
+    } finally {
+      setLoadingMore(false);
     }
+  }, []);
 
-    // Apply Search Term
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      list = list.filter(
-        (p) =>
-          p.text.toLowerCase().includes(term) ||
-          p.user.name.toLowerCase().includes(term) ||
-          p.user.username.toLowerCase().includes(term) ||
-          (p.community && p.community.name.toLowerCase().includes(term))
-      );
+  const loadSideData = useCallback(async () => {
+    setCommunitiesError(null);
+    const [pops, communities, inbox] = await Promise.allSettled([
+      getFeedBubblepops(),
+      listCommunities({ mine: true }),
+      listInbox(1),
+    ]);
+    if (pops.status === "fulfilled") setBubblepops(pops.value);
+    if (communities.status === "fulfilled") setMyCommunities(communities.value.results);
+    else setCommunitiesError(errorMessage(communities.reason));
+    if (inbox.status === "fulfilled") setUnreadLetters(inbox.value.results.filter((l) => !l.is_read).length);
+  }, []);
+
+  useEffect(() => {
+    void loadFeed(1, true);
+    void loadSideData();
+  }, [loadFeed, loadSideData]);
+
+  const term = searchTerm.trim();
+  const runSearch = useCallback(async () => {
+    setSearching(true);
+    setSearchError(null);
+    try {
+      setSearchResult(await search(term));
+    } catch (err) {
+      setSearchError(errorMessage(err));
+    } finally {
+      setSearching(false);
     }
+  }, [term]);
 
-    return list;
-  }, [bubblegrams, activeFilter, searchTerm, currentUser.id]);
+  useEffect(() => {
+    if (!term) {
+      setSearchResult(null);
+      return;
+    }
+    const timer = window.setTimeout(() => void runSearch(), 300);
+    return () => window.clearTimeout(timer);
+  }, [term, runSearch]);
+
+  const visiblePosts = useMemo(() => {
+    if (filter === "following") return posts.filter((p) => p.community === null && !p.is_suggested);
+    if (filter === "communities") return posts.filter((p) => p.community !== null);
+    return posts;
+  }, [posts, filter]);
+
+  const replacePost = (updated: Bubblegram) => {
+    setPosts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+  };
+  const removePost = (id: number) => setPosts((prev) => prev.filter((p) => p.id !== id));
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-3 h-[calc(100vh-3.5rem)] overflow-hidden">
-      
-      {/* 3-Column Classic Grid (Left 3 cols, Center 6 cols, Right 3 cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start h-full">
-        
-        {/* Left Sidebar (3 Cols) - Static / Follows the View without scroll */}
-        <div className="lg:col-span-3 h-full overflow-y-auto scrollbar-none hidden lg:block">
+    <div className="max-w-7xl mx-auto px-4 py-3 lg:h-[calc(100vh-3.5rem)] lg:overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start lg:h-full">
+        <div className="lg:col-span-3 lg:h-full lg:overflow-y-auto scrollbar-none">
           <FeedSidebarLeft
             currentUser={currentUser}
-            onNavigateToProfile={onNavigateToProfile}
-            onNavigateToView={onNavigateToView}
-            unreadLettersCount={2}
+            unreadLettersCount={unreadLetters}
           />
         </div>
 
-        {/* Center Stream (6 Cols) - THE ONLY SCROLLABLE AREA */}
-        <div className="lg:col-span-6 min-w-0 h-full overflow-y-auto pr-1.5 scrollbar-thin">
-          
-          {/* Bubblepops 24h Stories Tray */}
+        <div className="lg:col-span-6 min-w-0 lg:h-full lg:overflow-y-auto pr-1.5 scrollbar-thin">
           <FeedBubblepopsTray
             bubblepops={bubblepops}
             onSelectBubblepop={(story) => setSelectedStory(story)}
-            onOpenCreateModal={() => alert("Para publicar um Bubblepop, utilize o botão de criação no perfil.")}
           />
 
-          {/* Feed Filter Tabs & Search Indicator */}
-          <div className="panel-classic mb-4">
-            <div className="p-2 flex flex-wrap items-center justify-between gap-2">
-              
-              {/* Tab Filters */}
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setActiveFilter("all")}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-sm transition-all ${
-                    activeFilter === "all"
-                      ? "bg-pink-600 text-white shadow-xs"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                  }`}
-                >
-                  Todos
-                </button>
-                <button
-                  onClick={() => setActiveFilter("following")}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-sm transition-all ${
-                    activeFilter === "following"
-                      ? "bg-pink-600 text-white shadow-xs"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                  }`}
-                >
-                  Seguindo
-                </button>
-                <button
-                  onClick={() => setActiveFilter("communities")}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-sm transition-all ${
-                    activeFilter === "communities"
-                      ? "bg-pink-600 text-white shadow-xs"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                  }`}
-                >
-                  Comunidades
-                </button>
-                <button
-                  onClick={() => setActiveFilter("popular")}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-sm transition-all ${
-                    activeFilter === "popular"
-                      ? "bg-pink-600 text-white shadow-xs"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                  }`}
-                >
-                  Em Alta
-                </button>
-              </div>
-
-              {/* Feed Count Indicator */}
-              <div className="text-[11px] text-slate-500 font-medium">
-                {filteredBubblegrams.length} publicaç{filteredBubblegrams.length === 1 ? "ão" : "ões"}
-              </div>
-            </div>
-
-            {/* Active Search Filter Badge */}
-            {searchTerm.trim() && (
-              <div className="px-3 py-1.5 bg-pink-50 border-t border-pink-100 flex items-center justify-between text-xs text-pink-900">
-                <div className="flex items-center gap-1.5">
-                  <Search className="w-3.5 h-3.5 text-pink-600" />
-                  <span>Resultados para: <strong>"{searchTerm}"</strong></span>
+          {term ? (
+            <SearchResultsPanel
+              term={term}
+              result={searchResult}
+              error={searchError}
+              loading={searching}
+              onRetry={() => void runSearch()}
+            />
+          ) : (
+            <>
+              <div className="panel-classic mb-4">
+                <div className="p-2 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-1" role="tablist">
+                    {FILTERS.map((f) => (
+                      <button
+                        key={f.id}
+                        role="tab"
+                        aria-selected={filter === f.id}
+                        onClick={() => setFilter(f.id)}
+                        className={`px-2.5 py-1 text-xs font-semibold rounded-sm transition-all ${
+                          filter === f.id
+                            ? "bg-pink-600 text-white shadow-xs"
+                            : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="text-[11px] text-slate-500 font-medium">
+                    {visiblePosts.length} publicaç{visiblePosts.length === 1 ? "ão" : "ões"}
+                  </div>
                 </div>
-                {onClearSearch && (
+              </div>
+
+              {status === "loading" ? (
+                <LoadingState label="Carregando o feed..." />
+              ) : status === "error" ? (
+                <ErrorState message={error ?? "Não foi possível carregar o feed."} onRetry={() => void loadFeed(1, true)} />
+              ) : visiblePosts.length === 0 ? (
+                <div className="panel-classic">
+                  <EmptyState
+                    message="Nenhuma bolha por aqui"
+                    hint="Siga pessoas, entre em comunidades ou publique pelo botão + no canto inferior direito."
+                  />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {visiblePosts.map((post) => (
+                    <FeedItemCard
+                      key={post.id}
+                      post={post}
+                      onOpenDetail={(p) => setSelectedPost(p)}
+                      onDeleted={removePost}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {status === "ready" && nextPage !== null && (
+                <div className="text-center my-4">
                   <button
-                    onClick={onClearSearch}
-                    className="text-pink-700 hover:text-pink-900 text-xs font-bold flex items-center gap-0.5"
+                    onClick={() => void loadFeed(nextPage, false)}
+                    disabled={loadingMore}
+                    className="btn-outline px-4 py-1.5 text-xs font-semibold"
                   >
-                    <X className="w-3.5 h-3.5" />
-                    Limpar
+                    {loadingMore ? "Carregando..." : "Carregar mais"}
                   </button>
-                )}
-              </div>
-            )}
-          </div>
+                  {error && <p role="alert" className="mt-1 text-[11px] text-red-700">{error}</p>}
+                </div>
+              )}
 
-          {/* Posts Stream */}
-          <div className="space-y-4">
-            {filteredBubblegrams.length > 0 ? (
-              filteredBubblegrams.map((post) => (
-                <FeedItemCard
-                  key={post.id}
-                  post={post}
-                  currentUser={currentUser}
-                  onOpenDetail={(p) => setSelectedPost(p)}
-                  onDeletePost={handleDeletePost}
-                  onSupportPost={handleSupportPost}
-                />
-              ))
-            ) : (
-              <div className="panel-classic p-8 text-center text-slate-500">
-                <Compass className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs font-semibold text-slate-700">
-                  Nenhuma bolha encontrada.
-                </p>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Tente alterar seus filtros ou publique uma nova bolha clicando no botão + no canto inferior direito.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* End of Feed Indicator (Orkut / Classic Style) */}
-          {filteredBubblegrams.length > 0 && (
-            <div className="panel-classic mt-6 mb-6 p-4 text-center bg-slate-50/70 border border-slate-200">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
-              <h3 className="text-xs font-bold text-slate-800">
-                Você está em dia com todas as novidades!
-              </h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Não há mais publicações recentes no momento. É tudo por hoje.
-              </p>
-            </div>
+              {status === "ready" && nextPage === null && posts.length > 0 && (
+                <div className="panel-classic mt-6 mb-6 p-4 text-center bg-slate-50/70 border border-slate-200">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
+                  <h3 className="text-xs font-bold text-slate-800">Você está em dia com as novidades</h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Não há mais publicações por enquanto.</p>
+                </div>
+              )}
+            </>
           )}
 
-          {/* Classic subtle footer at the bottom of the feed stream */}
-          <div className="py-4 text-center text-[11px] text-slate-400">
-            Bubbles • Rede Social
-          </div>
-
+          <div className="py-4 text-center text-[11px] text-slate-400">Bubbles • Rede Social</div>
         </div>
 
-        {/* Right Sidebar (3 Cols) - Static / Follows the View without scroll */}
-        <div className="lg:col-span-3 h-full overflow-y-auto scrollbar-none hidden lg:block">
+        <div className="lg:col-span-3 lg:h-full lg:overflow-y-auto scrollbar-none hidden lg:block">
           <FeedSidebarRight
-            communities={MOCK_COMMUNITIES}
-            suggestedUsers={MOCK_SUGGESTED_USERS}
-            onSelectCommunity={(comm) => {
-              if (onSelectCommunity) onSelectCommunity(comm);
-              else onNavigateToView?.("communities");
-            }}
-            onSelectUser={(username) => alert(`Perfil selecionado: @${username}`)}
+            communities={myCommunities}
+            error={communitiesError}
+            onRetry={() => void loadSideData()}
           />
         </div>
-
       </div>
 
-      {/* Floating Action Button & Popup in the Bottom-Left */}
       <CreateBubblePopup
-        currentUser={currentUser}
-        onPostCreated={handlePostCreated}
-        onDeductSoap={handleDeductSoap}
+        onPostCreated={(post) => setPosts((prev) => [post, ...prev])}
+        onPopCreated={(pop) => setBubblepops((prev) => [...prev, pop])}
       />
 
-      {/* Post & Story Detail Inspection Modal */}
       {(selectedPost || selectedStory) && (
         <PostDetailModal
           post={selectedPost}
           story={selectedStory}
-          currentUser={currentUser}
+          stories={bubblepops}
+          onStoryChange={setSelectedStory}
           onClose={() => {
             setSelectedPost(null);
             setSelectedStory(null);
           }}
+          onPostUpdate={(updated) => {
+            replacePost(updated);
+            setSelectedPost(updated);
+          }}
+          onPostDeleted={removePost}
+          onStoryDeleted={(id) => setBubblepops((prev) => prev.filter((b) => b.id !== id))}
         />
       )}
-
     </div>
   );
 };

@@ -7,10 +7,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.exceptions import DomainError
-from apps.economy.models import Wallet
+from apps.economy.services import ensure_community_wallet
 
 from .models import CommunityMember, MemberRole, MemberState
 from .selectors import (
+    assert_community_visible,
     get_community_by_commname,
     list_communities,
     list_community_members,
@@ -23,12 +24,14 @@ from .serializers import (
     CommunityMemberSerializer,
     CommunityUpdateSerializer,
     CommunityWalletSerializer,
+    DeleteCommunitySerializer,
     MemberModerateSerializer,
     TransferLeadershipSerializer,
 )
 from .services import (
     archive_community,
     create_community,
+    delete_community,
     demote_member,
     join_community,
     leave_community,
@@ -69,8 +72,21 @@ class CommunityDetailView(APIView):
     @extend_schema(responses={200: CommunityDetailSerializer})
     def get(self, request, commname: str):
         community = get_community_by_commname(commname=commname)
+        assert_community_visible(community=community, viewer=request.user)
         serializer = CommunityDetailSerializer(community, context={"request": request})
         return Response(serializer.data)
+
+    @extend_schema(request=DeleteCommunitySerializer, responses={204: None})
+    def delete(self, request, commname: str):
+        community = get_community_by_commname(commname=commname)
+        serializer = DeleteCommunitySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        delete_community(
+            actor=request.user,
+            community=community,
+            confirm_commname=serializer.validated_data["confirm_commname"],
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(request=CommunityUpdateSerializer, responses={200: CommunityDetailSerializer})
     def patch(self, request, commname: str):
@@ -110,7 +126,7 @@ class CommunityJoinView(APIView):
     def post(self, request, commname: str):
         community = get_community_by_commname(commname=commname)
         membership = join_community(user=request.user, community=community)
-        serializer = CommunityMemberSerializer(membership)
+        serializer = CommunityMemberSerializer(membership, context={"request": request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
@@ -130,12 +146,13 @@ class CommunityMemberListView(APIView):
     @extend_schema(responses={200: CommunityMemberSerializer(many=True)})
     def get(self, request, commname: str):
         community = get_community_by_commname(commname=commname)
+        assert_community_visible(community=community, viewer=request.user)
         state = request.query_params.get("state")
         members = list_community_members(community=community, state=state)
 
         paginator = PageNumberPagination()
         page = paginator.paginate_queryset(members, request)
-        serializer = CommunityMemberSerializer(page, many=True)
+        serializer = CommunityMemberSerializer(page, many=True, context={"request": request})
         return paginator.get_paginated_response(serializer.data)
 
 
@@ -153,7 +170,7 @@ class CommunityMemberModerateView(APIView):
             target_username=username,
             new_state=serializer.validated_data["current_state"],
         )
-        return Response(CommunityMemberSerializer(membership).data)
+        return Response(CommunityMemberSerializer(membership, context={"request": request}).data)
 
 
 class CommunityMemberPromoteView(APIView):
@@ -167,7 +184,7 @@ class CommunityMemberPromoteView(APIView):
             community=community,
             target_username=username,
         )
-        return Response(CommunityMemberSerializer(membership).data)
+        return Response(CommunityMemberSerializer(membership, context={"request": request}).data)
 
 
 class CommunityMemberDemoteView(APIView):
@@ -181,7 +198,7 @@ class CommunityMemberDemoteView(APIView):
             community=community,
             target_username=username,
         )
-        return Response(CommunityMemberSerializer(membership).data)
+        return Response(CommunityMemberSerializer(membership, context={"request": request}).data)
 
 
 class CommunityTransferLeadershipView(APIView):
@@ -197,7 +214,7 @@ class CommunityTransferLeadershipView(APIView):
             community=community,
             new_leader_username=serializer.validated_data["new_leader_username"],
         )
-        return Response(CommunityMemberSerializer(new_leader).data)
+        return Response(CommunityMemberSerializer(new_leader, context={"request": request}).data)
 
 
 class CommunityArchiveView(APIView):
@@ -235,8 +252,5 @@ class CommunityWalletView(APIView):
                     http_status=403,
                 )
 
-        wallet, _ = Wallet.objects.get_or_create(
-            community=community,
-            defaults={"soap_balance": 0, "passive_earn_rate": None},
-        )
+        wallet = ensure_community_wallet(community)
         return Response({"soap_balance": wallet.soap_balance})

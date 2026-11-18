@@ -1,332 +1,566 @@
-import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Bubblegram, Bubblepop, User } from "@/types";
-import { X, MessageCircle, Send, Clock, Share2, Check } from "lucide-react";
+import { bubbleStyle } from "@/utils/theme";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { paths } from "@/routes";
+import { motion } from "framer-motion";
+import { Bubblegram, Bubblepop, Comment } from "@/types";
+import {
+  X,
+  MessageCircle,
+  Send,
+  Clock,
+  Trash2,
+  CornerDownRight,
+  Check,
+  Link as LinkIcon,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { Avatar } from "@/components/Avatar";
+import { UserName } from "@/components/UserName";
 import { SoapIcon } from "@/components/SoapIcon";
-import confetti from "canvas-confetti";
+import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
+import { useAuthStore } from "@/features/auth/authStore";
+import { useSupportBubblegram } from "@/features/feed/useSupport";
+import {
+  createComment,
+  deleteBubblegram,
+  deleteBubblepop,
+  deleteComment,
+  listComments,
+  supportComment,
+} from "@/services/content";
+import { errorMessage, toApiError } from "@/services/errors";
+import { hoursLeft, timeAgo } from "@/utils/time";
 
 interface PostDetailModalProps {
   post: Bubblegram | null;
   story: Bubblepop | null;
-  currentUser: User;
   onClose: () => void;
+  onPostUpdate?: (post: Bubblegram) => void;
+  onPostDeleted?: (postId: number) => void;
+  onStoryDeleted?: (storyId: number) => void;
+  /** Bubblepops of the tray/profile, in order: lets the viewer step through them like a carousel. */
+  stories?: Bubblepop[];
+  onStoryChange?: (story: Bubblepop) => void;
 }
 
-interface CommentItem {
-  id: number;
-  author: string;
-  avatar: string;
-  text: string;
-  time: string;
-  soapCount: number;
-  hasSupported: boolean;
+interface CommentNode {
+  comment: Comment;
+  children: CommentNode[];
 }
+
+function buildTree(comments: Comment[]): CommentNode[] {
+  const nodes = new Map<number, CommentNode>(comments.map((c) => [c.id, { comment: c, children: [] }]));
+  const roots: CommentNode[] = [];
+  for (const node of nodes.values()) {
+    const parent = node.comment.parent !== null ? nodes.get(node.comment.parent) : undefined;
+    (parent ? parent.children : roots).push(node);
+  }
+  return roots;
+}
+
+const CommentRow: React.FC<{
+  node: CommentNode;
+  depth: number;
+  onReply: (comment: Comment) => void;
+  onDelete: (comment: Comment) => void;
+  onSupport: (comment: Comment) => Promise<void>;
+  supportedIds: Set<number>;
+  ownId?: number;
+}> = ({ node, depth, onReply, onDelete, onSupport, supportedIds, ownId }) => {
+  const { comment } = node;
+  const supported = supportedIds.has(comment.id);
+  return (
+    <div className={depth > 0 ? "ml-4 border-l border-slate-200 pl-2" : ""}>
+      <div className="p-2 bg-slate-50 border border-slate-200 rounded-sm text-xs">
+        <div className="flex items-center justify-between mb-0.5 gap-2">
+          {comment.user.username.startsWith("deleted_") ? (
+            // an anonymized account has no profile to open
+            <span className="flex items-center gap-2 min-w-0">
+              <Avatar user={comment.user} className="w-6 h-6 flex-shrink-0" />
+              <UserName user={comment.user} className="font-bold text-slate-800 truncate" />
+            </span>
+          ) : (
+            <Link
+              to={paths.profile(comment.user.username)}
+              title={`Ver o perfil de ${comment.user.name}`}
+              className="flex items-center gap-2 min-w-0 hover:opacity-80"
+            >
+              <Avatar user={comment.user} className="w-6 h-6 flex-shrink-0" />
+              <UserName user={comment.user} className="font-bold text-slate-800 truncate" />
+            </Link>
+          )}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="text-[10px] text-slate-400">{timeAgo(comment.published_at)}</span>
+            <button
+              onClick={() => void onSupport(comment)}
+              disabled={supported || comment.user.id === ownId}
+              title={
+                comment.user.id === ownId
+                  ? "Você não pode apoiar o seu próprio comentário"
+                  : supported
+                    ? "Você já apoiou este comentário"
+                    : "Apoiar comentário com soap"
+              }
+              className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-sm border transition-colors ${
+                supported
+                  ? "bg-pink-100 text-pink-900 border-pink-300"
+                  : "bg-white border-slate-200 text-slate-600 hover:border-slate-300 disabled:opacity-60"
+              }`}
+            >
+              <SoapIcon size={14} />
+              <span>{comment.soap_count}</span>
+            </button>
+          </div>
+        </div>
+        <p
+          className="text-slate-600 text-[11px] leading-snug whitespace-pre-wrap break-words"
+          style={bubbleStyle(comment.user)}
+        >
+          {comment.text}
+        </p>
+        <div className="mt-1 flex items-center gap-3 text-[10px]">
+          <button onClick={() => onReply(comment)} className="text-pink-600 hover:underline">
+            Responder
+          </button>
+          {comment.can_delete && (
+            <button
+              onClick={() => onDelete(comment)}
+              className="text-slate-400 hover:text-red-600 flex items-center gap-0.5"
+            >
+              <Trash2 className="w-3 h-3" /> Excluir
+            </button>
+          )}
+        </div>
+      </div>
+      {node.children.length > 0 && (
+        <div className="mt-1 space-y-1">
+          {node.children.map((child) => (
+            <CommentRow
+              key={child.comment.id}
+              node={child}
+              // Deep threads stay flat after the 3rd level so they do not run off the panel.
+              depth={Math.min(depth + 1, 2)}
+              onReply={onReply}
+              onDelete={onDelete}
+              onSupport={onSupport}
+              supportedIds={supportedIds}
+              ownId={ownId}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const PostDetailModal: React.FC<PostDetailModalProps> = ({
   post,
   story,
-  currentUser,
   onClose,
+  onPostUpdate,
+  onPostDeleted,
+  onStoryDeleted,
+  stories = [],
+  onStoryChange,
 }) => {
-  const [soapCount, setSoapCount] = useState<number>(post?.soap_count ?? 12);
-  const [hasSupportedPost, setHasSupportedPost] = useState(false);
-  const [commentInput, setCommentInput] = useState("");
-  const [copiedShare, setCopiedShare] = useState(false);
+  const currentUser = useAuthStore((s) => s.user)!;
+  const refreshUser = useAuthStore((s) => s.refreshUser);
+  const touchX = useRef<number | null>(null);
 
-  const [comments, setComments] = useState<CommentItem[]>([
-    {
-      id: 1,
-      author: "Carol Diniz",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80",
-      text: "Excelente nitidez e composição de cores.",
-      time: "há 20 min",
-      soapCount: 3,
-      hasSupported: false,
+  const support = useSupportBubblegram(post?.id ?? 0, post?.soap_count ?? 0, (count) => {
+    if (post) onPostUpdate?.({ ...post, soap_count: count });
+  });
+
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [nextPage, setNextPage] = useState<number | null>(1);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [supportedIds, setSupportedIds] = useState<Set<number>>(new Set());
+  const [input, setInput] = useState("");
+  const [replyTo, setReplyTo] = useState<Comment | null>(null);
+  const [sending, setSending] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const postId = post?.id;
+
+  const loadComments = useCallback(
+    async (page: number, reset: boolean) => {
+      if (postId === undefined) return;
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const data = await listComments(postId, page);
+        setComments((prev) => (reset ? data.results : [...prev, ...data.results]));
+        setNextPage(data.next ? page + 1 : null);
+      } catch (err) {
+        setLoadError(errorMessage(err));
+      } finally {
+        setLoading(false);
+      }
     },
-    {
-      id: 2,
-      author: "Lucas Melo",
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80",
-      text: "Enviei 1 soap de apoio. Trabalho muito bem executado.",
-      time: "há 1 hora",
-      soapCount: 1,
-      hasSupported: false,
+    [postId]
+  );
+
+  useEffect(() => {
+    setComments([]);
+    setNextPage(1);
+    if (postId !== undefined) void loadComments(1, true);
+  }, [postId, loadComments]);
+
+  const tree = useMemo(() => buildTree(comments), [comments]);
+
+  const storyIndex = story ? stories.findIndex((s) => s.id === story.id) : -1;
+  const goToStory = useCallback(
+    (offset: number) => {
+      const next = stories[storyIndex + offset];
+      if (next) onStoryChange?.(next);
     },
-  ]);
+    [stories, storyIndex, onStoryChange]
+  );
+
+  // Arrow keys step through the bubblepops (ignored while typing in a field).
+  useEffect(() => {
+    if (storyIndex < 0) return;
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && ["INPUT", "TEXTAREA"].includes(target.tagName)) return;
+      if (e.key === "ArrowLeft") goToStory(-1);
+      if (e.key === "ArrowRight") goToStory(1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [storyIndex, goToStory]);
 
   if (!post && !story) return null;
 
   const isStory = !!story;
-  const author = post?.user || story?.user || currentUser;
-  const mediaUrl = isStory 
-    ? story?.image 
-    : (post?.media && post.media.length > 0 ? post.media[0].media : null);
-  const description = isStory ? story?.description : post?.text;
+  const author = post?.user ?? story!.user;
+  const mediaUrl = isStory ? story!.image : (post!.media[0]?.media ?? null);
+  const description = isStory ? story!.description : post!.text;
+  const isOwnPost = post?.user.id === currentUser.id;
 
-  // Maximum 1 soap support per post with foam/bubble rising animation
-  const handleSoapSupport = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (hasSupportedPost) return;
-
-    setSoapCount((prev) => prev + 1);
-    setHasSupportedPost(true);
-
+  const handleAddComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!post || !input.trim() || sending) return;
+    setSending(true);
+    setActionError(null);
     try {
-      const rect = (e.target as HTMLElement).getBoundingClientRect();
-      const x = (rect.left + rect.width / 2) / window.innerWidth;
-      const y = (rect.top + rect.height / 2) / window.innerHeight;
-
-      // Foam and bubble burst: negative gravity makes bubbles float UPWARDS!
-      confetti({
-        particleCount: 20,
-        spread: 60,
-        startVelocity: 14,
-        ticks: 140,
-        gravity: -0.22,
-        drift: 0.05,
-        origin: { x, y },
-        colors: ["#FFFFFF", "#FDF2F8", "#EDE9FE", "#FCE7F3"],
-        shapes: ["circle"],
-        scalar: 1.5,
-      });
-
-      // Micro suds/foam
-      confetti({
-        particleCount: 15,
-        spread: 80,
-        startVelocity: 10,
-        ticks: 100,
-        gravity: -0.3,
-        drift: -0.05,
-        origin: { x, y },
-        colors: ["#FFFFFF", "#F5F3FF"],
-        shapes: ["circle"],
-        scalar: 0.8,
-      });
-    } catch {
-      // Fallback
+      const created = await createComment(post.id, input.trim(), replyTo?.id ?? null);
+      setComments((prev) => [...prev, created]);
+      setInput("");
+      setReplyTo(null);
+    } catch (err) {
+      setActionError(errorMessage(err));
+    } finally {
+      setSending(false);
     }
   };
 
-  // Maximum 1 soap support per comment
-  const handleSupportComment = (commentId: number) => {
-    setComments((prev) =>
-      prev.map((c) => {
-        if (c.id === commentId && !c.hasSupported) {
-          return {
-            ...c,
-            soapCount: c.soapCount + 1,
-            hasSupported: true,
-          };
-        }
-        return c;
-      })
-    );
+  const handleSupportComment = async (comment: Comment) => {
+    setActionError(null);
+    try {
+      const result = await supportComment(comment.id);
+      setComments((prev) =>
+        prev.map((c) => (c.id === comment.id ? { ...c, soap_count: result.soap_count } : c))
+      );
+      setSupportedIds((prev) => new Set(prev).add(comment.id));
+      await refreshUser();
+    } catch (err) {
+      if (toApiError(err).code === "already_supported") {
+        setSupportedIds((prev) => new Set(prev).add(comment.id));
+      }
+      setActionError(errorMessage(err));
+    }
   };
 
-  const handleShare = () => {
-    navigator.clipboard?.writeText(window.location.href);
-    setCopiedShare(true);
-    setTimeout(() => setCopiedShare(false), 2000);
+  const handleDeleteComment = async (comment: Comment) => {
+    if (!window.confirm("Excluir este comentário?")) return;
+    setActionError(null);
+    try {
+      await deleteComment(comment.id);
+      await loadComments(1, true); // replies may have been removed with it
+    } catch (err) {
+      setActionError(errorMessage(err));
+    }
   };
 
-  const handleAddComment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!commentInput.trim()) return;
-
-    setComments((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        author: currentUser.name,
-        avatar: currentUser.profile_photo || "",
-        text: commentInput.trim(),
-        time: "agora",
-        soapCount: 0,
-        hasSupported: false,
-      },
-    ]);
-    setCommentInput("");
+  const handleCopyLink = async () => {
+    if (!post) return;
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}${paths.post(post.id)}`);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setActionError("Não foi possível copiar o link.");
+    }
   };
+
+  const handleDeleteContent = async () => {
+    if (!window.confirm(isStory ? "Excluir este bubblepop?" : "Excluir esta publicação?")) return;
+    try {
+      if (isStory) {
+        await deleteBubblepop(story!.id);
+        onStoryDeleted?.(story!.id);
+      } else {
+        await deleteBubblegram(post!.id);
+        onPostDeleted?.(post!.id);
+      }
+      onClose();
+    } catch (err) {
+      setActionError(errorMessage(err));
+    }
+  };
+
+  const canDeleteContent = isStory ? story!.can_delete : post!.can_delete;
 
   return (
-    <AnimatePresence>
-      <div 
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto"
-        onClick={onClose}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.18 }}
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-3xl bg-white border border-slate-300 shadow-xl rounded-sm my-auto flex flex-col md:flex-row max-h-[90vh] overflow-hidden"
       >
-        <motion.div
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.96 }}
-          transition={{ duration: 0.18 }}
-          onClick={(e) => e.stopPropagation()}
-          className="relative w-full max-w-3xl bg-white border border-slate-300 shadow-xl rounded-sm my-auto flex flex-col md:flex-row max-h-[90vh] overflow-hidden"
+        <button
+          onClick={onClose}
+          aria-label="Fechar"
+          className="absolute top-2.5 right-2.5 z-20 w-7 h-7 bg-white/90 hover:bg-slate-100 text-slate-600 border border-slate-300 rounded-sm flex items-center justify-center transition-colors"
         >
-          {/* Close button */}
-          <button
-            onClick={onClose}
-            className="absolute top-2.5 right-2.5 z-20 w-7 h-7 bg-white/90 hover:bg-slate-100 text-slate-600 border border-slate-300 rounded-sm flex items-center justify-center transition-colors"
+          <X className="w-4 h-4" />
+        </button>
+
+        {mediaUrl ? (
+          <div
+            className="md:w-1/2 bg-slate-900 flex items-center justify-center relative min-h-[280px] md:min-h-[460px]"
+            onTouchStart={(e) => {
+              touchX.current = e.touches[0].clientX;
+            }}
+            onTouchEnd={(e) => {
+              if (touchX.current === null || storyIndex < 0) return;
+              const delta = e.changedTouches[0].clientX - touchX.current;
+              touchX.current = null;
+              if (Math.abs(delta) > 50) goToStory(delta < 0 ? 1 : -1);
+            }}
           >
-            <X className="w-4 h-4" />
-          </button>
-
-          {/* Left Side: Media or Text */}
-          {mediaUrl ? (
-            <div className="md:w-1/2 bg-slate-900 flex items-center justify-center relative min-h-[280px] md:min-h-[460px]">
-              <img
-                src={mediaUrl}
-                alt="Publicação"
-                className="w-full h-full object-cover max-h-[460px]"
-              />
-
-              {isStory && (
-                <div className="absolute bottom-3 left-3 px-2.5 py-1 bg-slate-900/80 text-white text-xs font-semibold rounded-sm flex items-center gap-1.5 border border-white/20">
-                  <Clock className="w-3 h-3 text-pink-400" />
-                  <span>Bubblepop efêmero</span>
+            <img src={mediaUrl} alt={isStory ? "Bubblepop" : "Publicação"} className="w-full h-full object-cover max-h-[460px]" />
+            {isStory && stories.length > 1 && storyIndex >= 0 && (
+              <>
+                <div className="absolute top-3 left-3 right-12 flex gap-1" aria-hidden="true">
+                  {stories.map((s) => (
+                    <span
+                      key={s.id}
+                      className={`h-1 flex-1 rounded-full ${s.id === story!.id ? "bg-white" : "bg-white/35"}`}
+                    />
+                  ))}
                 </div>
-              )}
-            </div>
-          ) : (
-            <div className="md:w-1/2 p-6 flex flex-col justify-center items-center text-center bg-slate-50 border-r border-slate-200">
-              <p className="text-sm text-slate-800 font-medium leading-relaxed italic">
-                "{description}"
-              </p>
-            </div>
-          )}
-
-          {/* Right Side: Author, Minimalist Balance & Engagement */}
-          <div className="md:w-1/2 p-4 sm:p-5 flex flex-col justify-between overflow-y-auto bg-white">
-            <div>
-              {/* Author header with Minimalist User Balance indicator */}
-              <div className="flex items-center justify-between pb-3 border-b border-slate-200 pr-8">
-                <div className="flex items-center gap-2.5">
-                  <img
-                    src={author.profile_photo || ""}
-                    alt={author.name}
-                    className="w-9 h-9 rounded-full object-cover"
-                  />
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900 leading-tight">
-                      {author.name}
-                    </h4>
-                    <span className="text-xs text-slate-500 font-medium">
-                      @{author.username}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Minimalist User Soap Balance with enlarged SoapIcon */}
-                <div 
-                  title="Seu saldo atual de soap"
-                  className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-sm text-xs font-semibold text-slate-700"
+                <button
+                  onClick={() => goToStory(-1)}
+                  disabled={storyIndex === 0}
+                  aria-label="Bubblepop anterior"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/85 text-slate-800 flex items-center justify-center shadow hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed"
                 >
-                  <SoapIcon size={18} />
-                  <span>{currentUser.soap_balance}</span>
-                </div>
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => goToStory(1)}
+                  disabled={storyIndex === stories.length - 1}
+                  aria-label="Próximo bubblepop"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/85 text-slate-800 flex items-center justify-center shadow hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </>
+            )}
+            {isStory && (
+              <div className="absolute bottom-3 left-3 px-2.5 py-1 bg-slate-900/80 text-white text-xs font-semibold rounded-sm flex items-center gap-1.5 border border-white/20">
+                <Clock className="w-3 h-3 text-pink-400" />
+                <span>Bubblepop · {hoursLeft(story!.expires_at)}</span>
               </div>
+            )}
+          </div>
+        ) : (
+          <div className="md:w-1/2 p-6 flex flex-col justify-center items-center text-center bg-slate-50 border-r border-slate-200">
+            <p className="text-sm text-slate-800 font-medium leading-relaxed whitespace-pre-wrap break-words">
+              {description}
+            </p>
+          </div>
+        )}
 
-              {/* Caption text */}
-              {mediaUrl && (
-                <p className="mt-3 text-xs text-slate-700 leading-relaxed">
-                  {description}
-                </p>
-              )}
+        <div className="md:w-1/2 p-4 sm:p-5 flex flex-col justify-between overflow-y-auto bg-white">
+          <div>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 pr-8">
+              <Link to={paths.profile(author.username)} className="flex items-center gap-2.5 min-w-0">
+                <Avatar user={author} className="w-9 h-9 flex-shrink-0" />
+                <div className="min-w-0">
+                  <h4 className="text-sm font-bold text-slate-900 leading-tight truncate">
+                    <UserName user={author} />
+                  </h4>
+                  <span className="text-xs text-slate-500 font-medium">@{author.username}</span>
+                </div>
+              </Link>
+              <div
+                title="Seu saldo atual de soap"
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-sm text-xs font-semibold text-slate-700"
+              >
+                <SoapIcon size={18} />
+                <span>{currentUser.soap_balance ?? 0}</span>
+              </div>
+            </div>
 
-              {/* Engagement Bar: Light first, Rosa bem claro when liked */}
+            {mediaUrl && description && (
+              <p className="mt-3 text-xs text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
+                {description}
+              </p>
+            )}
+
+            {post && (
               <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between gap-2">
                 <button
-                  onClick={handleSoapSupport}
-                  disabled={hasSupportedPost}
-                  title={hasSupportedPost ? "Você já apoiou esta publicação com soap" : "Apoiar com soap"}
+                  onClick={() => void support.support()}
+                  disabled={support.supported || support.busy || isOwnPost}
+                  title={
+                    isOwnPost
+                      ? "Você não pode apoiar a sua própria publicação"
+                      : support.supported
+                        ? "Você já apoiou esta publicação"
+                        : "Apoiar com soap"
+                  }
                   className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-bold rounded-sm transition-all ${
-                    hasSupportedPost 
-                      ? "bg-pink-100 text-pink-900 border border-pink-300 shadow-2xs cursor-default" 
-                      : "bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-2xs hover:border-slate-400"
+                    support.supported
+                      ? "bg-pink-100 text-pink-900 border border-pink-300"
+                      : "bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 disabled:opacity-60"
                   }`}
                 >
                   <SoapIcon size={22} />
-                  <span>{soapCount}</span>
+                  <span>{support.count}</span>
                 </button>
-
-                {/* Share Button */}
-                <button
-                  onClick={handleShare}
-                  title="Compartilhar link da publicação"
-                  className="btn-outline py-1.5 px-2.5 text-xs font-semibold flex items-center gap-1.5 text-slate-600 hover:text-slate-900"
-                >
-                  {copiedShare ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span className="text-emerald-700">Copiado!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Share2 className="w-3.5 h-3.5" />
-                      <span>Compartilhar</span>
-                    </>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => void handleCopyLink()}
+                    title="Copiar o link desta publicação"
+                    className="btn-outline py-1.5 px-2.5 text-xs font-semibold flex items-center gap-1.5 text-slate-600 hover:text-slate-900"
+                  >
+                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <LinkIcon className="w-3.5 h-3.5" />}
+                    <span>{copied ? "Link copiado" : "Copiar link"}</span>
+                  </button>
+                  {canDeleteContent && (
+                    <button
+                      onClick={() => void handleDeleteContent()}
+                      className="btn-outline py-1.5 px-2.5 text-xs font-semibold flex items-center gap-1.5 text-slate-600 hover:text-red-700"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Excluir</span>
+                    </button>
                   )}
+                </div>
+              </div>
+            )}
+
+            {isStory && canDeleteContent && (
+              <div className="mt-4 pt-3 border-t border-slate-200">
+                <button
+                  onClick={() => void handleDeleteContent()}
+                  className="btn-outline py-1.5 px-2.5 text-xs font-semibold flex items-center gap-1.5 text-slate-600 hover:text-red-700"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Excluir bubblepop</span>
                 </button>
               </div>
+            )}
 
-              {/* Comments Section */}
+            {(support.error || actionError) && (
+              <p role="alert" className="mt-2 text-[11px] text-red-700">
+                {support.error ?? actionError}
+              </p>
+            )}
+
+            {post && (
               <div className="mt-4">
                 <div className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5 pb-1 border-b border-slate-100">
                   <MessageCircle className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Comentários ({comments.length})</span>
+                  <span>Comentários</span>
                 </div>
 
-                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                  {comments.map((c) => (
-                    <div key={c.id} className="p-2 bg-slate-50 border border-slate-200 rounded-sm text-xs">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="font-bold text-slate-800">{c.author}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-slate-400">{c.time}</span>
-                          
-                          {/* Soap Support on Comments with Rosa bem claro state */}
-                          <button
-                            onClick={() => handleSupportComment(c.id)}
-                            disabled={c.hasSupported}
-                            title={c.hasSupported ? "Você já apoiou este comentário" : "Apoiar comentário com soap"}
-                            className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-sm border transition-colors ${
-                              c.hasSupported
-                                ? "bg-pink-100 text-pink-900 border-pink-300 cursor-default"
-                                : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-                            }`}
-                          >
-                            <SoapIcon size={14} />
-                            <span>{c.soapCount}</span>
-                          </button>
-                        </div>
-                      </div>
-                      <p className="text-slate-600 text-[11px] leading-snug">{c.text}</p>
-                    </div>
-                  ))}
-                </div>
+                {loadError && comments.length === 0 ? (
+                  <ErrorState message={loadError} onRetry={() => void loadComments(1, true)} />
+                ) : loading && comments.length === 0 ? (
+                  <LoadingState label="Carregando comentários..." />
+                ) : tree.length === 0 ? (
+                  <EmptyState message="Ainda não há comentários" hint="Comentar é gratuito." />
+                ) : (
+                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                    {tree.map((node) => (
+                      <CommentRow
+                        key={node.comment.id}
+                        node={node}
+                        depth={0}
+                        onReply={setReplyTo}
+                        onDelete={(c) => void handleDeleteComment(c)}
+                        onSupport={handleSupportComment}
+                        supportedIds={supportedIds}
+                        ownId={currentUser.id}
+                      />
+                    ))}
+                    {nextPage !== null && (
+                      <button
+                        onClick={() => void loadComments(nextPage, false)}
+                        disabled={loading}
+                        className="w-full text-[11px] text-pink-600 hover:underline py-1"
+                      >
+                        {loading ? "Carregando..." : "Carregar mais comentários"}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
-
-            {/* Comment Input */}
-            <form onSubmit={handleAddComment} className="mt-3 pt-2.5 border-t border-slate-200 flex items-center gap-2">
-              <input
-                type="text"
-                placeholder="Escrever um comentário..."
-                value={commentInput}
-                onChange={(e) => setCommentInput(e.target.value)}
-                className="flex-1 px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-sm focus:outline-none focus:border-pink-500 focus:bg-white placeholder-slate-400"
-              />
-              <button
-                type="submit"
-                disabled={!commentInput.trim()}
-                className="p-1.5 bg-pink-500 text-white rounded-sm disabled:opacity-40 hover:bg-pink-600 transition-colors"
-              >
-                <Send className="w-3.5 h-3.5" />
-              </button>
-            </form>
+            )}
           </div>
-        </motion.div>
-      </div>
-    </AnimatePresence>
+
+          {post && (
+            <form onSubmit={handleAddComment} className="mt-3 pt-2.5 border-t border-slate-200">
+              {replyTo && (
+                <div className="mb-1.5 flex items-center justify-between text-[11px] text-slate-500">
+                  <span className="flex items-center gap-1">
+                    <CornerDownRight className="w-3 h-3" />
+                    Respondendo a {replyTo.user.name}
+                  </span>
+                  <button type="button" onClick={() => setReplyTo(null)} className="hover:text-slate-800">
+                    Cancelar
+                  </button>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  aria-label="Escrever um comentário"
+                  placeholder="Escrever um comentário..."
+                  value={input}
+                  maxLength={2000}
+                  onChange={(e) => setInput(e.target.value)}
+                  className="flex-1 px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-sm focus:outline-none focus:border-pink-500 focus:bg-white placeholder-slate-400"
+                />
+                <button
+                  type="submit"
+                  disabled={!input.trim() || sending}
+                  aria-label="Enviar comentário"
+                  className="p-1.5 bg-pink-500 text-white rounded-sm disabled:opacity-40 hover:bg-pink-600 transition-colors"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </motion.div>
+    </div>
   );
 };

@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.communities.selectors import get_community_by_commname
+from apps.communities.selectors import assert_community_visible, get_community_by_commname
 
 from .selectors import (
     get_bubblegram_by_id,
@@ -53,11 +53,7 @@ class BubblegramListCreateView(APIView):
         commname = serializer.validated_data.get("commname")
         community = get_community_by_commname(commname=commname) if commname else None
 
-        media_files = (
-            request.FILES.getlist("media_files")
-            or request.FILES.getlist("images")
-            or serializer.validated_data.get("media_files", [])
-        )
+        media_files = serializer.validated_data.get("media_files", [])
 
         bubblegram = create_bubblegram(
             author=request.user,
@@ -103,6 +99,9 @@ class CommunityBubblegramsView(APIView):
 
     @extend_schema(responses={200: BubblegramSerializer(many=True)})
     def get(self, request, commname: str):
+        assert_community_visible(
+            community=get_community_by_commname(commname=commname), viewer=request.user
+        )
         qs = list_community_bubblegrams(commname=commname)
         paginator = PageNumberPagination()
         page = paginator.paginate_queryset(qs, request)

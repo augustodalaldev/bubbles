@@ -21,7 +21,7 @@ class ReportCreateSerializer(serializers.ModelSerializer):
 
 class ReportSerializer(serializers.ModelSerializer):
     reporter = PublicUserSerializer(read_only=True)
-    reviewed_by_username = serializers.CharField(source="reviewed_by.username", read_only=True)
+    reviewed_by_username = serializers.SerializerMethodField()
 
     class Meta:
         model = Report
@@ -40,6 +40,9 @@ class ReportSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
+    def get_reviewed_by_username(self, obj: Report) -> str | None:
+        return obj.reviewed_by.username if obj.reviewed_by_id else None
+
 
 class ReportReviewSerializer(serializers.Serializer):
     status = serializers.ChoiceField(
@@ -54,7 +57,7 @@ class ReportReviewSerializer(serializers.Serializer):
 
 
 class AuditLogSerializer(serializers.ModelSerializer):
-    actor_username = serializers.CharField(source="actor.username", read_only=True)
+    actor_username = serializers.SerializerMethodField()
 
     class Meta:
         model = AuditLog
@@ -70,9 +73,50 @@ class AuditLogSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
+    def get_actor_username(self, obj: AuditLog) -> str | None:
+        return obj.actor.username if obj.actor_id else None
+
+
+class AdminUserSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    username = serializers.CharField()
+    name = serializers.CharField()
+    email = serializers.CharField()
+    profile_photo = serializers.SerializerMethodField()
+    is_staff = serializers.BooleanField()
+    status = serializers.SerializerMethodField()
+    suspended_until = serializers.DateTimeField()
+    moderation_reason = serializers.CharField()
+    created_at = serializers.DateTimeField()
+
+    def get_status(self, obj) -> str:
+        """ACTIVE / SUSPENDED / BANNED, treating an expired suspension as active."""
+        if obj.is_banned:
+            return "BANNED"
+        return "SUSPENDED" if obj.is_suspended else "ACTIVE"
+
+    def get_profile_photo(self, obj) -> str | None:
+        return obj.profile_photo.url if obj.profile_photo else None
+
+
+class AdminCommunitySerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    commname = serializers.CharField()
+    name = serializers.CharField()
+    member_count = serializers.IntegerField()
+    is_archived = serializers.BooleanField()
+    status = serializers.SerializerMethodField()
+    suspended_until = serializers.DateTimeField()
+    blocked_at = serializers.DateTimeField()
+    moderation_reason = serializers.CharField()
+    created_at = serializers.DateTimeField()
+
+    def get_status(self, obj) -> str:
+        return obj.moderation_status or "ACTIVE"
+
 
 class SuspendUserInputSerializer(serializers.Serializer):
-    duration_hours = serializers.IntegerField(min_value=1, default=24)
+    duration_hours = serializers.IntegerField(min_value=1, max_value=24 * 365, default=24)
     reason = serializers.CharField(max_length=500, required=True)
 
 
@@ -86,5 +130,5 @@ class AdminSoapAdjustmentInputSerializer(serializers.Serializer):
 
     def validate_amount(self, value):
         if value == 0:
-            raise serializers.ValidationError("Adjustment amount cannot be zero.")
+            raise serializers.ValidationError("O valor do ajuste não pode ser zero.")
         return value

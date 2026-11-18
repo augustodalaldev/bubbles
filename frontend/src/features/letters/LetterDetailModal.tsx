@@ -1,5 +1,9 @@
-import React, { useEffect } from "react";
+import React from "react";
+import { Link } from "react-router-dom";
+import { paths } from "@/routes";
+import { bubbleStyle } from "@/utils/theme";
 import { Letter, User } from "@/types";
+import { Avatar } from "@/components/Avatar";
 import { X, Reply, Clock, CheckCheck, Mail } from "lucide-react";
 
 interface LetterDetailModalProps {
@@ -7,7 +11,8 @@ interface LetterDetailModalProps {
   currentUser: User;
   onClose: () => void;
   onReply: (letter: Letter) => void;
-  onMarkAsRead?: (letterId: number) => void;
+  /** Opens another letter (the one answered, or the answer to this one). */
+  onOpenLetter?: (id: number) => void;
 }
 
 export const LetterDetailModal: React.FC<LetterDetailModalProps> = ({
@@ -15,17 +20,10 @@ export const LetterDetailModal: React.FC<LetterDetailModalProps> = ({
   currentUser,
   onClose,
   onReply,
-  onMarkAsRead,
+  onOpenLetter,
 }) => {
   const isSender = letter.sender.id === currentUser.id;
   const otherPerson = isSender ? letter.recipient : letter.sender;
-
-  // Mark letter as read on open if recipient is current user and letter is unread
-  useEffect(() => {
-    if (!isSender && !letter.is_read && onMarkAsRead) {
-      onMarkAsRead(letter.id);
-    }
-  }, [isSender, letter.id, letter.is_read, onMarkAsRead]);
 
   // Format precise date and time
   const formatDateTime = (dateStr: string) => {
@@ -51,7 +49,7 @@ export const LetterDetailModal: React.FC<LetterDetailModalProps> = ({
         <div className="panel-classic-header flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Mail className="w-4 h-4 text-pink-600" />
-            <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+            <h2 className="text-xs font-bold text-slate-900">
               {isSender ? `Carta enviada para ${otherPerson.name}` : `Carta de ${otherPerson.name}`}
             </h2>
           </div>
@@ -66,11 +64,7 @@ export const LetterDetailModal: React.FC<LetterDetailModalProps> = ({
         {/* Sender / Recipient Info Bar */}
         <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <img
-              src={otherPerson.profile_photo || ""}
-              alt={otherPerson.name}
-              className="w-10 h-10 rounded-full object-cover border border-slate-200"
-            />
+            <Avatar user={otherPerson} className="w-10 h-10" />
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-bold text-slate-900">
@@ -106,15 +100,38 @@ export const LetterDetailModal: React.FC<LetterDetailModalProps> = ({
 
         {/* Letter Body */}
         <div className="p-5 space-y-4">
-          <div className="text-xs text-slate-800 leading-relaxed whitespace-pre-line font-sans">
+          {letter.reply_to_summary && (
+            <Link
+              to={paths.letter(letter.reply_to_summary.id)}
+              onClick={(e) => {
+                if (onOpenLetter) {
+                  e.preventDefault();
+                  onOpenLetter(letter.reply_to_summary!.id);
+                }
+              }}
+              className="block rounded-sm border border-slate-200 border-l-4 border-l-pink-300 bg-slate-50 px-3 py-2 hover:bg-pink-50/50"
+            >
+              <span className="flex items-center gap-1 text-[10px] font-bold text-slate-500">
+                <Reply className="w-3 h-3" />
+                Em resposta a {letter.reply_to_summary.sender.name} · {formatDateTime(letter.reply_to_summary.sent_at)}
+              </span>
+              <span className="block mt-0.5 text-[11px] text-slate-600 line-clamp-2">
+                {letter.reply_to_summary.excerpt}
+              </span>
+            </Link>
+          )}
+          <div
+            className="text-xs text-slate-800 leading-relaxed whitespace-pre-line font-sans"
+            style={bubbleStyle(letter.sender)}
+          >
             {letter.text}
           </div>
 
           {/* Attached Image if present */}
           {letter.image && (
             <div className="mt-4 pt-3 border-t border-slate-100">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-2">
-                Anexo da Carta
+              <span className="text-[10px] font-bold text-slate-400 block mb-2">
+                Anexo da carta
               </span>
               <div className="rounded-sm overflow-hidden border border-slate-200 bg-slate-900">
                 <img
@@ -134,7 +151,21 @@ export const LetterDetailModal: React.FC<LetterDetailModalProps> = ({
           </span>
 
           <div className="flex items-center gap-2">
-            {!isSender && (
+            {letter.reply_id && (
+              <Link
+                to={paths.letter(letter.reply_id)}
+                onClick={(e) => {
+                  if (onOpenLetter) {
+                    e.preventDefault();
+                    onOpenLetter(letter.reply_id!);
+                  }
+                }}
+                className="text-[11px] font-semibold text-pink-700 hover:underline"
+              >
+                Respondida · ver resposta
+              </Link>
+            )}
+            {!isSender && !letter.reply_id && (
               <button
                 onClick={() => {
                   onClose();
@@ -143,7 +174,7 @@ export const LetterDetailModal: React.FC<LetterDetailModalProps> = ({
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-pink-600 text-white hover:bg-pink-700 text-xs font-bold rounded-sm shadow-xs transition-all active:scale-95 cursor-pointer"
               >
                 <Reply className="w-3.5 h-3.5" />
-                <span>Responder Carta</span>
+                <span>Responder carta</span>
               </button>
             )}
 

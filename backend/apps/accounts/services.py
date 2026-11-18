@@ -9,6 +9,7 @@ from django.db.models import F
 from django.utils import timezone
 
 from apps.core.exceptions import DomainError
+from apps.core.uploads import delete_file_on_commit
 
 from .models import UserConnection
 from .validators import (
@@ -16,6 +17,9 @@ from .validators import (
     validate_username_format,
     validate_username_not_reserved,
 )
+
+# Shown wherever an anonymized (deleted) account appears.
+DELETED_ACCOUNT_NAME = "Conta excluída"
 
 User = get_user_model()
 
@@ -57,7 +61,7 @@ def register_user(
         ) from exc
 
     # Uniqueness checks (case-insensitive)
-    if User.objects.filter(username__iexact=clean_username).exists():
+    if User.objects.filter(username=clean_username).exists():
         raise DomainError(
             "This username is not available.",
             code="username_already_registered",
@@ -127,12 +131,13 @@ def register_user(
         soap_balance=0,
         passive_earn_rate=economy_settings.default_passive_earn_rate,
     )
-    economy_services.credit(
-        wallet,
-        economy_settings.signup_grant,
-        action_type=ActionType.SIGNUP_GRANT,
-        idempotency_key=f"signup:{user.id}",
-    )
+    if economy_settings.signup_grant > 0:
+        economy_services.credit(
+            wallet,
+            economy_settings.signup_grant,
+            action_type=ActionType.SIGNUP_GRANT,
+            idempotency_key=f"signup:{user.id}",
+        )
     return user
 
 
@@ -143,6 +148,7 @@ def update_profile(
     description: str | None = None,
     birth_date: date | None = None,
     profile_photo: Any = None,
+    remove_profile_photo: bool = False,
     customization_json: dict[str, Any] | None = None,
 ) -> User:
     """Update profile data for an existing user."""
@@ -184,6 +190,10 @@ def update_profile(
     if profile_photo is not None:
         user.profile_photo = profile_photo
         update_fields.append("profile_photo")
+    elif remove_profile_photo and user.profile_photo:
+        delete_file_on_commit(user.profile_photo)
+        user.profile_photo = ""
+        update_fields.append("profile_photo")
 
     if customization_json is not None:
         if not isinstance(customization_json, dict):
@@ -192,15 +202,84 @@ def update_profile(
                 code="invalid_customization",
                 extra={"fields": {"customization_json": ["Must be a valid object."]}},
             )
-        from apps.customization.services import validate_user_customization_ownership
+        from apps.customization.services import canonical_user_customization
 
-        validate_user_customization_ownership(user=user, customization_json=customization_json)
-        user.customization_json = customization_json
+        user.customization_json = canonical_user_customization(
+            user=user, customization_json=customization_json
+        )
         update_fields.append("customization_json")
 
     if update_fields:
         user.save(update_fields=update_fields)
 
+    return user
+
+
+def _require_password(user: User, password: str) -> None:
+    if not user.check_password(password):
+        raise DomainError(
+            "Invalid password.",
+            code="invalid_password",
+            http_status=400,
+            extra={"fields": {"password": ["Invalid password."]}},
+        )
+
+
+def find_banned_user(*, identifier: str, password: str) -> User | None:
+    """The banned account these credentials belong to, if any.
+
+    Only answers after the password is correct, so the ban (and its reason) is never revealed
+    to someone who merely guesses a username.
+    """
+    identifier = identifier.strip()
+    if "@" in identifier:
+        user = User.objects.filter(email__iexact=identifier).first()
+    else:
+        user = User.objects.filter(username=identifier.lower()).first()
+    if (
+        user
+        and user.status == "BANNED"
+        and user.deleted_at is None
+        and user.check_password(password)
+    ):
+        return user
+    return None
+
+
+@transaction.atomic
+def change_password(*, user: User, current_password: str, new_password: str) -> None:
+    """Change the password after confirming the current one. Other sessions are ended."""
+    _require_password(user, current_password)
+    try:
+        validate_password(new_password, user=user)
+    except ValidationError as exc:
+        raise DomainError(
+            " ".join(exc.messages),
+            code="weak_password",
+            extra={"fields": {"new_password": list(exc.messages)}},
+        ) from exc
+    user.set_password(new_password)
+    user.save(update_fields=["password"])
+
+    from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+
+    for token in OutstandingToken.objects.filter(user=user):
+        BlacklistedToken.objects.get_or_create(token=token)
+
+
+@transaction.atomic
+def change_email(*, user: User, password: str, new_email: str) -> User:
+    """Change the e-mail address after confirming the password."""
+    _require_password(user, password)
+    clean_email = new_email.strip().lower()
+    if User.objects.filter(email__iexact=clean_email).exclude(pk=user.pk).exists():
+        raise DomainError(
+            "This email is already in use.",
+            code="email_already_registered",
+            extra={"fields": {"new_email": ["This email is already in use."]}},
+        )
+    user.email = clean_email
+    user.save(update_fields=["email"])
     return user
 
 
@@ -215,13 +294,7 @@ def delete_account(*, user: User, password: str) -> None:
     4. Anonymizes personal info, deactivates login, sets deleted_at.
     5. Keeps wallet, ledger rows and published content (shown as deleted account).
     """
-    if not user.check_password(password):
-        raise DomainError(
-            "Invalid password.",
-            code="invalid_password",
-            http_status=400,
-            extra={"fields": {"password": ["Invalid password."]}},
-        )
+    _require_password(user, password)
 
     from apps.communities.models import Community, CommunityMember, MemberRole, MemberState
 
@@ -230,6 +303,7 @@ def delete_account(*, user: User, password: str) -> None:
             user=user,
             role=MemberRole.LEADER,
             community__archived_at__isnull=True,
+            community__deleted_at__isnull=True,
         ).select_related("community")
     )
     if leader_memberships:
@@ -254,6 +328,11 @@ def delete_account(*, user: User, password: str) -> None:
 
     CommunityMember.objects.filter(user=user).delete()
 
+    # Bubblepops are ephemeral and personal: remove them with their images.
+    for bubblepop in user.bubblepops.all():
+        delete_file_on_commit(bubblepop.image)
+    user.bubblepops.all().delete()
+
     # Remove follow connections
     user.following_connections.all().delete()
     user.follower_connections.all().delete()
@@ -262,10 +341,10 @@ def delete_account(*, user: User, password: str) -> None:
     user_id = user.id
     user.username = f"deleted_{user_id}"
     user.email = f"deleted_{user_id}@deleted.invalid"
-    user.name = "Deleted User"
+    user.name = DELETED_ACCOUNT_NAME
     user.description = ""
     if user.profile_photo:
-        user.profile_photo.delete(save=False)
+        delete_file_on_commit(user.profile_photo)
         user.profile_photo = ""
     user.customization_json = {}
     user.set_unusable_password()

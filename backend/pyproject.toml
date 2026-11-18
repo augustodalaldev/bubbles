@@ -17,6 +17,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "factory-boy>=3.3.3",
+    "faker>=40.44.0",
     "pytest>=9.2.0",
     "pytest-django>=4.14.0",
     "ruff>=0.17.3",
@@ -37,3 +38,6 @@ select = ["E", "F", "I", "B", "UP", "DJ"]
 
 [tool.ruff.lint.per-file-ignores]
 "config/settings/*.py" = ["F403", "F405"]
+"apps/core/demo/content.py" = ["E501"]  # Portuguese prose and catalog rows
+"apps/core/demo/personas.py" = ["E501"]  # Portuguese prose
+"apps/core/demo/stories.py" = ["E501"]  # Portuguese prose

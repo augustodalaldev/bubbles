@@ -1,29 +1,25 @@
 import React, { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { paths } from "@/routes";
 import { BrandLogo } from "@/components/BrandLogo";
 import { SoapIcon } from "@/components/SoapIcon";
-import { api } from "@/services/api";
+import { errorMessage, fieldErrors } from "@/services/errors";
 import { useAuthStore } from "./authStore";
+import { PasswordInput } from "@/components/PasswordInput";
 import { ArrowRight, AlertCircle } from "lucide-react";
 
-interface RegisterViewProps {
-  onNavigateToLogin: () => void;
-  onRegisterSuccess: () => void;
-}
-
-export const RegisterView: React.FC<RegisterViewProps> = ({
-  onNavigateToLogin,
-  onRegisterSuccess,
-}) => {
+export const RegisterView: React.FC = () => {
+  const { search } = useLocation();
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [password, setPassword] = useState("");
-  const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const setUser = useAuthStore((s) => s.setUser);
+  const register = useAuthStore((s) => s.register);
 
   // Validate 14 years minimum age (Backend requirement RF001)
   const isAtLeast14YearsOld = (dateStr: string): boolean => {
@@ -37,6 +33,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setErrors({});
 
     if (!name.trim() || !username.trim() || !email.trim() || !birthDate || !password) {
       setError("Preencha todos os campos obrigatórios.");
@@ -49,37 +46,19 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
     }
 
     setLoading(true);
+    setErrors({});
 
     try {
-      const res = await api.post("/auth/register/", {
+      await register({
         name: name.trim(),
         username: username.trim().toLowerCase(),
         email: email.trim(),
         birth_date: birthDate,
         password,
-        description: description.trim(),
       });
-
-      if (res.data?.tokens?.access) {
-        localStorage.setItem("bubbles_access_token", res.data.tokens.access);
-        if (res.data.tokens.refresh) {
-          localStorage.setItem("bubbles_refresh_token", res.data.tokens.refresh);
-        }
-      }
-
-      setUser(res.data.user);
-      onRegisterSuccess();
-    } catch (err: any) {
-      const data = err.response?.data;
-      const msg = 
-        data?.message || 
-        data?.username?.[0] || 
-        data?.email?.[0] || 
-        data?.birth_date?.[0] || 
-        data?.detail || 
-        "Erro ao criar conta. Verifique os dados.";
-      setError(msg);
-    } finally {
+    } catch (err) {
+      setErrors(fieldErrors(err));
+      setError(errorMessage(err));
       setLoading(false);
     }
   };
@@ -108,8 +87,8 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
           <div className="mb-4 p-2.5 bg-pink-50 border border-pink-200 rounded-sm text-xs text-pink-900 flex items-center gap-2">
             <SoapIcon size={20} />
             <div>
-              <span className="font-bold">Bônus de Boas-Vindas:</span> Ganhe{" "}
-              <strong>20 soap</strong> ao criar sua conta para apoiar posts e customizar seu perfil.
+              <span className="font-bold">Bônus de Boas-Vindas:</span> Ao criar sua conta você recebe{" "}
+              <strong>soap</strong> para apoiar posts e customizar seu perfil.
             </div>
           </div>
 
@@ -134,6 +113,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
                   placeholder="Seu nome"
                   className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-sm text-slate-800 focus:outline-none focus:border-pink-500 focus:bg-white"
                 />
+                {errors.name && <p className="mt-0.5 text-[11px] text-red-700">{errors.name}</p>}
               </div>
 
               <div>
@@ -148,6 +128,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
                   placeholder="ex: lucas_aero"
                   className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-sm text-slate-800 focus:outline-none focus:border-pink-500 focus:bg-white"
                 />
+                {errors.username && <p className="mt-0.5 text-[11px] text-red-700">{errors.username}</p>}
               </div>
             </div>
 
@@ -160,10 +141,12 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
                   type="email"
                   required
                   value={email}
+                  autoComplete="email"
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="seu@email.com"
                   className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-sm text-slate-800 focus:outline-none focus:border-pink-500 focus:bg-white"
                 />
+                {errors.email && <p className="mt-0.5 text-[11px] text-red-700">{errors.email}</p>}
               </div>
 
               <div>
@@ -177,6 +160,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
                   onChange={(e) => setBirthDate(e.target.value)}
                   className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-sm text-slate-800 focus:outline-none focus:border-pink-500 focus:bg-white"
                 />
+                {errors.birth_date && <p className="mt-0.5 text-[11px] text-red-700">{errors.birth_date}</p>}
               </div>
             </div>
 
@@ -184,28 +168,15 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Senha *
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 required
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Mínimo 8 caracteres"
                 className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-sm text-slate-800 focus:outline-none focus:border-pink-500 focus:bg-white"
               />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Descrição do perfil (opcional)
-              </label>
-              <textarea
-                rows={2}
-                maxLength={250}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Conte brevemente sobre seus interesses..."
-                className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-sm text-slate-800 focus:outline-none focus:border-pink-500 focus:bg-white resize-none"
-              />
+                {errors.password && <p className="mt-0.5 text-[11px] text-red-700">{errors.password}</p>}
             </div>
 
             <button
@@ -213,7 +184,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
               disabled={loading}
               className="w-full btn-pink py-2 text-xs font-bold rounded-sm mt-3 flex items-center justify-center gap-1.5"
             >
-              <span>{loading ? "Cadastrando..." : "Criar conta e receber 20 soap"}</span>
+              <span>{loading ? "Cadastrando..." : "Criar conta e receber soap"}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </form>
@@ -222,12 +193,12 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
         {/* Footer / Switch to Login */}
         <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 text-center text-xs text-slate-600">
           Já possui conta?{" "}
-          <button
-            onClick={onNavigateToLogin}
+          <Link to={paths.login + search}
+            
             className="font-bold text-pink-600 hover:underline"
           >
             Entrar
-          </button>
+          </Link>
         </div>
 
       </div>

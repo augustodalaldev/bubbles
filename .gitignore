@@ -24,3 +24,9 @@ dist/
 
 # Agents
 .agents/
+
+# Editor backups
+*~
+
+# Demo data: cached cat/dog photos and the seed manifest
+backend/.demo_cache/

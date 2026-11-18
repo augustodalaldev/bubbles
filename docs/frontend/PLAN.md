@@ -32,7 +32,7 @@ Este documento redefine as diretrizes estéticas e a arquitetura do frontend do 
      - `Letter`: Correspondência privada e direta entre dois usuários (`sender`, `recipient`, `text`, `image`, `sent_at`, `read_at`).
      - `Bubblegram`: Publicação perene (`user`, `community`, `text`, `type`, `media`, `soap_count`, `published_at`, `comments`).
      - `Bubblepop`: Mídia efêmera (`user`, `image`, `description`, `created_at`, `expires_at`).
-     - `Soap / Carteira`: Saldo do usuário e geração passiva (+5/dia).
+     - `Soap / Carteira`: Saldo do usuário e geração passiva (valores vindos de `GET /economy/settings/`: +5 soap a cada 5 min de uso, até 15 por dia).
 
 6. **Mecânica de Engajamento Exclusiva por Soap:**
    - No Bubbles não existem "curtidas" nem "corações". A única forma de apoiar criadores e interagir com publicações é através do envio de **soap** (`BubblegramSupport`).
@@ -74,7 +74,7 @@ A paleta é baseada nos arquivos vetoriais de `@references/` com ênfase no **br
 
 ### Seção 4: Perfil do Usuário (MVP Validado)
 8. **Layout de 3 Colunas Orkut Revisitado:**
-   - **Coluna Esquerda:** Avatar esférico do usuário com moldura cosmética, nome, `@username`, data de nascimento, data de entrada, biografia, saldo de soap (+5/dia) e botões de ação ("Seguir" e "Enviar carta").
+   - **Coluna Esquerda:** Avatar esférico do usuário com moldura cosmética, nome, `@username`, data de nascimento, data de entrada, biografia, saldo de soap (e ganho passivo conforme as configurações) e botões de ação ("Seguir" e "Enviar carta").
    - **Coluna Central:**
      - Bandeja compacta de Bubblepops com menor espaçamento.
      - Mural de Bolhas (Bubblegrams) interativo com física elástica via `framer-motion`, bolhas maiores e mais expressivas (~160px a 210px), e alternador para modo Grade.
@@ -111,12 +111,34 @@ A paleta é baseada nos arquivos vetoriais de `@references/` com ênfase no **br
 ## 6. Decisões Arquiteturais e Políticas do Sistema (Persistidas)
 
 1. **Upload de Mídia de Alta Resolução (Até 10 MB por arquivo):**
-   - O frontend e o backend (`DATA_UPLOAD_MAX_MEMORY_SIZE = 15MB`, `FILE_UPLOAD_MAX_MEMORY_SIZE = 10MB`) suportam upload de imagens de até **10 MB** cada (JPEG, PNG, WebP, GIF). Arquivos acima desse limite são rejeitados com feedback claro ao usuário.
+   - O limite de **10 MB** por imagem (JPEG, PNG, WebP, GIF) é imposto pelo backend em `core.uploads.validate_image_upload` (`SafeImageField`); o frontend apenas antecipa a checagem. As configurações `DATA_UPLOAD_MAX_MEMORY_SIZE`/`FILE_UPLOAD_MAX_MEMORY_SIZE` não limitam tamanho, só o uso de memória.
 
 2. **Criação de Publicações (Popup no Canto Inferior Direito):**
    - A criação de publicações no feed geral foi desacoplada da linha do tempo e acionada por um botão flutuante com símbolo de `+` fixado no canto inferior direito.
-   - Publicações originadas desse popup são sempre destinadas ao mural pessoal do usuário (com o custo de 10 soap).
+   - Publicações originadas desse popup são sempre destinadas ao mural pessoal do usuário (com o custo `bubblegram_profile_cost`, 10 soap por padrão). Publicar em comunidade também custa soap (`bubblegram_community_cost`).
    - **Publicações em comunidades são estritamente proibidas no popup geral:** postagens em comunidades só podem ser feitas de dentro da página da respectiva comunidade por membros autorizados.
 
 3. **Arquitetura de Rolagem da Interface:**
    - Apenas a raia central (feed de publicações) possui barra de rolagem interna (`overflow-y-auto`), mantendo o cabeçalho e as barras laterais (perfil à esquerda, comunidades e recomendações à direita) visíveis e acompanhando o scroll sem deslocamentos desnecessários.
+
+---
+
+## 7. Estado da integração (2026-11-17)
+
+Todas as telas acima consomem a API real (`frontend/src/services/*`), com estados de carregamento, erro e vazio.
+Não há mais dados mockados. Pendências que **não** têm tela (existem no backend; decisão do produto): editar perfil e excluir conta,
+extrato da carteira, moderação de membros/promover/transferir liderança/arquivar comunidade, denúncias e administração
+(use o Django Admin), compra de customização pela carteira da comunidade (S4).
+
+## 8. Navegação por URL (2026-11-17)
+
+Mapa das telas (todas com URL própria, ver README): feed `/` (`?q=` para busca), `/login`, `/register`, perfil `/u/:username`,
+comunidades `/communities` e `/c/:commname`, loja `/store`, cartas `/letters` (`?to=`), post `/p/:id`, 404 para o resto.
+Rotas protegidas redirecionam para `/login?next=` e voltam à URL original.
+
+Falhas de integração corrigidas nesta etapa: URL fixa em `/`; botão voltar/avançar; F5 perdia a tela; sem links compartilháveis;
+perfil/comunidade/carta abertos por estado; sem 404; sem retorno após login.
+
+Telas **fora do escopo** (decisão do produto, apenas listadas): editar perfil e excluir conta, extrato da carteira, moderação de membros,
+transferência de liderança, arquivamento de comunidade, denúncias e administração (Django Admin).
+
