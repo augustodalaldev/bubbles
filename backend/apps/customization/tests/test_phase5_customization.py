@@ -55,7 +55,8 @@ def equip(user, slots):
         ("AVATAR_FRAME", {"border_color": "#F465AC", "glow": "0 0 12px #7B63FF"}),
         ("NAME_COLOR", {"color": "#123456"}),
         ("PROFILE_THEME", {"primary": "#111", "secondary": "#222"}),
-        ("CHAT_BUBBLE", {"bg_color": "#FFFFFF", "radius": 8}),
+        ("CHAT_BUBBLE", {"tint": "#FCE7F3", "border": "#F465AC"}),
+        ("CHAT_BUBBLE", {"tint": "#FCE7F3"}),
     ],
 )
 def test_valid_metadata_is_accepted(item_type, metadata):
@@ -78,7 +79,9 @@ def test_valid_metadata_is_accepted(item_type, metadata):
         ("AVATAR_FRAME", {"border_color": "#fff", "glow": "0 0 12px red"}),
         ("AVATAR_FRAME", {"border_color": "#fff", "glow": "0 0 99px #fff"}),
         ("NAME_COLOR", {"color": "#12345"}),
-        ("CHAT_BUBBLE", {"bg_color": "blue"}),
+        ("CHAT_BUBBLE", {"tint": "pink"}),
+        ("CHAT_BUBBLE", {"border": "#F465AC"}),
+        ("CHAT_BUBBLE", {"bg_color": "#FFFFFF"}),
         ("CHAT_BUBBLE", {"nested": {"a": 1}}),
         ("SECTION", "not a dict"),
     ],

@@ -79,6 +79,8 @@ export interface Community extends CommunityRef {
   member_count: number;
   created_at: string;
   is_archived: boolean;
+  /** Only in lists: set while the community is suspended or banned. */
+  moderation_status?: "SUSPENDED" | "BANNED" | null;
   // Only on the detail endpoint:
   guidelines?: string;
   archived_at?: string | null;

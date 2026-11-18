@@ -193,7 +193,7 @@ def test_admin_user_list_filters_and_hides_deleted(staff):
 
 
 def make_comm(commname="comunidade_x"):
-    community = CommunityFactory(commname=commname, name="Comunidade X")
+    community = CommunityFactory(commname=commname, name="Comunidade X", member_count=2)
     leader = UserFactory()
     member = UserFactory()
     CommunityMemberFactory(community=community, user=leader, role=MemberRole.LEADER)
@@ -232,7 +232,8 @@ def test_community_suspension_hides_it_and_makes_it_read_only(staff):
         assert detail.data["moderation"]["reason"] == "regras"
         assert detail.data["moderation"]["suspended_until"]
         assert detail.data["permissions"]["can_edit"] is False
-        assert detail.data["permissions"]["can_leave"] is False
+        # members can still walk out of a moderated community (the leader cannot: transfer first)
+        assert detail.data["permissions"]["can_leave"] is (user is member)
     # read-only: cannot post or support
     res = as_user(member).post(
         "/api/v1/bubblegrams/",
@@ -343,3 +344,41 @@ def test_leader_cannot_delete_a_suspended_community(staff):
         format="json",
     )
     assert res.status_code == 403
+
+
+def test_member_can_leave_and_still_lists_a_moderated_community_under_mine(staff):
+    community, leader, member = make_comm()
+    as_user(staff).post(
+        f"/api/v1/admin/communities/{community.commname}/suspend/",
+        {"duration_hours": 5, "reason": "x"},
+        format="json",
+    )
+    mine = as_user(member).get("/api/v1/communities/?mine=true").data["results"]
+    row = next(c for c in mine if c["commname"] == community.commname)
+    assert row["moderation_status"] == "SUSPENDED"
+    # the general list still hides it
+    everyone = as_user(member).get("/api/v1/communities/").data["results"]
+    assert community.commname not in [c["commname"] for c in everyone]
+    res = as_user(member).post(f"/api/v1/communities/{community.commname}/leave/")
+    assert res.status_code == 200
+    assert as_user(member).get("/api/v1/communities/?mine=true").data["results"] == []
+
+
+def test_leader_of_a_moderated_community_can_transfer_leadership_then_delete_account(staff):
+    from apps.accounts.tests.factories import DEFAULT_PASSWORD
+
+    community, leader, member = make_comm()
+    as_user(staff).post(
+        f"/api/v1/admin/communities/{community.commname}/block/", {"reason": "x"}, format="json"
+    )
+    detail = as_user(leader).get(f"/api/v1/communities/{community.commname}/").data
+    assert detail["permissions"]["can_transfer_leadership"] is True
+    assert detail["permissions"]["can_edit"] is False  # still read-only otherwise
+    res = as_user(leader).post(
+        f"/api/v1/communities/{community.commname}/transfer-leadership/",
+        {"new_leader_username": member.username},
+        format="json",
+    )
+    assert res.status_code == 200
+    res = as_user(leader).delete("/api/v1/users/me/", {"password": DEFAULT_PASSWORD}, format="json")
+    assert res.status_code == 204, res.data

@@ -57,10 +57,13 @@ def _check_admin_or_leader_permission(actor: User, community: Community) -> Comm
     return membership
 
 
-def _check_leader_permission(actor: User, community: Community) -> CommunityMember | None:
+def _check_leader_permission(
+    actor: User, community: Community, *, allow_moderated: bool = False
+) -> CommunityMember | None:
     if actor.is_staff:
         return None
-    _reject_if_blocked(community)
+    if not allow_moderated:
+        _reject_if_blocked(community)
     membership = CommunityMember.objects.filter(community=community, user=actor).first()
     if (
         not membership
@@ -556,9 +559,13 @@ def transfer_leadership(
     community: Community,
     new_leader_username: str,
 ) -> CommunityMember:
-    """Transfer community leadership to an active member. Old leader becomes COMM_ADMIN."""
+    """Transfer community leadership to an active member. Old leader becomes COMM_ADMIN.
+
+    Allowed while the community is suspended or banned: it changes who leads, not what the
+    community does, and a leader must be able to hand over before leaving or deleting an account.
+    """
     _lock_community(community)
-    _check_leader_permission(actor, community)
+    _check_leader_permission(actor, community, allow_moderated=True)
 
     if community.is_archived:
         raise DomainError(

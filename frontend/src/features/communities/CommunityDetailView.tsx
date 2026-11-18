@@ -297,8 +297,22 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
     ...(permissions?.can_customize ? [{ id: "customization" as const, label: "Personalização" }] : []),
   ];
 
+  // The banner crowns the mural: above everything on phones (the columns stack), in the center
+  // column on large screens.
+  const banner = community.banner_photo ? (
+            <div className="relative w-full h-36 sm:h-44 rounded-sm overflow-hidden mb-4 border border-slate-200 bg-slate-100" data-testid="community-banner">
+              <img src={community.banner_photo} alt={`Banner de ${community.name}`} className="w-full h-full object-cover" />
+              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-slate-900/55 to-transparent pointer-events-none" />
+              <div className="absolute bottom-2 left-3 right-3 text-white pointer-events-none">
+                <span className="block text-sm font-bold leading-tight truncate drop-shadow">{community.name}</span>
+                <span className="block text-[11px] font-mono opacity-90 truncate">@{community.commname}</span>
+              </div>
+            </div>
+  ) : null;
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-3 lg:h-[calc(100vh-3.5rem)] lg:overflow-hidden">
+      {banner && <div className="lg:hidden mb-3">{banner}</div>}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start lg:h-full">
         {/* Left column */}
         <div className="lg:col-span-3 lg:h-full lg:overflow-y-auto scrollbar-none space-y-4">
@@ -383,7 +397,7 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
               ) : myState === "BANNED" ? (
                 <p className="text-xs text-red-700 font-semibold">Você foi banido desta comunidade.</p>
               ) : null}
-              {(permissions?.can_edit || permissions?.can_delete) && (
+              {(permissions?.can_edit || permissions?.can_delete || permissions?.can_transfer_leadership) && (
                 <Link
                   to={paths.communitySettings(community.commname)}
                   className="mt-2 block w-full py-1.5 text-xs font-bold rounded-sm border border-slate-300 text-slate-700 hover:bg-slate-100 text-center"
@@ -433,16 +447,7 @@ export const CommunityDetailView: React.FC<CommunityDetailViewProps> = ({ commna
 
         {/* Center column */}
         <div className="lg:col-span-6 min-w-0 lg:h-full lg:overflow-y-auto pr-1.5 scrollbar-thin">
-          {community.banner_photo && (
-            <div className="relative w-full h-36 sm:h-44 rounded-sm overflow-hidden mb-4 border border-slate-200 bg-slate-100" data-testid="community-banner">
-              <img src={community.banner_photo} alt={`Banner de ${community.name}`} className="w-full h-full object-cover" />
-              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-slate-900/55 to-transparent pointer-events-none" />
-              <div className="absolute bottom-2 left-3 right-3 text-white pointer-events-none">
-                <span className="block text-sm font-bold leading-tight truncate drop-shadow">{community.name}</span>
-                <span className="block text-[11px] font-mono opacity-90 truncate">@{community.commname}</span>
-              </div>
-            </div>
-          )}
+          {banner && <div className="hidden lg:block">{banner}</div>}
 
           <div className="panel-classic mb-4">
             <div className="p-1 flex items-center gap-1 bg-slate-50" role="tablist">

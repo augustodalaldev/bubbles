@@ -11,15 +11,15 @@ export const paths = {
   lettersTo: (username: string) => `/letters?to=${encodeURIComponent(username)}`,
   followers: (username: string) => `/u/${encodeURIComponent(username)}/followers`,
   following: (username: string) => `/u/${encodeURIComponent(username)}/following`,
-  account: "/conta",
+  account: "/account",
   moderation: (params?: { tab?: string; q?: string }) => {
     const qs = new URLSearchParams();
     if (params?.tab) qs.set("tab", params.tab);
     if (params?.q) qs.set("q", params.q);
     const text = qs.toString();
-    return text ? `/moderacao?${text}` : "/moderacao";
+    return text ? `/moderation?${text}` : "/moderation";
   },
-  communitySettings: (commname: string) => `/c/${encodeURIComponent(commname)}/configuracoes`,
+  communitySettings: (commname: string) => `/c/${encodeURIComponent(commname)}/settings`,
   letter: (id: number) => `/letters/${id}`,
   post: (id: number) => `/p/${id}`,
   search: (term: string) => (term ? `/?q=${encodeURIComponent(term)}` : "/"),

@@ -43,6 +43,11 @@ class MyMembershipSerializer(serializers.ModelSerializer):
 
 
 class CommunityListSerializer(serializers.ModelSerializer):
+    moderation_status = serializers.SerializerMethodField()
+
+    def get_moderation_status(self, obj: Community) -> str | None:
+        return obj.moderation_status
+
     class Meta:
         model = Community
         fields = [
@@ -56,6 +61,7 @@ class CommunityListSerializer(serializers.ModelSerializer):
             "member_count",
             "created_at",
             "is_archived",
+            "moderation_status",
         ]
         read_only_fields = fields
 

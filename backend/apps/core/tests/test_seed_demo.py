@@ -413,3 +413,23 @@ def test_reset_removes_the_showcase_and_catalog_images(demo):
 
     assert not User.objects.exists() and not Community.objects.exists()
     assert not any(default_storage.exists(name) for name in images + banners)
+
+
+def test_demo_feed_shows_popular_suggestions(demo):
+    """Popular suggestions look at the last 24 h only, so the seed makes a few posts recent."""
+    from datetime import timedelta
+
+    from apps.content.selectors import list_feed_bubblegrams
+
+    seed("--users", "10")
+    recent = Bubblegram.objects.filter(
+        community__isnull=True,
+        soap_count__gt=0,
+        published_at__gte=timezone.now() - timedelta(hours=24),
+    )
+    assert recent.exists()
+    popular_seen = any(
+        any(p.suggestion_reason == "popular" for p in list_feed_bubblegrams(user=user))
+        for user in User.objects.filter(is_active=True)
+    )
+    assert popular_seen

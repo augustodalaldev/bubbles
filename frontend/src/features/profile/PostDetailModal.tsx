@@ -1,3 +1,4 @@
+import { bubbleStyle } from "@/utils/theme";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { paths } from "@/routes";
@@ -84,7 +85,10 @@ const CommentRow: React.FC<{
             </button>
           </div>
         </div>
-        <p className="text-slate-600 text-[11px] leading-snug whitespace-pre-wrap break-words">
+        <p
+          className="text-slate-600 text-[11px] leading-snug whitespace-pre-wrap break-words"
+          style={bubbleStyle(comment.user)}
+        >
           {comment.text}
         </p>
         <div className="mt-1 flex items-center gap-3 text-[10px]">

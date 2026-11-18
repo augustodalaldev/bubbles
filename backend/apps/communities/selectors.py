@@ -60,9 +60,7 @@ def compute_community_permissions(
         "can_edit_guidelines": bool(is_staff or (is_leader and not is_archived and not is_blocked)),
         "can_manage_members": bool(is_staff or ((is_leader or is_admin) and not is_blocked)),
         "can_manage_admins": bool(is_staff or (is_leader and not is_blocked)),
-        "can_transfer_leadership": bool(
-            is_staff or (is_leader and not is_archived and not is_blocked)
-        ),
+        "can_transfer_leadership": bool(is_staff or (is_leader and not is_archived)),
         "can_archive": bool((is_staff or is_leader) and not is_archived and not is_blocked),
         "can_delete": bool(is_leader and not is_blocked),
         "can_view_wallet": bool(is_staff or is_leader or is_admin),
@@ -74,7 +72,7 @@ def compute_community_permissions(
             and not is_archived
             and not is_blocked
         ),
-        "can_leave": bool(is_member and not is_leader and not is_blocked and not is_banned),
+        "can_leave": bool(is_member and not is_leader and not is_banned),
     }
 
 
@@ -87,7 +85,9 @@ def list_communities(
     """List or search communities (RF004)."""
     qs = Community.objects.filter(deleted_at__isnull=True).order_by("-created_at")
 
-    if not getattr(user, "is_staff", False):
+    # "Mine" keeps the person's own moderated communities (read-only, with a notice) so a member
+    # can still open or leave them; every other listing hides them.
+    if not getattr(user, "is_staff", False) and not (mine and user.is_authenticated):
         qs = qs.filter(not_moderated_q())
 
     if mine and user.is_authenticated:

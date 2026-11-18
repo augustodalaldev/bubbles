@@ -20,7 +20,12 @@ export const api = axios.create({
   withCredentials: true,
 });
 
-const isAuthUrl = (url?: string) => !!url && url.startsWith("/auth/");
+/**
+ * Endpoints that must not receive a (possibly expired) Bearer header and must not trigger a
+ * refresh on 401. `/auth/heartbeat/` is NOT one of them: it needs the signed-in user.
+ */
+const PUBLIC_AUTH_URLS = ["/auth/login/", "/auth/register/", "/auth/refresh/", "/auth/logout/"];
+const isAuthUrl = (url?: string) => !!url && PUBLIC_AUTH_URLS.some((p) => url.startsWith(p));
 
 api.interceptors.request.use((config) => {
   // Auth endpoints must not receive a (possibly expired) Bearer header.

@@ -134,7 +134,7 @@ export const Header: React.FC = () => {
               title="Moderação"
               aria-label="Moderação"
               className={`p-1.5 rounded-sm transition-colors flex-shrink-0 ${
-                location.pathname === "/moderacao" ? "text-pink-600 bg-pink-50" : "text-slate-600 hover:text-pink-600 hover:bg-slate-100"
+                location.pathname === paths.moderation() ? "text-pink-600 bg-pink-50" : "text-slate-600 hover:text-pink-600 hover:bg-slate-100"
               }`}
             >
               <ShieldCheck className="w-4 h-4" />

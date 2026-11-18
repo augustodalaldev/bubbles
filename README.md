@@ -43,7 +43,7 @@ It also shows the administration states and every customization option: a suspen
 (`suspenso_demo`), a banned one (`banido_demo`, whose login explains the ban), a deleted account (its posts stay as
 "Conta excluída"), a suspended, a banned and a deleted community, offline-drawn wallpapers (four variations, one tiled),
 three accent colors, two profile sections, extra badges (up to three per profile, one granted by staff) and a banner
-for every community. Sign in as `admin_demo` and open `/moderacao` to see them.
+for every community. Sign in as `admin_demo` and open `/moderation` to see them.
 Dates are spread over the last 30 days. Photos come from The Cat API and Dog CEO (free, no key), are downloaded once to
 `backend/.demo_cache/` (git-ignored) and reused; offline it uses the cache or skips images with a warning.
 Photos are stored through the normal upload fields in `backend/media/`.
@@ -65,11 +65,11 @@ on any database other than the demo one.
 | `/` · `/?q=term` | Feed · search |
 | `/login` · `/register` | Authentication (`?next=/path` returns to the page you wanted) |
 | `/u/:username` · `/u/:username/followers` · `/u/:username/following` | Profile (your own too) · follower and following lists |
-| `/conta` | Your account: edit profile, change password/e-mail, delete account |
-| `/communities` · `/c/:commname` · `/c/:commname/configuracoes` | Community hub · community · its settings (edit, transfer leadership, delete) |
+| `/account` | Your account: edit profile, change password/e-mail, delete account |
+| `/communities` · `/c/:commname` · `/c/:commname/settings` | Community hub · community · its settings (edit, transfer leadership, delete) |
 | `/store` | Customization store (frames, themes, badges, name color, wallpapers, accent colors, profile section) |
 | `/letters` · `/letters/:id` · `/letters?to=username` | Mailbox · a letter · composer addressed to someone |
-| `/moderacao` | Staff only: suspend, ban and restore users and communities; audit history |
+| `/moderation` | Staff only: suspend, ban and restore users and communities; audit history |
 | `/p/:id` | A single post (shareable link) |
 | anything else | 404 page |
 

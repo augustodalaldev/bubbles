@@ -31,6 +31,7 @@ _SPECS: dict[str, dict[str, tuple[str, bool]]] = {
     "ACCENT_COLOR": {"color": ("hex", True)},
     "BADGE": {"label": ("label", True), "badge_color": ("hex", False)},
     "WALLPAPER": {"fit": ("fit", False)},
+    "CHAT_BUBBLE": {"tint": ("hex", True), "border": ("hex", False)},
     "SECTION": {},
 }
 

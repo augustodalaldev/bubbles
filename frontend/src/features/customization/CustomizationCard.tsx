@@ -2,7 +2,7 @@ import React from "react";
 import { CustomizationItem } from "@/types";
 import { SoapIcon } from "@/components/SoapIcon";
 import { Check, ShieldCheck, Sparkles } from "lucide-react";
-import { safeColor } from "@/utils/theme";
+import { safeColor, safeGlow } from "@/utils/theme";
 
 interface CustomizationCardProps {
   item: CustomizationItem;
@@ -31,8 +31,8 @@ export const CustomizationCard: React.FC<CustomizationCardProps> = ({
   // Render Visual Mini Preview according to item type
   const renderPreview = () => {
     if (item.item_type === "AVATAR_FRAME") {
-      const borderColor = item.metadata?.border_color || "#F465AC";
-      const glow = item.metadata?.glow || "none";
+      const borderColor = safeColor(item.metadata?.border_color) ?? "#F465AC";
+      const glow = safeGlow(item.metadata?.glow) ?? "none";
 
       return (
         <div className="h-24 bg-slate-50 flex items-center justify-center p-3 border-b border-slate-200">
@@ -56,8 +56,8 @@ export const CustomizationCard: React.FC<CustomizationCardProps> = ({
     }
 
     if (item.item_type === "PROFILE_THEME") {
-      const primary = item.metadata?.primary || "#F465AC";
-      const secondary = item.metadata?.secondary || "#7B63FF";
+      const primary = safeColor(item.metadata?.primary) ?? "#F465AC";
+      const secondary = safeColor(item.metadata?.secondary) ?? "#7B63FF";
 
       return (
         <div className="h-24 bg-slate-50 flex flex-col justify-between p-3 border-b border-slate-200">
@@ -89,8 +89,8 @@ export const CustomizationCard: React.FC<CustomizationCardProps> = ({
     }
 
     if (item.item_type === "CHAT_BUBBLE") {
-      const border = item.metadata?.border || "#F465AC";
-      const tint = item.metadata?.tint || "rgba(244, 101, 172, 0.1)";
+      const border = safeColor(item.metadata?.border) ?? "#F465AC";
+      const tint = safeColor(item.metadata?.tint) ?? "#FCE7F3";
 
       return (
         <div className="h-24 bg-slate-50 flex items-center justify-center p-3 border-b border-slate-200">

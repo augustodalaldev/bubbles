@@ -206,6 +206,11 @@ export const CommunityListView: React.FC = () => {
                             Arquivada
                           </span>
                         )}
+                        {community.moderation_status && (
+                          <span className="ml-1 inline-flex text-[10px] font-bold text-amber-800 bg-amber-50 px-1.5 rounded-sm border border-amber-300 mt-0.5">
+                            {community.moderation_status === "BANNED" ? "Banida" : "Suspensa"}
+                          </span>
+                        )}
                         <span className="block text-[11px] text-slate-500 font-medium mt-1">
                           {community.member_count.toLocaleString("pt-BR")} membros
                         </span>

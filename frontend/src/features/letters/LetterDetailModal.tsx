@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { paths } from "@/routes";
+import { bubbleStyle } from "@/utils/theme";
 import { Letter, User } from "@/types";
 import { Avatar } from "@/components/Avatar";
 import { X, Reply, Clock, CheckCheck, Mail } from "lucide-react";
@@ -119,7 +120,10 @@ export const LetterDetailModal: React.FC<LetterDetailModalProps> = ({
               </span>
             </Link>
           )}
-          <div className="text-xs text-slate-800 leading-relaxed whitespace-pre-line font-sans">
+          <div
+            className="text-xs text-slate-800 leading-relaxed whitespace-pre-line font-sans"
+            style={bubbleStyle(letter.sender)}
+          >
             {letter.text}
           </div>
 

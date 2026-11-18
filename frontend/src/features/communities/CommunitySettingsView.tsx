@@ -302,7 +302,7 @@ export const CommunitySettingsView: React.FC<{ commname: string }> = ({ commname
       .getCommunity(commname)
       .then((data) => {
         setCommunity(data);
-        setStatus(data.permissions?.can_edit || data.permissions?.can_delete ? "ready" : "forbidden");
+        setStatus(data.permissions?.can_edit || data.permissions?.can_delete || data.permissions?.can_transfer_leadership ? "ready" : "forbidden");
       })
       .catch((err) => {
         if (toApiError(err).status === 404) setStatus("notfound");

@@ -106,6 +106,21 @@ export function themeStyle(user: WithCustomization): React.CSSProperties | undef
   return style as React.CSSProperties;
 }
 
+/** Style of the equipped chat bubble (comments and letters): a tint and an optional border. */
+export function bubbleStyle(user: WithCustomization): React.CSSProperties | undefined {
+  const meta = slot(user, "chat_bubble")?.metadata;
+  const tint = safeColor(meta?.tint);
+  if (!tint) return undefined;
+  const border = safeColor(meta?.border);
+  return {
+    backgroundColor: tint,
+    border: border ? `1.5px solid ${border}` : "1px solid transparent",
+    borderRadius: 12,
+    padding: "6px 10px",
+    color: "#1E293B",
+  };
+}
+
 export function themeColors(user: WithCustomization): { primary: string; secondary: string } | null {
   const meta = slot(user, "profile_theme")?.metadata;
   const primary = safeColor(meta?.primary);

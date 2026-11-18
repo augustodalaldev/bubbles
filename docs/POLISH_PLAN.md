@@ -15,7 +15,7 @@ E (personalização): 12 wallpapers, cor dos elementos, seção personalizável 
 1. Correções rápidas: 1, 2, 3, 9, 10, 11 (+ nome "Conta excluída", throttle próprio do refresh, mural responsivo, rolagem natural no celular).
 2. Social e cartas: 7 e 8, com URLs próprias.
 3. Editar e excluir conta e comunidade: 4 e 5 (migration: `Community.deleted_at`).
-4. Administração: 6 (migration: `Community.suspended_until`; tela `/moderacao`).
+4. Administração: 6 (migration: `Community.suspended_until`; tela `/moderation`).
 5. Personalização expandida e efeito de bolha: 12 e 13 (migration: `CustomizationItem.image` e novos tipos).
 6. Validação final, seed de demonstração e documentação.
 

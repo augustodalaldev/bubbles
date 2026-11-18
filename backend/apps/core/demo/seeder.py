@@ -883,6 +883,14 @@ class DemoSeeder:
                 created_at=self._past(now - timedelta(days=days * 0.8))
             )
         post_time: dict[int, object] = {}
+        # The feed's "popular" suggestions only look at the last 24 hours, so a few supported
+        # personal posts are made recent: without them the demo would never show a suggestion.
+        supported = dict(
+            Bubblegram.objects.filter(
+                pk__in=[p.pk for p in self.new["posts"]], community__isnull=True, soap_count__gt=0
+            ).values_list("pk", "soap_count")
+        )
+        hot = set(sorted(supported, key=lambda pk: (-supported[pk], pk))[:5])
         for post in self.new["posts"]:
             lower = max(
                 user_created.get(post.user_id, now - timedelta(days=days)),
@@ -891,6 +899,8 @@ class DemoSeeder:
                 else now - timedelta(days=days),
             )
             t = self._past(lower, now - timedelta(hours=1))
+            if post.pk in hot:
+                t = now - timedelta(hours=self.rng.uniform(2, 20))
             Bubblegram.objects.filter(pk=post.pk).update(published_at=t)
             post_time[post.pk] = t
         comment_time: dict[int, object] = {}
@@ -949,7 +959,7 @@ class DemoSeeder:
             ("Banido (o login mostra o motivo)", content.SHOWCASE_USERS["banned"][0], PASSWORD),
         ]
         return [
-            ("Administrador (acessa /admin/ e /moderacao)", ADMIN_USERNAME, PASSWORD),
+            ("Administrador (acessa /admin/ e /moderation)", ADMIN_USERNAME, PASSWORD),
             ("Moderador de comunidades", MODERATOR_USERNAME, PASSWORD),
             *[("Usuário", u.username, PASSWORD) for u in sample],
             *showcase,

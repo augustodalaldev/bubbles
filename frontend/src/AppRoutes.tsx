@@ -218,9 +218,9 @@ export function AppRoutes() {
             <Route path="u/:username/following" element={<FollowRoute kind="following" />} />
             <Route path="communities" element={<CommunityListView />} />
             <Route path="c/:commname" element={<CommunityRoute />} />
-            <Route path="c/:commname/configuracoes" element={<CommunitySettingsRoute />} />
-            <Route path="conta" element={<AccountView />} />
-            <Route path="moderacao" element={<ModerationView />} />
+            <Route path="c/:commname/settings" element={<CommunitySettingsRoute />} />
+            <Route path="account" element={<AccountView />} />
+            <Route path="moderation" element={<ModerationView />} />
             <Route path="store" element={<StoreView />} />
             <Route path="letters/:id?" element={<LettersRoute />} />
             <Route path="p/:id" element={<PostRoute />} />
