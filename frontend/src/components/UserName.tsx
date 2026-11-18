@@ -6,25 +6,51 @@ interface UserNameProps {
   user: Pick<User, "name" | "customization_json">;
   className?: string;
   showBadge?: boolean;
+  /**
+   * `compact` (feeds, comments, lists): the name on one line and, below it, only the most
+   * valuable badge plus a "+N" for the rest, so a long name or many badges never push it out.
+   * `full` (the profile header): every badge, wrapping onto more lines if needed.
+   */
+  variant?: "compact" | "full";
 }
 
-/** A person's name with their equipped name color and badge. */
-export const UserName: React.FC<UserNameProps> = ({ user, className = "", showBadge = true }) => {
+/** A person's name with their equipped name color and badges (below the name). */
+export const UserName: React.FC<UserNameProps> = ({
+  user,
+  className = "",
+  showBadge = true,
+  variant = "compact",
+}) => {
   const badges = showBadge ? badgesOf(user) : [];
+  const shown = variant === "full" ? badges : badges.slice(0, 1);
+  const hidden = badges.slice(shown.length);
   return (
-    <span className="inline-flex items-center gap-1.5 min-w-0">
-      <span className={className} style={{ color: nameColor(user) }}>
+    <span className="inline-flex flex-col items-start min-w-0 max-w-full align-top">
+      <span className={`${className} max-w-full ${variant === "compact" ? "truncate" : ""}`} style={{ color: nameColor(user) }} title={user.name}>
         {user.name}
       </span>
-      {badges.map((badge, index) => (
-        <span
-          key={index}
-          className="px-1.5 py-px text-[10px] font-bold rounded-sm flex-shrink-0"
-          style={{ backgroundColor: badge.background, color: badge.color }}
-        >
-          {badge.label}
+      {badges.length > 0 && (
+        <span className="mt-0.5 flex flex-wrap items-center gap-1 max-w-full">
+          {shown.map((badge, index) => (
+            <span
+              key={index}
+              className="px-1.5 py-px text-[10px] leading-tight font-bold rounded-sm max-w-[9rem] truncate"
+              style={{ backgroundColor: badge.background, color: badge.color }}
+              title={badge.label}
+            >
+              {badge.label}
+            </span>
+          ))}
+          {hidden.length > 0 && (
+            <span
+              className="text-[10px] leading-tight font-semibold text-slate-500"
+              title={hidden.map((b) => b.label).join(", ")}
+            >
+              +{hidden.length}
+            </span>
+          )}
         </span>
-      ))}
+      )}
     </span>
   );
 };

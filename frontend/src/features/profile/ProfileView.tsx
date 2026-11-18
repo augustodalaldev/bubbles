@@ -209,7 +209,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <div className="p-4 text-center flex flex-col items-center">
               <Avatar user={profile} className="w-24 h-24 mb-3 text-2xl" />
               <h1 className="text-base font-bold text-slate-900 leading-tight">
-                <UserName user={profile} />
+                <UserName user={profile} variant="full" />
               </h1>
               <p className="text-xs text-pink-600 font-semibold mb-2">@{profile.username}</p>
               {profile.description && (

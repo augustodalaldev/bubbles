@@ -45,6 +45,8 @@ export function nameColor(user: WithCustomization): string | undefined {
 }
 
 export interface Badge {
+  /** Catalog price: the most expensive badge is the one shown when space is short. */
+  price: number;
   label: string;
   background: string;
   color: string;
@@ -58,11 +60,22 @@ function badgeFrom(user: WithCustomization, name: string): Badge | null {
   const label = typeof meta?.label === "string" ? meta.label.trim().slice(0, 24) : "";
   if (!label) return null;
   const background = safeColor(meta?.badge_color) ?? "#7B63FF";
-  return { label, background, color: contrastText(background) };
+  const price = (slot(user, name) as { price?: unknown } | undefined)?.price;
+  return {
+    price: typeof price === "number" ? price : 0,
+    label,
+    background,
+    color: contrastText(background),
+  };
 }
 
+/** The badges worn, most expensive first (ties keep slot order). */
 export function badgesOf(user: WithCustomization): Badge[] {
-  return BADGE_SLOTS.map((name) => badgeFrom(user, name)).filter((b): b is Badge => b !== null);
+  return BADGE_SLOTS.map((name) => badgeFrom(user, name))
+    .filter((b): b is Badge => b !== null)
+    .map((badge, index) => ({ badge, index }))
+    .sort((a, b) => b.badge.price - a.badge.price || a.index - b.index)
+    .map(({ badge }) => badge);
 }
 
 /** Only same-origin `/media/...` images (the catalog's uploads) are used as backgrounds. */

@@ -38,6 +38,8 @@ def item_snapshot(item: CustomizationItem) -> dict[str, Any]:
         "name": item.name,
         "item_type": item.item_type,
         "metadata": item.metadata,
+        # lets the UI show the most valuable badge when there is room for only one
+        "price": item.price,
     }
     if item.image:
         data["image"] = item.image.url

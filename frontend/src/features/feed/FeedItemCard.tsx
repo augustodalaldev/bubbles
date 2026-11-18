@@ -73,9 +73,9 @@ export const FeedItemCard: React.FC<FeedItemCardProps> = ({
         >
           <Avatar user={post.user} className="w-9 h-9 flex-shrink-0" />
           <div className="flex flex-col min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex items-start gap-1.5 flex-wrap">
               <UserName user={post.user} className="text-xs font-bold text-slate-900 truncate" />
-              <span className="text-[11px] text-slate-400">@{post.user.username}</span>
+              <span className="text-[11px] text-slate-400 leading-tight pt-0.5">@{post.user.username}</span>
               {post.community && (
                 <>
                   <span className="text-slate-300 text-xs">•</span>
