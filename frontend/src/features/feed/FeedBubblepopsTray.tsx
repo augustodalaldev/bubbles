@@ -2,18 +2,16 @@ import React from "react";
 import { Bubblepop } from "@/types";
 import { BubbleOverlay } from "@/components/BubbleOverlay";
 import { hoursLeft } from "@/utils/time";
-import { Plus, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 
 interface FeedBubblepopsTrayProps {
   bubblepops: Bubblepop[];
   onSelectBubblepop: (story: Bubblepop) => void;
-  onOpenCreateModal?: () => void;
 }
 
 export const FeedBubblepopsTray: React.FC<FeedBubblepopsTrayProps> = ({
   bubblepops,
   onSelectBubblepop,
-  onOpenCreateModal,
 }) => {
   return (
     <div className="panel-classic mb-4">
@@ -32,18 +30,11 @@ export const FeedBubblepopsTray: React.FC<FeedBubblepopsTrayProps> = ({
       <div className="p-3">
         <div className="flex items-center gap-3 overflow-x-auto pb-1 scrollbar-thin">
           
-          {/* Create Bubblepop Action Button */}
-          <button
-            onClick={onOpenCreateModal}
-            className="flex flex-col items-center flex-shrink-0 group"
-          >
-            <div className="w-14 h-14 rounded-full border-2 border-dashed border-pink-300 bg-pink-50 flex items-center justify-center text-pink-600 group-hover:bg-pink-100 group-hover:border-pink-500 transition-all">
-              <Plus className="w-5 h-5" />
-            </div>
-            <span className="text-[11px] font-medium text-slate-700 mt-1.5 group-hover:text-pink-600">
-              Novo pop
-            </span>
-          </button>
+          {bubblepops.length === 0 && (
+            <p className="text-xs text-slate-400 py-3">
+              Nenhum bubblepop ativo. Use o botão + para criar o seu.
+            </p>
+          )}
 
           {/* Bubblepops list */}
           {bubblepops.map((item) => (

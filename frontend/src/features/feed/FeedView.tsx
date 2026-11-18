@@ -10,7 +10,6 @@ import { search } from "@/services/users";
 import { errorMessage } from "@/services/errors";
 import { CheckCircle2 } from "lucide-react";
 import { CreateBubblePopup } from "./CreateBubblePopup";
-import { CreateBubblepopModal } from "./CreateBubblepopModal";
 import { FeedBubblepopsTray } from "./FeedBubblepopsTray";
 import { FeedItemCard } from "./FeedItemCard";
 import { FeedSidebarLeft } from "./FeedSidebarLeft";
@@ -47,7 +46,6 @@ export const FeedView: React.FC<FeedViewProps> = ({ searchTerm = "" }) => {
 
   const [selectedPost, setSelectedPost] = useState<Bubblegram | null>(null);
   const [selectedStory, setSelectedStory] = useState<Bubblepop | null>(null);
-  const [creatingPop, setCreatingPop] = useState(false);
 
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -139,7 +137,6 @@ export const FeedView: React.FC<FeedViewProps> = ({ searchTerm = "" }) => {
           <FeedBubblepopsTray
             bubblepops={bubblepops}
             onSelectBubblepop={(story) => setSelectedStory(story)}
-            onOpenCreateModal={() => setCreatingPop(true)}
           />
 
           {term ? (
@@ -236,14 +233,10 @@ export const FeedView: React.FC<FeedViewProps> = ({ searchTerm = "" }) => {
         </div>
       </div>
 
-      <CreateBubblePopup onPostCreated={(post) => setPosts((prev) => [post, ...prev])} />
-
-      {creatingPop && (
-        <CreateBubblepopModal
-          onClose={() => setCreatingPop(false)}
-          onCreated={(pop) => setBubblepops((prev) => [...prev, pop])}
-        />
-      )}
+      <CreateBubblePopup
+        onPostCreated={(post) => setPosts((prev) => [post, ...prev])}
+        onPopCreated={(pop) => setBubblepops((prev) => [...prev, pop])}
+      />
 
       {(selectedPost || selectedStory) && (
         <PostDetailModal

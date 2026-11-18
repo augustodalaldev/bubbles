@@ -12,7 +12,6 @@ import { CreateBubblePopup } from "@/features/feed/CreateBubblePopup";
 import { SoapIcon } from "@/components/SoapIcon";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { useAuthStore } from "@/features/auth/authStore";
-import { CreateBubblepopModal } from "@/features/feed/CreateBubblepopModal";
 import { listCommunities } from "@/services/communities";
 import { errorMessage, toApiError } from "@/services/errors";
 import { listInbox } from "@/services/letters";
@@ -26,7 +25,7 @@ import {
 } from "@/services/users";
 import { timeAgo } from "@/utils/time";
 import { ProfileSectionPanel } from "./ProfileSectionPanel";
-import { UserPlus, Mail, Calendar, Layers, Grid, Plus, Clock, ShoppingBag } from "lucide-react";
+import { UserPlus, Mail, Calendar, Layers, Grid, Clock, ShoppingBag } from "lucide-react";
 
 interface ProfileViewProps {
   /** Profile to show; null means the signed-in user's own profile. */
@@ -76,7 +75,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   const [selectedPost, setSelectedPost] = useState<Bubblegram | null>(null);
   const [selectedStory, setSelectedStory] = useState<Bubblepop | null>(null);
-  const [creatingPop, setCreatingPop] = useState(false);
   const [viewMode, setViewMode] = useState<"physics" | "grid">("physics");
   const [followBusy, setFollowBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -336,20 +334,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <div className="panel-classic">
             <div className="panel-classic-header">
               <span className="text-sm sm:text-base font-bold text-slate-800">Bubblepops</span>
-              {isOwn && (
-                <button
-                  onClick={() => setCreatingPop(true)}
-                  title="Criar um bubblepop"
-                  className="btn-outline py-0.5 px-2.5 text-xs font-semibold flex items-center gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5 text-pink-600" />
-                  Novo
-                </button>
-              )}
             </div>
             <div className="p-3 flex items-center gap-3 overflow-x-auto min-h-[92px]">
               {bubblepops.length === 0 ? (
-                <p className="text-xs text-slate-400">Nenhum bubblepop ativo.</p>
+                <p className="text-xs text-slate-400">
+                  Nenhum bubblepop ativo.{isOwn ? " Use o botão + para criar o seu." : ""}
+                </p>
               ) : (
                 bubblepops.map((story) => <BubblepopStory key={story.id} story={story} onClick={setSelectedStory} />)
               )}
@@ -553,11 +543,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             setPosts((prev) => [post, ...prev]);
             setPostsCount((n) => n + 1);
           }}
+          onPopCreated={(pop) => setBubblepops((prev) => [...prev, pop])}
         />
-      )}
-
-      {creatingPop && (
-        <CreateBubblepopModal onClose={() => setCreatingPop(false)} onCreated={(pop) => setBubblepops((prev) => [...prev, pop])} />
       )}
 
       {(selectedPost || selectedStory) && (
