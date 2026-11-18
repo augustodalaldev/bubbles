@@ -231,3 +231,8 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 | `Avatar` applies the equipped frame and `UserName` the name color and badge, so every place that shows a person gets them | Customization used to apply only to the community photo and the store preview |
 | Phones: the header splits into two rows, side columns stack instead of disappearing, fixed-height two-pane layouts apply only from `lg`, the profile mural lays bubbles out for its real width | At 375 px the logo and avatar shrank to 0 px and the community info column was hidden |
 
+
+## Polish 2 — Phase 2 (2026-11-17)
+- Letters expose `reply_to_summary` (id, sender, 140-char excerpt, sent_at) and `reply_id` (the answer, via a Subquery in the selectors). The excerpt keeps the replied-to letter visible without a second request, and neither field adds queries per row.
+- The open letter is part of the URL (`/letters/:id?`, a single route so the list is not remounted). Closing goes back in history, or to `/letters` on a direct visit. An answered letter hides "Responder" (the backend rejects a second reply with `already_replied`).
+- Follower/following lists are their own routes, so the counters are plain links and the own-profile tab stays highlighted on them.

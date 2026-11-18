@@ -6,7 +6,7 @@ import { Avatar } from "@/components/Avatar";
 import { BubbleOverlay } from "@/components/BubbleOverlay";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { useAuthStore } from "@/features/auth/authStore";
-import { errorMessage } from "@/services/errors";
+import { errorMessage, toApiError } from "@/services/errors";
 import { listInbox, listSent, openLetter } from "@/services/letters";
 import { listFollowing } from "@/services/users";
 import { LetterComposeModal } from "./LetterComposeModal";
@@ -22,7 +22,8 @@ import {
   Compass, 
   User as UserIcon, 
   Store,
-  Layers
+  Layers,
+  Reply
 } from "lucide-react";
 
 interface LettersInboxViewProps {
@@ -30,6 +31,12 @@ interface LettersInboxViewProps {
   composeTo?: string | null;
   /** Called when the composer closes, so the route can drop `?to=`. */
   onComposeClosed?: () => void;
+  /** Letter id from the URL (`/letters/:id`); the detail modal follows it. */
+  openLetterId?: number | null;
+  /** The URL had a letter segment that is not a valid id. */
+  invalidLetterId?: boolean;
+  onOpenLetter?: (id: number) => void;
+  onCloseLetter?: () => void;
 }
 
 type Box = {
@@ -43,6 +50,10 @@ const emptyBox: Box = { letters: [], next: null, status: "loading", error: null 
 export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
   composeTo,
   onComposeClosed,
+  openLetterId = null,
+  invalidLetterId = false,
+  onOpenLetter,
+  onCloseLetter,
 }) => {
   const currentUser = useAuthStore((s) => s.user)!;
   const [inbox, setInbox] = useState<Box>(emptyBox);
@@ -92,20 +103,33 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
 
   const unreadCount = inbox.letters.filter((l) => !l.is_read).length;
 
-  // Opening as the recipient marks the letter as read on the server.
-  const handleOpen = async (letter: Letter) => {
-    setSelectedLetter(letter);
+  // The open letter follows the URL. Opening it as the recipient marks it as read on the server.
+  const [letterNotFound, setLetterNotFound] = useState(false);
+  useEffect(() => {
     setOpenError(null);
-    if (letter.recipient.id === currentUser.id && !letter.is_read) {
-      try {
-        const opened = await openLetter(letter.id);
-        setInbox((prev) => ({ ...prev, letters: prev.letters.map((l) => (l.id === opened.id ? opened : l)) }));
-        setSelectedLetter(opened);
-      } catch (err) {
-        setOpenError(errorMessage(err));
-      }
+    setLetterNotFound(false);
+    if (openLetterId === null) {
+      setSelectedLetter(null);
+      return;
     }
-  };
+    let cancelled = false;
+    openLetter(openLetterId)
+      .then((opened) => {
+        if (cancelled) return;
+        setSelectedLetter(opened);
+        setInbox((prev) => ({ ...prev, letters: prev.letters.map((l) => (l.id === opened.id ? opened : l)) }));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (toApiError(err).status === 404) setLetterNotFound(true);
+        else setOpenError(errorMessage(err));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [openLetterId]);
+
+  const handleOpen = (letter: Letter) => onOpenLetter?.(letter.id);
 
   const handleLetterSent = (letter: Letter) => {
     setSent((prev) => ({ ...prev, letters: [letter, ...prev.letters] }));
@@ -361,7 +385,7 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
                 return (
                   <article
                     key={letter.id}
-                    onClick={() => void handleOpen(letter)}
+                    onClick={() => handleOpen(letter)}
                     className={`panel-classic p-3.5 transition-all hover:shadow-md cursor-pointer border ${
                       isUnread
                         ? "bg-pink-50/40 border-pink-200"
@@ -402,6 +426,15 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
                         }`}>
                           {letter.text}
                         </p>
+
+                        {(letter.reply_to_summary || letter.reply_id) && (
+                          <p className="mt-1 text-[10px] font-semibold text-slate-500 flex items-center gap-1">
+                            <Reply className="w-3 h-3" />
+                            {letter.reply_to_summary
+                              ? `Em resposta a ${letter.reply_to_summary.sender.name}`
+                              : "Já respondida"}
+                          </p>
+                        )}
 
                         {/* Badges footer: Image attachment indicator & Read receipt */}
                         <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400">
@@ -450,6 +483,14 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
             )}
           </div>
 
+          {(letterNotFound || invalidLetterId) && (
+            <p role="alert" className="mt-2 text-[11px] text-red-700">
+              Esta carta não existe ou você não tem acesso a ela.{" "}
+              <Link to={paths.letters} className="underline font-semibold">
+                Ver minhas cartas
+              </Link>
+            </p>
+          )}
           {openError && (
             <p role="alert" className="mt-2 text-[11px] text-red-700">
               {openError}
@@ -554,7 +595,8 @@ export const LettersInboxView: React.FC<LettersInboxViewProps> = ({
         <LetterDetailModal
           letter={selectedLetter}
           currentUser={currentUser}
-          onClose={() => setSelectedLetter(null)}
+          onClose={() => onCloseLetter?.()}
+          onOpenLetter={(id) => onOpenLetter?.(id)}
           onReply={(letterToReply) => {
             setReplyToLetter(letterToReply);
             setIsComposeOpen(true);

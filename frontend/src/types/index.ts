@@ -137,6 +137,17 @@ export interface Letter {
   sent_at: string;
   read_at: string | null;
   is_read: boolean;
+  /** The letter this one answers (null when it is not a reply). */
+  reply_to_summary?: LetterReplySummary | null;
+  /** The letter that answered this one, if any. */
+  reply_id?: number | null;
+}
+
+export interface LetterReplySummary {
+  id: number;
+  sender: User;
+  excerpt: string;
+  sent_at: string;
 }
 
 export type CustomizationType =

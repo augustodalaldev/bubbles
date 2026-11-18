@@ -48,15 +48,15 @@ export const FeedSidebarLeft: React.FC<FeedSidebarLeftProps> = ({
 
           {/* Followers / Following Row */}
           <div className="flex items-center justify-center gap-3 py-1.5 border-t border-b border-slate-100 text-[11px] text-slate-600 mb-2.5">
-            <div>
+            <Link to={paths.followers(currentUser.username)} className="hover:text-pink-700">
               <span className="font-bold text-slate-900">{currentUser.followers_count ?? 0}</span>
               <span className="text-slate-400 ml-1">seguidores</span>
-            </div>
+            </Link>
             <span className="text-slate-300">•</span>
-            <div>
+            <Link to={paths.following(currentUser.username)} className="hover:text-pink-700">
               <span className="font-bold text-slate-900">{currentUser.following_count ?? 0}</span>
               <span className="text-slate-400 ml-1">seguindo</span>
-            </div>
+            </Link>
           </div>
 
           {/* Soap Wallet Mini Banner */}

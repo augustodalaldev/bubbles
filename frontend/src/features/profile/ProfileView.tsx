@@ -267,14 +267,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   <span className="block text-sm font-bold text-slate-800">{postsCount}</span>
                   <span className="text-[10px] text-slate-400">Bolhas</span>
                 </div>
-                <div>
+                <Link to={paths.followers(profile.username)} className="rounded-sm hover:bg-slate-50" title="Ver seguidores">
                   <span className="block text-sm font-bold text-slate-800">{profile.followers_count ?? 0}</span>
                   <span className="text-[10px] text-slate-400">Seguidores</span>
-                </div>
-                <div>
+                </Link>
+                <Link to={paths.following(profile.username)} className="rounded-sm hover:bg-slate-50" title="Ver quem segue">
                   <span className="block text-sm font-bold text-slate-800">{profile.following_count ?? 0}</span>
                   <span className="text-[10px] text-slate-400">Seguindo</span>
-                </div>
+                </Link>
               </div>
             </div>
           </div>
@@ -463,7 +463,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
           <div className="panel-classic">
             <div className="panel-classic-header">
-              <span className="text-sm sm:text-base font-bold text-slate-800">Seguidores ({profile.followers_count ?? 0})</span>
+              <Link to={paths.followers(profile.username)} className="text-sm sm:text-base font-bold text-slate-800 hover:text-pink-700">
+                Seguidores ({profile.followers_count ?? 0})
+              </Link>
             </div>
             <div className="p-3">
               {followers.length === 0 ? (

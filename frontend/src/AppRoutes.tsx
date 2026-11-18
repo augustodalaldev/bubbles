@@ -30,6 +30,9 @@ const CommunityListView = lazy(() =>
 const CommunityDetailView = lazy(() =>
   import("@/features/communities/CommunityDetailView").then((m) => ({ default: m.CommunityDetailView }))
 );
+const FollowListView = lazy(() =>
+  import("@/features/profile/FollowListView").then((m) => ({ default: m.FollowListView }))
+);
 const StoreView = lazy(() => import("@/features/customization/StoreView").then((m) => ({ default: m.StoreView })));
 const LettersInboxView = lazy(() =>
   import("@/features/letters/LettersInboxView").then((m) => ({ default: m.LettersInboxView }))
@@ -94,6 +97,12 @@ function ProfileRoute() {
   return <ProfileView key={handle} username={handle} />;
 }
 
+function FollowRoute({ kind }: { kind: "followers" | "following" }) {
+  const { username = "" } = useParams();
+  const handle = username.toLowerCase();
+  return <FollowListView key={`${kind}:${handle}`} username={handle} kind={kind} />;
+}
+
 function CommunityRoute() {
   const { commname = "" } = useParams();
   const handle = commname.toLowerCase();
@@ -102,10 +111,20 @@ function CommunityRoute() {
 
 function LettersRoute() {
   const [params] = useSearchParams();
+  const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const letterId = id === undefined ? null : Number(id);
   return (
     <LettersInboxView
       composeTo={params.get("to")}
+      openLetterId={letterId !== null && Number.isInteger(letterId) && letterId > 0 ? letterId : null}
+      invalidLetterId={id !== undefined && !(letterId !== null && Number.isInteger(letterId) && letterId > 0)}
+      onOpenLetter={(letterId) => navigate(paths.letter(letterId))}
+      // Back to wherever the person came from; a direct visit goes to the list.
+      onCloseLetter={() =>
+        location.key !== "default" ? navigate(-1) : navigate(paths.letters, { replace: true })
+      }
       // The composer was opened by `?to=`: drop it so reloading does not reopen it.
       onComposeClosed={() => navigate(paths.letters, { replace: true })}
     />
@@ -172,10 +191,12 @@ export function AppRoutes() {
           <Route element={<AppLayout />}>
             <Route index element={<FeedRoute />} />
             <Route path="u/:username" element={<ProfileRoute />} />
+            <Route path="u/:username/followers" element={<FollowRoute kind="followers" />} />
+            <Route path="u/:username/following" element={<FollowRoute kind="following" />} />
             <Route path="communities" element={<CommunityListView />} />
             <Route path="c/:commname" element={<CommunityRoute />} />
             <Route path="store" element={<StoreView />} />
-            <Route path="letters" element={<LettersRoute />} />
+            <Route path="letters/:id?" element={<LettersRoute />} />
             <Route path="p/:id" element={<PostRoute />} />
             <Route path="*" element={<NotFoundView />} />
           </Route>
