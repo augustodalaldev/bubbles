@@ -6,7 +6,8 @@ import { BubbleOverlay } from "@/components/BubbleOverlay";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { joinCommunity, leaveCommunity, listCommunities } from "@/services/communities";
 import { errorMessage } from "@/services/errors";
-import { Users, Plus, Search, UserCheck, ChevronRight } from "lucide-react";
+import { Users, Plus, Search, UserCheck, ChevronRight, AlertCircle, X } from "lucide-react";
+import { useAuthStore } from "@/features/auth/authStore";
 import { CreateCommunityModal } from "./CreateCommunityModal";
 
 export const CommunityListView: React.FC = () => {
@@ -24,6 +25,29 @@ export const CommunityListView: React.FC = () => {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [balanceWarning, setBalanceWarning] = useState<string | null>(null);
+  const [checkingBalance, setCheckingBalance] = useState(false);
+
+  /** Founding costs soap: check the current balance first and explain, instead of opening a form that cannot be sent. */
+  const handleCreateClick = async () => {
+    setBalanceWarning(null);
+    setCheckingBalance(true);
+    try {
+      await useAuthStore.getState().refreshUser(); // the balance may have changed since the page loaded
+    } finally {
+      setCheckingBalance(false);
+    }
+    const { user, economy } = useAuthStore.getState();
+    const cost = economy?.founding_cost;
+    const balance = user?.soap_balance ?? user?.wallet?.soap_balance ?? 0;
+    if (cost !== undefined && balance < cost) {
+      setBalanceWarning(
+        `Fundar uma comunidade custa ${cost} soap e você tem ${balance}. Faltam ${cost - balance} soap: use a plataforma para ganhar soap aos poucos ou receba apoios nas suas publicações.`
+      );
+      return;
+    }
+    setIsCreateModalOpen(true);
+  };
 
   // Debounce the search box before hitting the API.
   useEffect(() => {
@@ -98,13 +122,27 @@ export const CommunityListView: React.FC = () => {
           </div>
 
           <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-pink-600 text-white hover:bg-pink-700 text-xs font-bold rounded-sm shadow-xs transition-all self-start sm:self-auto"
+            onClick={() => void handleCreateClick()}
+            disabled={checkingBalance}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-pink-600 text-white hover:bg-pink-700 disabled:opacity-60 text-xs font-bold rounded-sm shadow-xs transition-all self-start sm:self-auto"
           >
             <Plus className="w-4 h-4" />
-            <span>Criar comunidade</span>
+            <span>{checkingBalance ? "Verificando saldo..." : "Criar comunidade"}</span>
           </button>
         </div>
+
+        {balanceWarning && (
+          <div
+            role="alert"
+            className="mx-4 mb-3 p-2.5 bg-amber-50 border border-amber-300 text-amber-900 text-xs rounded-sm flex items-start gap-2"
+          >
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-600" />
+            <span className="flex-1">{balanceWarning}</span>
+            <button onClick={() => setBalanceWarning(null)} aria-label="Fechar aviso" className="text-amber-700 hover:text-amber-900">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-1" role="tablist">

@@ -118,6 +118,14 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 space-y-3.5">
+          {cannotAfford && (
+            <div role="alert" className="p-2.5 bg-amber-50 border border-amber-300 text-amber-900 text-xs rounded-sm flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 text-amber-600" />
+              <span>
+                Saldo insuficiente: você tem {balance} soap e a fundação custa {cost} soap.
+              </span>
+            </div>
+          )}
           {error && (
             <div role="alert" className="p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-sm flex items-center gap-2">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
