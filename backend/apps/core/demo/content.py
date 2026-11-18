@@ -314,3 +314,43 @@ SHOWCASE_COMMUNITIES = [
         "Comunidade excluída pela líder (demonstração).",
     ),
 ]
+
+# First posts of the administration showcase (every post of the demo is different).
+SHOWCASE_USER_POSTS = {
+    "suspended": "Ração em promoção, corram! Link no meu perfil, link no meu perfil, link no meu perfil.",
+    "banned": "Quem não concorda comigo sobre ração deveria sair desta comunidade.",
+    "deleted": "Foi bom enquanto durou. Cuidem bem dos seus pets e deem um abraço neles por mim.",
+}
+SHOWCASE_COMMUNITY_POSTS = {
+    "suspend": "Bem-vindos! Aqui a conversa ficou acalorada e a equipe pediu uma pausa.",
+    "ban": "Primeira publicação desta comunidade, antes de a equipe revisar as regras.",
+    "delete": "Encerrando esta comunidade. Obrigada a quem passou por aqui e cuidou dos seus bichinhos.",
+}
+
+# Each person who unlocks the profile section writes their own.
+SECTION_BY_USER = {
+    "moderador_demo": (
+        "Meus seis gatos",
+        "Mingau, Biscoito, Tapioca e mais três que fingem ser independentes. Visitas são bem-vindas, com pelos.",
+    ),
+    "marcos_esponja": (
+        "Rotina do Bolinha",
+        "Passeio às 7h, petisco às 15h e muito carinho depois do jantar. Ele só falha na parte de ficar parado.",
+    ),
+    "patricio_estrela": (
+        "Lista de dúvidas",
+        "1. Por que ele olha para a parede? 2. O que ele pensa? 3. Posso comer isso? (Já aprendi que não.)",
+    ),
+    "lucas_molusco": (
+        "Sobre mim",
+        "Clarinetista de fim de semana, tutor do Mozart por vontade do Mozart. Silêncio é bem-vindo.",
+    ),
+    "seu_eugenio": (
+        "Dicas de economia",
+        "Compre a granel, dê o banho em casa e brinque de graça. O Moeda aprova só a última.",
+    ),
+    "plinio_plancton": (
+        "Plano do dia",
+        "1. Dominar o banco. 2. Dominar a fonte. 3. Voltar para casa antes do jantar da Karen.",
+    ),
+}

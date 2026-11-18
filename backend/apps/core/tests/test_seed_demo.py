@@ -1,3 +1,4 @@
+import hashlib
 import io
 import urllib.request
 from datetime import timedelta
@@ -32,15 +33,19 @@ SMALL = [
 
 
 class FakeProvider:
-    """Stands in for the Cat/Dog APIs: generates tiny PNGs, never touches the network."""
+    """Stands in for the photo APIs: tiny PNGs whose color identifies the URL; no network."""
+
+    @staticmethod
+    def color(url):
+        digest = hashlib.sha1(url.encode()).digest()
+        return (digest[0], digest[1], digest[2])
 
     def urls(self, species, count):
         return [f"fake://{species}/{i}" for i in range(count)]
 
     def download(self, url):
         buffer = io.BytesIO()
-        color = "orange" if "cat" in url else "saddlebrown"
-        Image.new("RGB", (24, 24), color).save(buffer, "PNG")
+        Image.new("RGB", (24, 24), self.color(url)).save(buffer, "PNG")
         return buffer.getvalue()
 
 
@@ -244,23 +249,25 @@ def test_running_twice_does_not_duplicate_anything(demo):
     assert "nothing new" in out
 
 
-def test_same_seed_gives_the_same_people_and_a_different_seed_differs(demo):
-    seed("--seed", "7")
-
-    def names_now():
-        # the deleted demo account is renamed `deleted_<id>`, and ids differ between runs
-        return sorted(
-            User.objects.exclude(username__startswith="deleted_").values_list("username", flat=True)
+def test_same_seed_gives_the_same_content(demo):
+    def snapshot():
+        return sorted(Comment.objects.values_list("text", flat=True)), sorted(
+            Bubblegram.objects.values_list("text", flat=True)
         )
 
     seed("--seed", "7")
-    names = names_now()
+    first = snapshot()
     seed("--reset")
     seed("--seed", "7")
-    assert names_now() == names
-    seed("--reset")
+    assert snapshot() == first
+
+
+def test_the_people_are_fixed_characters_whatever_the_seed(demo):
     seed("--seed", "8")
-    assert names_now() != names
+    names = set(
+        User.objects.exclude(username__startswith="deleted_").values_list("name", flat=True)
+    )
+    assert "Marcos Esponja Silva" in names and "Marlene Baiacu Lima" in names
 
 
 def test_reset_removes_only_what_the_seed_created(demo):
@@ -433,3 +440,189 @@ def test_demo_feed_shows_popular_suggestions(demo):
         for user in User.objects.filter(is_active=True)
     )
     assert popular_seen
+
+
+# ------------------------------------------------------------------ believable content
+
+FULL = ["--users", "16", "--communities", "8", "--images", "80", "--posts-per-user", "0"]
+
+
+def first_pixel(field):
+    with Image.open(field.open("rb")) as image:
+        return image.convert("RGB").getpixel((0, 0))
+
+
+def pool_colors(pool, count=80):
+    return {FakeProvider.color(f"fake://{pool}/{i}") for i in range(count)}
+
+
+def test_no_caption_is_repeated_and_every_profile_has_a_picture(demo):
+    seed(*FULL)
+
+    texts = list(Bubblegram.objects.values_list("text", flat=True))
+    assert len(texts) > 90
+    assert len(set(texts)) == len(texts)
+    live = User.objects.filter(deleted_at__isnull=True)
+    assert live.count() >= 18  # 16 people + admin + the two showcase accounts
+    assert not live.filter(profile_photo="").exists()
+
+
+def test_people_post_about_their_own_pets_with_photos_of_that_species_and_breed(demo):
+    seed(*FULL)
+
+    expectations = {
+        "marcos_esponja": "dog:golden",
+        "otavio_atum": "dog:husky",
+        "sandra_esquilo": "dog:border",
+        "gabriel_caracol": "cat",
+        "lucas_molusco": "cat",
+        "moderador_demo": "cat",
+    }
+    for username, pool in expectations.items():
+        media = BubblegramMedia.objects.filter(bubblegram__user__username=username)
+        assert media.exists(), username
+        for item in media:
+            assert first_pixel(item.media) in pool_colors(pool), (username, pool)
+
+
+def test_no_photo_is_shown_twice(demo):
+    seed(*FULL)
+
+    fields = [m.media for m in BubblegramMedia.objects.all()]
+    fields += [
+        p.image
+        for p in Bubblepop.objects.filter(
+            user__username__in=["marcos_esponja", "sandra_esquilo", "bianca_bagre", "fred_sardinha"]
+        )
+    ]
+    pixels = [first_pixel(f) for f in fields]
+    assert len(pixels) > 60
+    assert len(set(pixels)) == len(pixels)
+
+
+def test_conversations_are_real_threads(demo):
+    seed(*FULL)
+
+    root = Comment.objects.get(text__startswith="NÃO. Chocolate é tóxico")
+    reply = Comment.objects.get(text__startswith="Corri aqui e ele está bem")
+    assert reply.parent_id == root.id
+    assert reply.user.username == "patricio_estrela"
+    assert Comment.objects.get(text__startswith="Que alívio!").parent_id == reply.id
+    post = root.bubblegram
+    assert post.text.startswith("Dei um pedacinho de chocolate")
+    assert post.community.commname == "veterinario_responde"
+    assert post.comments.count() == 5
+
+
+def test_photo_posts_get_reactions_in_each_persons_voice(demo):
+    seed(*FULL)
+
+    texts = set(
+        Comment.objects.filter(user__username="gabriel_caracol").values_list("text", flat=True)
+    )
+    assert texts and all(
+        t.startswith(("Miau", "Concordo", "Valeu", "Entendo")) or t[0].isupper() for t in texts
+    )
+    pet_posts = Bubblegram.objects.filter(media__isnull=False).distinct()
+    assert Comment.objects.filter(bubblegram__in=pet_posts).exists()
+
+
+def test_letters_are_conversations_between_people_who_follow_each_other(demo):
+    seed(*FULL)
+
+    questions = Letter.objects.filter(reply_to__isnull=True)
+    assert questions.count() == 11
+    for letter in questions:
+        assert UserConnection.objects.filter(
+            follower=letter.sender, followed=letter.recipient
+        ).exists()
+        assert UserConnection.objects.filter(
+            follower=letter.recipient, followed=letter.sender
+        ).exists()
+        answer = Letter.objects.get(reply_to=letter)
+        assert answer.sender_id == letter.recipient_id
+    nat = Letter.objects.get(text__startswith="Oi, Nat! O Pedra comeu")
+    assert "sabonete" in Letter.objects.get(reply_to=nat).text
+
+
+def test_activity_varies_between_people(demo):
+    seed(*FULL)
+
+    counts = {
+        u.username: Bubblegram.objects.filter(user=u).count()
+        for u in User.objects.filter(deleted_at__isnull=True)
+        if u.username not in ("admin_demo", "suspenso_demo", "banido_demo")
+    }
+    assert max(counts.values()) - min(counts.values()) >= 2
+    assert len(set(counts.values())) >= 3
+
+
+def test_bubblepops_are_in_each_persons_voice(demo):
+    seed(*FULL)
+
+    pop = Bubblepop.objects.get(user__username="gabriel_caracol", expires_at__gt=timezone.now())
+    assert pop.description in ("Concha.", "Espiral.")
+
+
+# ---- the written content itself (pure data checks) ----
+
+
+def test_written_content_is_consistent():
+    from apps.core.demo import personas, stories
+
+    names = {p["username"] for p in personas.PERSONAS}
+    assert len(names) == len(personas.PERSONAS) == 16
+    for persona in personas.PERSONAS:
+        username = persona["username"]
+        assert persona["pets"] and persona["reactions"] and persona["replies"] and persona["pops"]
+        assert set(personas.FOLLOWS[username]) <= names - {username}
+        assert set(personas.MEMBERSHIPS[username]) <= set(personas.THEMES)
+        entries = stories.STORIES[username]
+        assert entries
+        for entry in entries:
+            if entry["pet"]:
+                assert entry["pet"] in persona["pets"], (username, entry["text"])
+            assert entry["community"] in (None, *personas.MEMBERSHIPS[username]), (
+                username,
+                entry["text"],
+            )
+            assert len(entry["text"]) <= 2000
+            for index, item in enumerate(entry["thread"]):
+                assert item[0] in names, (username, item)
+                parent = item[2] if len(item) > 2 else None
+                assert parent is None or parent < index
+                # nobody comments in a community they are not in
+                if entry["community"]:
+                    assert entry["community"] in personas.MEMBERSHIPS[item[0]], (username, item)
+    for leader in personas.LEADERS.values():
+        assert leader in names
+
+
+def test_captions_do_not_contradict_the_photos():
+    """Cats come from a random cat pool (no colors or breeds in captions); a dog's caption
+    only names its own breed."""
+    import re
+
+    from apps.core.demo import personas, stories
+
+    cat_words = re.compile(
+        r"\b(laranja|preto|preta|branco|branca|cinza|amarel[oa]|rajad[oa]|tigrad[oa]|siamês|persa)\b",
+        re.I,
+    )
+    breed_words = {
+        "golden": "golden", "labrador": "labrador", "husky": "husky", "beagle": "beagle",
+        "boxer": "boxer", "chihuahua": "chihuahua", "poodle": "poodle", "dachshund": "salsicha",
+        "cocker": "cocker", "border": "border collie", "samoyed": "samoied",
+    }  # fmt: skip
+    for persona in personas.PERSONAS:
+        for entry in stories.STORIES[persona["username"]]:
+            if not entry["pet"]:
+                continue
+            _name, species, breed = persona["pets"][entry["pet"]]
+            text = entry["text"].lower()
+            if species == "cat":
+                assert not cat_words.search(text), entry["text"]
+            else:
+                for other, word in breed_words.items():
+                    if other != breed:
+                        assert word not in text, (entry["text"], breed)

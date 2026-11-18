@@ -39,3 +39,5 @@ select = ["E", "F", "I", "B", "UP", "DJ"]
 [tool.ruff.lint.per-file-ignores]
 "config/settings/*.py" = ["F403", "F405"]
 "apps/core/demo/content.py" = ["E501"]  # Portuguese prose and catalog rows
+"apps/core/demo/personas.py" = ["E501"]  # Portuguese prose
+"apps/core/demo/stories.py" = ["E501"]  # Portuguese prose

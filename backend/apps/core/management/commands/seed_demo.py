@@ -34,14 +34,19 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--seed", type=int, default=42, help="Random seed (default 42).")
         parser.add_argument(
-            "--users", type=int, default=12, help="Users, including the moderator (default 12)."
+            "--users", type=int, default=16, help="People, in the order of personas.py (max 16)."
         )
         parser.add_argument(
-            "--communities", type=int, default=6, help="Communities (max 8, default 6)."
+            "--communities", type=int, default=8, help="Communities (max 8, default 8)."
         )
-        parser.add_argument("--posts-per-user", type=int, default=3)
         parser.add_argument(
-            "--comments-per-post", type=int, default=3, help="Up to this many comments per post."
+            "--posts-per-user",
+            type=int,
+            default=0,
+            help="Keep only this many posts per person (0 = all the written ones).",
+        )
+        parser.add_argument(
+            "--comments-per-post", type=int, default=4, help="Up to this many reactions per photo."
         )
         parser.add_argument(
             "--expired-bubblepops",
@@ -50,10 +55,13 @@ class Command(BaseCommand):
             help="Already expired bubblepops for the cleanup job.",
         )
         parser.add_argument(
-            "--days", type=int, default=30, help="Spread dates over this many past days."
+            "--days", type=int, default=45, help="Spread dates over this many past days."
         )
         parser.add_argument(
-            "--images", type=int, default=12, help="Cat and dog photos to cache, each (default 12)."
+            "--images",
+            type=int,
+            default=60,
+            help="Download at most this many photos per pool (cats, each dog breed).",
         )
         parser.add_argument(
             "--no-images", action="store_true", help="Create everything without images."

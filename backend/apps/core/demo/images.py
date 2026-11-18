@@ -23,6 +23,32 @@ MAX_DOWNLOAD_BYTES = 8 * 1024 * 1024
 USER_AGENT = "bubbles-demo-seed"
 EXTENSIONS = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp", "GIF": ".gif"}
 
+# Dog photos come per breed, so a post about a golden retriever shows a golden retriever.
+# key -> Dog CEO breed path. The plain "dog" pool (any breed) is used for community art.
+BREEDS = {
+    "golden": "retriever/golden",
+    "labrador": "labrador",
+    "husky": "husky",
+    "pug": "pug",
+    "beagle": "beagle",
+    "corgi": "corgi/cardigan",
+    "poodle": "poodle/toy",
+    "border": "collie/border",
+    "frances": "bulldog/french",
+    "chihuahua": "chihuahua",
+    "shiba": "shiba",
+    "dachshund": "dachshund",
+    "boxer": "boxer",
+    "cocker": "spaniel/cocker",
+    "yorkshire": "terrier/yorkshire",
+    "maltes": "maltese",
+    "samoyed": "samoyed",
+}
+
+
+def breed_pool(breed: str) -> str:
+    return f"dog:{breed}"
+
 
 class WebImageProvider:
     """Real network access. Tests replace this with an in-memory fake."""
@@ -33,20 +59,27 @@ class WebImageProvider:
             return response.read(MAX_DOWNLOAD_BYTES + 1)
 
     def urls(self, species: str, count: int) -> list[str]:
-        if species == "dog":
-            payload = json.loads(
-                self._get(f"https://dog.ceo/api/breeds/image/random/{min(count, 50)}")
-            )
-            return list(payload["message"])
+        """`species` is a pool: "cat", "dog" (any breed) or "dog:<breed key>"."""
         urls: list[str] = []
-        while len(urls) < count:  # the cat API serves at most 10 per call without a key
-            batch = json.loads(
-                self._get(
-                    f"https://api.thecatapi.com/v1/images/search?limit={min(count - len(urls), 10)}"
-                )
+        if species.startswith("dog"):
+            path = BREEDS.get(species.partition(":")[2])
+            endpoint = (
+                f"https://dog.ceo/api/breed/{path}/images/random"
+                if path
+                else "https://dog.ceo/api/breeds/image/random"
             )
-            urls.extend(item["url"] for item in batch)
-        return urls
+            for _ in range(8):  # random picks can repeat: ask again until there are enough
+                payload = json.loads(self._get(f"{endpoint}/{min(count - len(urls) + 3, 50)}"))
+                urls += [u for u in payload["message"] if u not in urls]
+                if len(urls) >= count:
+                    break
+            return urls[:count]
+        for _ in range(12):  # the cat API serves at most 10 per call without a key
+            batch = json.loads(self._get("https://api.thecatapi.com/v1/images/search?limit=10"))
+            urls += [item["url"] for item in batch if item["url"] not in urls]
+            if len(urls) >= count:
+                break
+        return urls[:count]
 
     def download(self, url: str) -> bytes:
         data = self._get(url)
@@ -56,6 +89,13 @@ class WebImageProvider:
 
 
 class ImageLibrary:
+    """Cached photo pools plus the profile pictures.
+
+    Pools: "cat", "dog" (any breed) and "dog:<breed>". `take` hands out each photo of a pool once
+    (in a fixed shuffled order) so no two posts show the same picture; `pick` is the old random
+    choice used for community art.
+    """
+
     def __init__(
         self,
         cache_dir: Path,
@@ -66,62 +106,132 @@ class ImageLibrary:
         provider=None,
         warn: Callable[[str], None] = print,
     ):
-        self.cache_dir = Path(cache_dir) / "images"
+        self.root = Path(cache_dir)
+        self.cache_dir = self.root / "images"
+        self.avatar_dir = self.root / "avatars"
         self.enabled = enabled
         self.download = download
-        self.per_species = per_species
+        self.per_species = per_species  # download cap per pool
         self.provider = provider or WebImageProvider()
         self.warn = warn
-        self.available: dict[str, list[Path]] = {s: [] for s in SPECIES}
+        self.available: dict[str, list[Path]] = {}
+        self._cursor: dict[str, int] = {}
 
-    def prepare(self) -> None:
-        """Make sure the cache holds enough photos; never fails the seed."""
+    def _folder(self, pool: str) -> Path:
+        return self.cache_dir / pool.replace(":", "_").replace("/", "-")
+
+    def prepare(self, needs: dict[str, int] | None = None) -> None:
+        """Make sure each pool holds enough photos (never fails the seed).
+
+        `needs` maps pool -> photos wanted; each is capped by `per_species`. Without it the two
+        generic pools get `per_species` photos.
+        """
         if not self.enabled:
             return
-        for species in SPECIES:
-            folder = self.cache_dir / species
+        wanted = {"cat": self.per_species, "dog": min(12, self.per_species)}
+        for pool, count in (needs or {}).items():
+            wanted[pool] = max(wanted.get(pool, 0), min(count + 2, self.per_species))
+        for pool, count in wanted.items():
+            folder = self._folder(pool)
             folder.mkdir(parents=True, exist_ok=True)
             files = sorted(p for p in folder.iterdir() if p.is_file())
-            missing = self.per_species - len(files)
+            missing = count - len(files)
             if missing > 0 and self.download:
                 try:
-                    for url in self.provider.urls(species, missing):
+                    for url in self.provider.urls(pool, missing):
                         files.append(
-                            self._save(folder, species, self.provider.download(url), len(files))
+                            self._save(folder, pool, self.provider.download(url), len(files))
                         )
                 except Exception as exc:  # noqa: BLE001 - offline, rate limit, bad payload...
                     self.warn(
-                        f"Could not download {species} photos ({type(exc).__name__}: {exc}); "
+                        f"Could not download {pool} photos ({type(exc).__name__}: {exc}); "
                         "using the cache."
                     )
-            self.available[species] = [p for p in files if p is not None]
-            if not self.available[species]:
-                self.warn(
-                    f"No {species} photos available: related content is created without images."
-                )
+            self.available[pool] = files
+            if not files:
+                self.warn(f"No {pool} photos available: related content is created without images.")
 
-    def _save(self, folder: Path, species: str, data: bytes, index: int) -> Path:
+    def _save(self, folder: Path, pool: str, data: bytes, index: int) -> Path:
         with Image.open(BytesIO(data)) as image:
             extension = EXTENSIONS.get(image.format or "", ".jpg")
-        path = folder / f"{species}_{index:03d}{extension}"
+        path = folder / f"{pool.replace(':', '_').replace('/', '-')}_{index:03d}{extension}"
         path.write_bytes(data)
         return path
 
-    def pick(self, species: str, rng: random.Random):
-        """A fresh, validated upload for `species` (cat, dog or both); None when unavailable."""
-        if not self.enabled:
-            return None
-        chosen = rng.choice(SPECIES) if species == "both" else species
-        files = self.available.get(chosen) or []
-        if not files:
-            return None
-        path = rng.choice(files)
+    def _upload(self, path: Path):
         upload = ContentFile(path.read_bytes(), name=path.name)
         try:
             validate_image_upload(upload)  # the same rules as the API: type and 10 MB
         except ValidationError:
             return None
         return upload
+
+    def take(self, pool: str):
+        """The next unused photo of `pool` (wraps around only when the pool is exhausted)."""
+        if not self.enabled:
+            return None
+        files = self.available.get(pool) or []
+        if not files:
+            return None
+        order = list(files)
+        random.Random(pool).shuffle(order)
+        index = self._cursor.get(pool, 0)
+        self._cursor[pool] = index + 1
+        return self._upload(order[index % len(order)])
+
+    def pick(self, species: str, rng: random.Random):
+        """A random photo for `species` (cat, dog or both); None when unavailable."""
+        if not self.enabled:
+            return None
+        chosen = rng.choice(SPECIES) if species == "both" else species
+        pools = [p for p in sorted(self.available) if p == chosen] or [
+            p for p in sorted(self.available) if p.split(":")[0] == chosen
+        ]
+        files = [f for p in pools for f in self.available[p]]
+        if not files:
+            return None
+        return self._upload(rng.choice(files))
+
+    # ------------------------------------------------------------------ profile pictures
+    def avatar(self, spec: str):
+        """A profile picture.
+
+        `spec` is a file stem in `avatars/` ("spongebob"), `fish:<hue>` (the generic fish from
+        `tom.png` with its colors rotated by <hue> degrees) or `bubble:<seed>` (generated).
+        Missing files fall back to generated art, so the seed never breaks.
+        """
+        if not self.enabled:
+            return None
+        kind, _, arg = spec.partition(":")
+        if kind == "fish":
+            upload = self._fish(int(arg))
+            if upload:
+                return upload
+            return banner_square(f"fish_{arg}")
+        if kind == "bubble":
+            return banner_square(arg)
+        path = next((p for p in self.avatar_dir.glob(f"{spec}.*")), None)
+        if path is None:
+            self.warn(f"Avatar {spec!r} not found in {self.avatar_dir}; using generated art.")
+            return banner_square(spec)
+        return self._upload(path)
+
+    def _fish(self, hue: int):
+        path = next((p for p in self.avatar_dir.glob("tom.*")), None)
+        if path is None:
+            return None
+        with Image.open(path) as source:
+            image = source.convert("RGBA")
+        alpha = image.getchannel("A")
+        hsv = image.convert("RGB").convert("HSV")
+        h, s, v = hsv.split()
+        shift = int(hue / 360 * 255)
+        h = h.point(lambda x: (x + shift) % 256)
+        rgb = Image.merge("HSV", (h, s, v)).convert("RGB")
+        rgb.putalpha(alpha)
+        buffer = BytesIO()
+        rgb.save(buffer, "PNG")
+        return ContentFile(buffer.getvalue(), name=f"fish_{hue}.png")
 
 
 # ---------------------------------------------------------------------------- generated art
@@ -164,13 +274,19 @@ def gradient_art(
     rng = random.Random(seed)
     width, height = size
     (r1, g1, b1), (r2, g2, b2) = _hex_to_rgb(top), _hex_to_rgb(bottom)
-    image = Image.new("RGB", size)
-    pixels = image.load()
-    for y in range(height):
-        t = y / max(1, height - 1)
-        color = (int(r1 + (r2 - r1) * t), int(g1 + (g2 - g1) * t), int(b1 + (b2 - b1) * t))
-        for x in range(width):
-            pixels[x, y] = color
+    # One column of the gradient, stretched to the full width: much faster than pixel by pixel.
+    column = Image.new("RGB", (1, height))
+    column.putdata(
+        [
+            (
+                int(r1 + (r2 - r1) * y / max(1, height - 1)),
+                int(g1 + (g2 - g1) * y / max(1, height - 1)),
+                int(b1 + (b2 - b1) * y / max(1, height - 1)),
+            )
+            for y in range(height)
+        ]
+    )
+    image = column.resize((width, height))
     _bubbles(image, rng, bubbles)
     buffer = BytesIO()
     image.save(buffer, "JPEG", quality=82)
@@ -186,3 +302,16 @@ def wallpaper_image(seed: str, top: str, bottom: str, fit: str) -> ContentFile:
 
 def banner_image(seed: str, top: str, bottom: str) -> ContentFile:
     return gradient_art(seed, top, bottom, (1200, 300), 14)
+
+
+def banner_square(seed: str) -> ContentFile:
+    """Generated 400x400 avatar (used when a character image is missing, and for the admin)."""
+    rng = random.Random(seed)
+    palette = [
+        ("#BAE6FD", "#F5D0FE"),
+        ("#BBF7D0", "#FEF9C3"),
+        ("#FED7AA", "#FBCFE8"),
+        ("#C7D2FE", "#A5F3FC"),
+    ]
+    top, bottom = rng.choice(palette)
+    return gradient_art(f"avatar_{seed}", top, bottom, (400, 400), 9)

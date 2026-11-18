@@ -21,7 +21,7 @@ from faker import Faker
 
 from apps.accounts.models import User, UserConnection
 from apps.accounts.services import delete_account, follow_user, register_user
-from apps.communities.models import Community, CommunityMember, MemberState, not_moderated_q
+from apps.communities.models import Community, CommunityMember, MemberState
 from apps.communities.services import (
     create_community,
     delete_community,
@@ -45,8 +45,8 @@ from apps.content.services import (
     support_bubblegram,
     support_comment,
 )
-from apps.core.demo import content
-from apps.core.demo.images import ImageLibrary, banner_image, wallpaper_image
+from apps.core.demo import content, personas, stories
+from apps.core.demo.images import ImageLibrary, banner_image, breed_pool, wallpaper_image
 from apps.core.exceptions import DomainError
 from apps.customization.models import (
     CommunityInventoryItem,
@@ -140,9 +140,10 @@ class DemoSeeder:
         self.cache_dir = Path(cache_dir)
         self.images = images
         self.seed = seed
-        self.n_users = max(4, users)
+        self.personas = personas.PERSONAS[: max(4, min(users, len(personas.PERSONAS)))]
+        self.n_users = len(self.personas)
         self.n_communities = max(1, min(communities, len(content.COMMUNITY_THEMES)))
-        self.posts_per_user = max(0, posts_per_user)
+        self.posts_cap = posts_per_user if posts_per_user and posts_per_user > 0 else None
         self.comments_per_post = max(0, comments_per_post)
         self.expired_bubblepops = max(0, expired_bubblepops)
         self.days = max(7, days)
@@ -213,11 +214,17 @@ class DemoSeeder:
     def _past(self, lower, upper=None):
         upper = upper or self.now - timedelta(minutes=30)
         span = max(60.0, (upper - lower).total_seconds())
-        return lower + timedelta(seconds=self.rng.uniform(0, span))
+        moment = lower + timedelta(seconds=self.rng.uniform(0, span))
+        # People post mostly at lunch and in the evening, not at 3 a.m.
+        hour = self.rng.choices(
+            (7, 8, 9, 12, 13, 14, 18, 19, 20, 21, 22, 23),
+            weights=(2, 3, 2, 4, 3, 2, 4, 5, 6, 6, 4, 2),
+        )[0]
+        shifted = moment.replace(hour=hour, minute=self.rng.randint(0, 59), second=0)
+        return shifted if lower <= shifted <= upper else moment
 
-    # ------------------------------------------------------------------ steps
     def run(self) -> dict:
-        self.images.prepare()
+        self.images.prepare(self._photo_needs())
         self._ensure_catalog()
         self._ensure_people()
         self._follows()
@@ -282,9 +289,7 @@ class DemoSeeder:
         taken.add(username)
         return f"{first} {last}", username
 
-    def _register(
-        self, username: str, name: str, *, photo_species: str, bio: str, is_staff: bool = False
-    ):
+    def _register(self, username: str, name: str, *, avatar: str, bio: str, is_staff: bool = False):
         self.rng = self._rng("user", username)
         user = User.objects.filter(username=username).first()
         if user:
@@ -297,7 +302,7 @@ class DemoSeeder:
             name=name,
             birth_date=(self.now - timedelta(days=age_days)).date(),
             description=bio,
-            profile_photo=self.images.pick(photo_species, self.rng),
+            profile_photo=self.images.avatar(avatar),
         )
         if is_staff:
             User.objects.filter(pk=user.pk).update(is_staff=True, is_superuser=True)
@@ -307,50 +312,69 @@ class DemoSeeder:
         self._count("users")
         return user, True
 
+    def _persona(self, username: str):
+        return next((p for p in self.personas if p["username"] == username), None)
+
+    def _pet(self, persona: dict, pet_id: str) -> tuple[str, str]:
+        """(pet name, photo pool): cats come from the shared cat pool, dogs from their breed."""
+        name, species, breed = persona["pets"][pet_id]
+        return name, ("cat" if species == "cat" else breed_pool(breed))
+
+    def _entries(self, persona: dict) -> list[dict]:
+        entries = stories.STORIES.get(persona["username"], [])
+        return entries[: self.posts_cap] if self.posts_cap else list(entries)
+
+    def _photo_needs(self) -> dict[str, int]:
+        """How many photos each pool must hold: one per picture in a post, one per bubblepop."""
+        needs: dict[str, int] = {}
+        for persona in self.personas:
+            for entry in self._entries(persona):
+                if entry["pet"]:
+                    _, pool = self._pet(persona, entry["pet"])
+                    needs[pool] = needs.get(pool, 0) + entry["photos"]
+            if persona["pets"]:
+                _, pool = self._pet(persona, next(iter(persona["pets"])))
+                needs[pool] = needs.get(pool, 0) + len(persona["pops"][:1])
+        return needs
+
     def _ensure_people(self) -> None:
         self.admin, admin_created = self._register(
             ADMIN_USERNAME,
-            "Admin Demo",
-            photo_species="cat",
+            "Equipe Bubbles",
+            avatar="bubble:admin",
             bio="Administração da demonstração.",
             is_staff=True,
         )
         # The admin funds everyone through audited soap adjustments. Funding happens once, when
         # an account is created: running the seed again must not hand out more soap.
         if admin_created:
-            self._ensure_balance(self.admin, 2000, "Demo seed funding")
-        self.moderator, moderator_created = self._register(
-            MODERATOR_USERNAME,
-            "Moderador Demo",
-            photo_species="dog",
-            bio="Moderador das comunidades de demonstração.",
-        )
-        taken = {ADMIN_USERNAME, MODERATOR_USERNAME}
+            self._ensure_balance(self.admin, 4000, "Demo seed funding")
         self.users = []
-        created_now = {self.moderator.pk} if moderator_created else set()
-        for i in range(self.n_users - 1):  # the moderator counts as one of the users
-            name, username = self._identity(i, taken)
-            bio = content.BIOS[i % len(content.BIOS)]
+        self.by_username = {}
+        created_now = set()
+        for persona in self.personas:
             user, created = self._register(
-                username, name, photo_species=self.rng.choice(("cat", "dog")), bio=bio
+                persona["username"], persona["name"], avatar=persona["avatar"], bio=persona["bio"]
             )
             self.users.append(user)
+            self.by_username[user.username] = user
             if created:
                 created_now.add(user.pk)
-        self.users.insert(0, self.moderator)
+        self.moderator = self.by_username[MODERATOR_USERNAME]
         for index, user in enumerate(self.users):
             if user.pk not in created_now:
                 continue
             # Founders (first users) get enough soap to found a community and publish.
             self._ensure_balance(
-                user, FOUNDING_RESERVE + 300 if index < self.n_communities else 250
+                user, FOUNDING_RESERVE + 500 if index < self.n_communities else 450
             )
 
     def _follows(self) -> None:
         for user in self.users:
-            self.rng = self._rng("follows", user.username)
-            others = [u for u in self.users if u.pk != user.pk]
-            for target in self.rng.sample(others, k=min(len(others), self.rng.randint(3, 6))):
+            for target_name in personas.FOLLOWS.get(user.username, []):
+                target = self.by_username.get(target_name)
+                if target is None or target.pk == user.pk:
+                    continue
                 if UserConnection.objects.filter(follower=user, followed=target).exists():
                     continue
                 connection_row = self._try(follow_user, follower=user, followed=target)
@@ -362,7 +386,10 @@ class DemoSeeder:
         self.communities = []
         for index, theme in enumerate(content.COMMUNITY_THEMES[: self.n_communities]):
             self.rng = self._rng("community", theme["commname"])
-            leader = self.users[index % len(self.users)]
+            leader = (
+                self.by_username.get(personas.LEADERS.get(theme["commname"], ""))
+                or self.users[index % len(self.users)]
+            )
             community = Community.objects.filter(commname=theme["commname"]).first()
             if community is None:
                 self._ensure_balance(leader, FOUNDING_RESERVE + 100)
@@ -394,11 +421,13 @@ class DemoSeeder:
             self.communities.append((community, leader, theme))
 
     def _memberships(self) -> None:
-        for index, (community, leader, _theme) in enumerate(self.communities):
-            self.rng = self._rng("members", community.commname)
-            members = [u for u in self.users if u.pk != leader.pk]
-            chosen = [u for u in members if u == self.moderator or self.rng.random() < 0.6]
-            for user in chosen:
+        for _index, (community, leader, _theme) in enumerate(self.communities):
+            commname = community.commname
+            for user in self.users:
+                if user.pk == leader.pk or commname not in personas.MEMBERSHIPS.get(
+                    user.username, []
+                ):
+                    continue
                 if CommunityMember.objects.filter(community=community, user=user).exists():
                     continue
                 row = self._try(join_community, user=user, community=community)
@@ -406,12 +435,11 @@ class DemoSeeder:
                     self.new["members"].append(row)
                     self._count("memberships")
             community.refresh_from_db()
-            # Roles: the moderator is an admin of every other community, plus one more admin.
-            admins = [self.moderator] if (index % 2 == 0 and self.moderator.pk != leader.pk) else []
-            extra = [u for u in chosen if u not in admins and u.pk != leader.pk]
-            if extra:
-                admins.append(self.rng.choice(extra))
-            for user in admins:
+            # Roles: the admins chosen for this community (the moderator among them).
+            for name in personas.ADMINS.get(commname, []):
+                user = self.by_username.get(name)
+                if user is None or user.pk == leader.pk:
+                    continue
                 if CommunityMember.objects.filter(
                     community=community, user=user, role="MEMBER"
                 ).exists():
@@ -422,32 +450,21 @@ class DemoSeeder:
                         target_username=user.username,
                     ):
                         self._count("admins promoted")
-            # Show the member states in one community each.
-            plain = [
-                m
-                for m in CommunityMember.objects.filter(
-                    community=community, role="MEMBER", current_state=MemberState.ACTIVE
-                )
-                .select_related("user")
-                .order_by("pk")
-            ]
-            if (
-                plain
-                and index in (1, 2)
-                and not CommunityMember.objects.filter(community=community)
-                .exclude(current_state="ACTIVE")
-                .exists()
-            ):
-                target = self.rng.choice(plain)
-                state = MemberState.SILENCED if index == 1 else MemberState.BANNED
-                if self._try(
-                    moderate_member,
-                    actor=leader,
-                    community=community,
-                    target_username=target.user.username,
-                    new_state=state,
-                ):
-                    self._count(f"members {state.lower()}")
+            # Member states: one silenced and one banned person, on purpose.
+            for target_comm, name, state in personas.MODERATED_MEMBERS:
+                target = self.by_username.get(name)
+                if target_comm != commname or target is None:
+                    continue
+                row = CommunityMember.objects.filter(community=community, user=target).first()
+                if row and row.current_state == MemberState.ACTIVE:
+                    if self._try(
+                        moderate_member,
+                        actor=leader,
+                        community=community,
+                        target_username=name,
+                        new_state=MemberState[state],
+                    ):
+                        self._count(f"members {state.lower()}")
 
     def _community_customization(self) -> None:
         eligible = list(
@@ -553,97 +570,109 @@ class DemoSeeder:
                 for slot, item_id in slots.items():
                     self._try(equip_customization, user=user, slots={slot: item_id})
             if "section" in slots:
-                title, text = content.SECTION_TEXTS[index % len(content.SECTION_TEXTS)]
+                title, text = content.SECTION_BY_USER.get(
+                    user.username, content.SECTION_TEXTS[index % len(content.SECTION_TEXTS)]
+                )
                 self._try(update_profile_section, user=user, title=title, text=text)
                 self._count("profile sections")
 
     def _posts(self) -> None:
         self.posts = []
-        index = 0
-        memberships = {
-            u.pk: [
-                m.community
-                for m in CommunityMember.objects.filter(user=u, current_state="ACTIVE")
-                .filter(not_moderated_q("community__"), community__deleted_at__isnull=True)
-                .select_related("community")
-                .order_by("community_id")
-            ]
-            for u in self.users
-        }
-        theme_species = {c.pk: t["species"] for c, _l, t in self.communities}
-        for user in self.users:
-            for _k in range(self.posts_per_user):
-                self.rng = self._rng("post", user.username, index)
-                text = content.CAPTIONS[index % len(content.CAPTIONS)]
-                index += 1
-                communities = memberships[user.pk]
-                community = (
-                    self.rng.choice(communities)
-                    if communities and self.rng.random() < 0.35
-                    else None
-                )
-                species = (
-                    theme_species.get(community.pk, "both")
-                    if community
-                    else self.rng.choice(("cat", "dog"))
-                )
+        self.post_entry: dict[int, tuple[dict, dict, str | None]] = {}
+        communities = {c.commname: c for c, _l, _t in self.communities}
+        for persona in self.personas:
+            user = self.by_username[persona["username"]]
+            for position, entry in enumerate(self._entries(persona)):
+                self.rng = self._rng("post", user.username, position)
+                # A community that was not created (fewer --communities) becomes a profile post.
+                community = communities.get(entry["community"]) if entry["community"] else None
                 existing = Bubblegram.objects.filter(
-                    user=user, community=community, text=text
+                    user=user, community=community, text=entry["text"]
                 ).first()
                 if existing:
                     self.posts.append(existing)
                     continue
-                files = [
-                    f
-                    for f in (
-                        self.images.pick(species, self.rng)
-                        for _ in range(self.rng.choice((1, 1, 2)))
-                    )
-                    if f
-                ]
-                with_images = files and self.rng.random() < 0.75
+                pet_name, files = None, []
+                if entry["pet"]:
+                    pet_name, pool = self._pet(persona, entry["pet"])
+                    files = [
+                        f for f in (self.images.take(pool) for _ in range(entry["photos"])) if f
+                    ]
                 post = self._try(
                     create_bubblegram,
                     author=user,
-                    type="MEDIA" if with_images else "TEXT",
-                    text=text,
+                    type="MEDIA" if files else "TEXT",
+                    text=entry["text"],
                     community=community,
-                    media_files=files if with_images else None,
+                    media_files=files or None,
                 )
                 if post:
                     self.posts.append(post)
                     self.new["posts"].append(post)
+                    self.post_entry[post.pk] = (persona, entry, pet_name)
                     self._count("bubblegrams")
 
     def _can_interact(self, user, post) -> bool:
         if user.pk == post.user_id:
             return False
+        return self._can_comment(user, post)
+
+    def _can_comment(self, user, post) -> bool:
         if post.community_id is None:
             return True
         return CommunityMember.objects.filter(
             community_id=post.community_id, user=user, current_state="ACTIVE"
         ).exists()
 
+    def _comment(self, post, author, text, parent=None):
+        if Comment.objects.filter(bubblegram=post, user=author, text=text).exists():
+            return None
+        comment = self._try(
+            create_comment, author=author, bubblegram=post, text=text, parent=parent
+        )
+        if comment:
+            self.new["comments"].append(comment)
+            self._count("comments")
+        return comment
+
     def _interactions(self) -> None:
         for post in self.new["posts"]:
             self.rng = self._rng("interactions", post.user.username, post.text)
+            persona, entry, pet_name = self.post_entry.get(post.pk, (None, None, None))
             candidates = [u for u in self.users if self._can_interact(u, post)]
-            if not candidates:
-                continue
             made: list[Comment] = []
-            for _ in range(self.rng.randint(0, self.comments_per_post)):
-                author = self.rng.choice(candidates)
-                parent = self.rng.choice(made) if made and self.rng.random() < 0.3 else None
-                text = self.rng.choice(content.REPLIES if parent else content.COMMENTS)
-                if Comment.objects.filter(bubblegram=post, user=author, text=text).exists():
-                    continue
-                comment = self._try(
-                    create_comment, author=author, bubblegram=post, text=text, parent=parent
-                )
-                if comment:
-                    made.append(comment)
-                    self.new["comments"].append(comment)
-                    self._count("comments")
+            if entry and entry["thread"]:
+                # A written conversation: replies point to the comment they answer.
+                created: dict[int, Comment] = {}
+                for index, item in enumerate(entry["thread"]):
+                    author = self.by_username.get(item[0])
+                    parent_index = item[2] if len(item) > 2 else None
+                    parent = created.get(parent_index) if parent_index is not None else None
+                    if author is None or not self._can_comment(author, post):
+                        continue
+                    if parent_index is not None and parent is None:
+                        continue
+                    comment = self._comment(post, author, item[1], parent)
+                    if comment:
+                        created[index] = comment
+                        made.append(comment)
+            elif candidates and pet_name:
+                # A photo: a few people react in their own voice; the author sometimes answers.
+                count = self.rng.randint(0, min(self.comments_per_post, len(candidates)))
+                first = None
+                for author in self.rng.sample(candidates, k=count):
+                    voice = self._persona(author.username)
+                    text = self.rng.choice(voice["reactions"]).format(pet=pet_name)
+                    comment = self._comment(post, author, text)
+                    if comment:
+                        made.append(comment)
+                        first = first or comment
+                if first and self.rng.random() < 0.6:
+                    reply = self._comment(
+                        post, post.user, self.rng.choice(persona["replies"]), first
+                    )
+                    if reply:
+                        made.append(reply)
             for donor in self.rng.sample(
                 candidates, k=min(len(candidates), self.rng.randint(0, 6))
             ):
@@ -663,11 +692,16 @@ class DemoSeeder:
                         self._count("comment supports")
 
     def _bubblepops(self) -> None:
-        for user in self.users[: max(3, len(self.users) // 2)]:
+        for persona in self.personas:
+            user = self.by_username[persona["username"]]
             self.rng = self._rng("pop", user.username)
-            if Bubblepop.objects.filter(user=user, expires_at__gt=self.now).exists():
+            if (
+                not persona["pets"]
+                or Bubblepop.objects.filter(user=user, expires_at__gt=self.now).exists()
+            ):
                 continue
-            image = self.images.pick(self.rng.choice(("cat", "dog")), self.rng)
+            _, pool = self._pet(persona, next(iter(persona["pets"])))
+            image = self.images.take(pool)
             if image is None:
                 continue
             pop = self._try(
@@ -675,7 +709,7 @@ class DemoSeeder:
                 author=user,
                 image=image,
                 duration_hours=self.rng.choice((4, 12, 24, 48)),
-                description=self.rng.choice(content.BUBBLEPOP_NOTES),
+                description=self.rng.choice(persona["pops"]),
             )
             if pop:
                 self.new["pops"].append(pop)
@@ -701,37 +735,26 @@ class DemoSeeder:
             self._count("expired bubblepops")
 
     def _letters(self) -> None:
-        pairs = list(
-            UserConnection.objects.filter(follower__in=self.users, followed__in=self.users)
-            .select_related("follower", "followed")
-            .order_by("follower_id", "followed_id")
-        )
-        self._rng("letter-pairs").shuffle(pairs)
-        for connection_row in pairs[: max(4, len(self.users))]:
-            sender, recipient = connection_row.follower, connection_row.followed
-            self.rng = self._rng("letter", sender.username, recipient.username)
-            text = self.rng.choice(content.LETTERS)
+        for sender_name, recipient_name, text, reply_text in stories.LETTERS:
+            sender, recipient = (
+                self.by_username.get(sender_name),
+                self.by_username.get(recipient_name),
+            )
+            if sender is None or recipient is None:
+                continue
             if Letter.objects.filter(sender=sender, recipient=recipient, text=text).exists():
                 continue
-            image = self.images.pick("both", self.rng) if self.rng.random() < 0.25 else None
-            letter = self._try(
-                send_letter, sender=sender, recipient=recipient, text=text, image=image
-            )
+            letter = self._try(send_letter, sender=sender, recipient=recipient, text=text)
             if not letter:
                 continue
             self.new["letters"].append(letter)
             self._count("letters")
-            if self.rng.random() < 0.4:
-                reply = self._try(
-                    send_letter,
-                    sender=recipient,
-                    recipient=sender,
-                    text=self.rng.choice(content.LETTER_REPLIES),
-                    reply_to=letter,
-                )
-                if reply:
-                    self.new["letters"].append(reply)
-                    self._count("letter replies")
+            reply = self._try(
+                send_letter, sender=recipient, recipient=sender, text=reply_text, reply_to=letter
+            )
+            if reply:
+                self.new["letters"].append(reply)
+                self._count("letter replies")
 
     def _reports(self) -> None:
         targets: list[tuple[str, str]] = [
@@ -792,7 +815,10 @@ class DemoSeeder:
             if User.objects.filter(username=username).exists():
                 continue
             user, created = self._register(
-                username, name, photo_species="cat", bio="Conta de demonstração."
+                username,
+                name,
+                avatar={"suspended": "fish:60", "banned": "fish:330", "deleted": "fish:120"}[role],
+                bio="Conta de demonstração.",
             )
             if not created:
                 continue
@@ -802,7 +828,7 @@ class DemoSeeder:
                 create_bubblegram,
                 author=user,
                 type="TEXT",
-                text="Meu pet adora aparecer nas fotos!",
+                text=content.SHOWCASE_USER_POSTS[role],
                 community=None,
                 media_files=None,
             )
@@ -843,7 +869,7 @@ class DemoSeeder:
                 create_bubblegram,
                 author=leader,
                 type="TEXT",
-                text="Primeira bolha da comunidade!",
+                text=content.SHOWCASE_COMMUNITY_POSTS[action],
                 community=community,
                 media_files=None,
             )

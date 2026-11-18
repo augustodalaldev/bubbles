@@ -35,16 +35,25 @@ make demo-scheduler   # optional: run the periodic jobs against the demo databas
 Open http://localhost:5173 after `make demo-frontend`.
 
 What it creates (all through the application's services, so rules, counters and the soap ledger are real):
-users with avatars, follows, communities with photos/banners, memberships and roles (leader, admins, a silenced
-and a banned member), posts with cat/dog photos, threaded comments, supports, bubblepops (active and expired ones for
-the cleanup job), letters and replies, reports (some reviewed, with audit entries), the customization catalog,
-purchases by users and by communities (community wallets are funded), and soap balances to found communities.
-It also shows the administration states and every customization option: a suspended account
-(`suspenso_demo`), a banned one (`banido_demo`, whose login explains the ban), a deleted account (its posts stay as
-"Conta excluída"), a suspended, a banned and a deleted community, offline-drawn wallpapers (four variations, one tiled),
-three accent colors, two profile sections, extra badges (up to three per profile, one granted by staff) and a banner
-for every community. Sign in as `admin_demo` and open `/moderation` to see them.
-Dates are spread over the last 30 days. Photos come from The Cat API and Dog CEO (free, no key), are downloaded once to
+**16 people** who read as real neighbours: each has a name that winks at a cartoon character (Marcos Esponja Silva,
+Lucas Molusco Ferreira, Marlene Baiacu Lima...), the character as profile picture, a bio, their own pets and a way of
+talking. Everyone writes about their own cats and dogs: about 135 hand-written posts (no caption is repeated, activity
+varies from person to person), question threads with real answers (chocolate, vaccines, hot asphalt...), reactions in
+each person's voice, 11 letter conversations, bubblepops, 8 communities with leaders, admins and banners, friend groups,
+the customization catalog with purchases, reports, and the administration states below.
+Dates are spread over the last 45 days. Dog photos come from the dog's own breed (Dog CEO per breed), cat photos from
+The Cat API (captions about cats never mention colors or breeds). No photo is used twice. Profile pictures are the
+files in `backend/.demo_cache/avatars/` (spongebob, patrick, squidward, krabs, plankton, sandy, pearl, puff, gary, tom);
+the generic fish `tom` is recolored for the extra fish characters, and a missing file falls back to generated art.
+Those character images belong to their owners: they stay in the git-ignored cache and are only used for this demo.
+
+It also shows the administration states and every customization option: a suspended account (`suspenso_demo`), a banned
+one (`banido_demo`, whose login explains the ban), a deleted account (its posts stay as "Conta excluída"), a suspended,
+a banned and a deleted community, four offline-drawn wallpapers (one tiled), three accent colors, a profile section
+written by each person who bought one, extra badges (up to three per profile, one granted by staff) and a banner for
+the communities. Sign in as `admin_demo` and open `/moderation` to see the states.
+
+Photos come from The Cat API and Dog CEO (free, no key), are downloaded once to
 `backend/.demo_cache/` (git-ignored) and reused; offline it uses the cache or skips images with a warning.
 Photos are stored through the normal upload fields in `backend/media/`.
 
@@ -52,8 +61,9 @@ Photos are stored through the normal upload fields in `backend/media/`.
 > `backend/media/`. `make test` uses the test settings (a temporary media folder).
 
 Run it directly with `DJANGO_SETTINGS_MODULE=config.settings.demo uv run python manage.py seed_demo` (from `backend/`):
-`--seed 42`, `--users 12`, `--communities 6` (max 8), `--posts-per-user 3`, `--comments-per-post 3`,
-`--expired-bubblepops 2`, `--days 30`, `--images 12` (photos cached per species), `--no-images`, `--no-download`.
+`--seed 42`, `--users 16` (first N people of `personas.py`), `--communities 8`, `--posts-per-user 0` (0 = all the
+written posts), `--comments-per-post 4`, `--expired-bubblepops 2`, `--days 45`, `--images 60` (download cap per photo pool),
+`--no-images`, `--no-download`. The people and their posts live in `backend/apps/core/demo/personas.py` and `stories.py`.
 Running it again adds nothing (same seed, same choices). `--reset` deletes only what the seed created (tracked in
 `backend/.demo_cache/seed_manifest.json`), including its media files and the ledger rows of the accounts it made,
 and keeps anything you created by hand. The command refuses to run outside `config.settings.demo`, with `DEBUG` off, or

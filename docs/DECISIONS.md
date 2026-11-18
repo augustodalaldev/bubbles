@@ -274,3 +274,10 @@ Q2 login identifier · Q3 signup grant · Q4 founding cost · Q5 birth_date rule
 - Tests refuse to run unless `MEDIA_ROOT` is a temporary folder, and only then delete it at the end (they once wiped the demo's media when run with the demo settings).
 - Known and accepted: after a password change the access tokens of other devices stay valid until they expire (15 min); refresh tokens are blacklisted immediately. Checking the database on every request to close that window is not worth its cost here.
 - The intermittent test failure seen once in phase 3 did not reproduce in 24 consecutive runs. The likely cause is two pytest processes using the test database at the same time (seen again during this review when a background loop overlapped).
+
+## Demo content by people (2026-11-18)
+- The demo is written, not randomized: 16 people (`demo/personas.py`) with a character as profile picture, a pet and a voice; their posts, threads and letters are in `demo/stories.py`. Random choices remain only for supports, reaction wording and timestamps (hours weighted to lunch and evening). Report statuses and moderated members are fixed.
+- Photos match the author's pet: dogs come from their breed (Dog CEO breed endpoints, pools `dog:<breed>`), cats from the cat pool, so cat captions never name colors or breeds (a test checks it). `ImageLibrary.take` hands out each cached photo once, in a fixed shuffled order, so no picture is shown twice. `--images` caps downloads per pool.
+- Profile pictures are the files in `.demo_cache/avatars/` (provided by the owner, not versioned). The generic fish `tom.png` is hue-rotated for the extra fish characters; a missing avatar falls back to generated art and a warning.
+- Badges next to a name: `UserName` has a compact variant (name on one line, truncated with the full name in `title`; below it only the most expensive badge plus "+N") and a full variant for the profile header. The price travels in the equipped snapshot (`price`), so badges equipped before this change sort by slot order until they are equipped again.
+- Pytest and the seed use different settings on purpose; the media guard in `conftest.py` stays.

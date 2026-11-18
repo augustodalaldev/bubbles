@@ -48,6 +48,10 @@
 ## Review after polish 2 (2026-11-18)
 - [x] Heartbeat fixed (200 instead of 401); demo shows popular suggestions; `/account`, `/moderation`, `/c/:commname/settings`; moderated-community leaders can transfer and members can leave (and see it under "Minhas"); chat bubble applied to comments and letters; store previews validated; banner first on phones; tests protect the real media folder; REQUIREMENTS_CHANGES updated. 637 tests
 
+## Demo by people and badges under the name (2026-11-18)
+- [x] `UserName` compact/full: the name is never pushed out by badges (below it, most expensive badge + "+N" in lists, all badges in the profile header)
+- [x] Demo rewritten around 16 people with character avatars, own pets, ~135 posts, threads, letters and bubblepops; breed-matched photos with no repeats; personal sections; 45 days of history. 648 tests
+
 ## Notes
 - Do NOT run `migrate` until the custom `User` exists and `AUTH_USER_MODEL` is set (first task of 1.2).
 
