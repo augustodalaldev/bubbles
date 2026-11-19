@@ -86,7 +86,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     const el = playgroundRef.current;
     if (!el) return;
     setMuralWidth(el.clientWidth || 560);
-    const observer = new ResizeObserver(([entry]) => setMuralWidth(Math.round(entry.contentRect.width)));
+    const observer = new ResizeObserver(([entry]) => {
+      // A detached or hidden mural reports 0; keep the last real width instead of shrinking the bubbles.
+      const width = Math.round(entry.contentRect.width);
+      if (width > 0) setMuralWidth(width);
+    });
     observer.observe(el);
     return () => observer.disconnect();
   }, [viewMode, postsStatus, posts.length]);
@@ -94,14 +98,19 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const profile: User | null = isOwn ? me : other;
   const theme = themeColors(profile);
 
-  const loadProfile = useCallback(async () => {
+  // `silent` refreshes the data without swapping the page for the loading state (used after follow/unfollow).
+  const loadProfile = useCallback(async (silent = false) => {
     if (isOwn) return;
-    setProfileStatus("loading");
+    if (!silent) setProfileStatus("loading");
     setProfileError(null);
     try {
       setOther(await getProfile(targetUsername));
       setProfileStatus("ready");
     } catch (err) {
+      if (silent) {
+        setActionError(errorMessage(err));
+        return;
+      }
       setProfileError(toApiError(err).status === 404 ? "Perfil não encontrado." : errorMessage(err));
       setProfileStatus("error");
     }
@@ -153,7 +162,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     try {
       if (profile.is_following) await unfollowUser(profile.username);
       else await followUser(profile.username);
-      await Promise.all([loadProfile(), loadSide()]);
+      await Promise.all([loadProfile(true), loadSide()]);
     } catch (err) {
       setActionError(errorMessage(err));
     } finally {
