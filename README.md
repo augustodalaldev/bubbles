@@ -1,122 +1,120 @@
-# Bubbles
+# Bubbles 🫧
 
-A community-driven social network built around bubbles and soap.
+Uma rede social de comunidades onde ninguém curte nada: quem quer apoiar alguém paga em **soap** (sabão).
+Trabalho final de APSOO (UFMS).
 
-Backend: Django 5.2 + DRF + PostgreSQL (`backend/`, Python 3.12+, managed with `uv`).
-Frontend: React + TypeScript + Vite + Tailwind (`frontend/`).
+- **Backend:** Django 5.2 + DRF + PostgreSQL, em `backend/` (Python 3.12+, gerenciado com `uv`).
+- **Frontend:** React + TypeScript + Vite + Tailwind, em `frontend/`.
 
-## Run it
+## Como o sistema funciona
+
+A ideia é uma rede pequena e calma, com cara de web dos anos 2000 (Orkut), sem algoritmo decidindo o que você vê.
+
+**Soap é a única moeda e a única forma de reação.** Não existe curtida nem coração. Você ganha 20 soaps ao criar a
+conta, mais um pouco por usar o sistema (5 a cada 5 minutos de uso, até 15 por dia), e gasta quando faz algo que
+custa: publicar, apoiar, criar um bubblepop, fundar uma comunidade (300), comprar customização. Quando você apoia
+uma publicação, 1 soap sai do seu saldo e vai para o autor (e para a comunidade, se for um post de comunidade).
+Todos os valores ficam em uma tabela de configuração e podem ser mudados pela administração.
+
+**O que dá para fazer:**
+- **Bubblegrams:** as publicações (texto ou foto), no seu perfil ou dentro de uma comunidade. Têm comentários e respostas.
+- **Bubblepops:** fotos temporárias, tipo stories. Quanto mais tempo no ar, mais soap custa.
+- **Comunidades:** têm líder, administradores e membros, diretrizes próprias e regras de entrada e saída.
+- **Cartas:** mensagens privadas, só para quem você segue, e cada carta só pode ser respondida uma vez.
+- **Loja:** molduras, temas, selos, cor do nome, papéis de parede e seção de perfil. Tudo comprado com soap.
+- **Feed:** cronológico, com algumas sugestões marcadas como sugestão. Nada de recomendação por IA.
+- **Moderação:** suspensão, banimento e denúncias, com histórico de auditoria. Fica na tela `/moderation` (só staff)
+  e no Django Admin.
+
+**Como o código está organizado.** O backend é em camadas (models, selectors, services, serializers, views). A regra de
+negócio mora nos services, e soap só se mexe por `economy.services`, que trava as carteiras em ordem e registra
+cada movimentação em um extrato. Os erros da API sempre saem no mesmo formato (`{"error": {"code", "message", ...}}`)
+e o frontend traduz pelo `code`. Contas e comunidades excluídas são anonimizadas em vez de apagadas, para o conteúdo
+dos outros não sumir junto.
+
+## Rodando
+
+Precisa de Docker (para o PostgreSQL), `uv` e Node.
+
 ```bash
-cp .env.example .env      # then set DJANGO_SECRET_KEY
-make up                   # PostgreSQL via Docker
+cp .env.example .env      # defina o DJANGO_SECRET_KEY
+make up                   # PostgreSQL no Docker
 cd backend && uv sync && uv run python manage.py migrate && cd ..
-make run                  # API at http://localhost:8000/api/docs/
+make run                  # API em http://localhost:8000/api/docs/
 
 cd frontend && npm install && cd ..
-make frontend-dev         # app at http://localhost:5173 (proxies /api and /media to :8000)
+make frontend-dev         # app em http://localhost:5173
 ```
 
-Create a staff user with `cd backend && uv run python manage.py createsuperuser` to use the Django Admin
-(`/admin/`), where the catalog of customization items and moderation are managed.
+Para usar o Django Admin (`/admin/`), onde ficam o catálogo da loja e a moderação, crie um usuário staff:
+`cd backend && uv run python manage.py createsuperuser`.
 
-## Useful commands
-`make test` · `make lint` · `make format` · `make check-migrations` · `make frontend-build`
+Outros comandos: `make test` · `make lint` · `make format` · `make check-migrations` · `make frontend-build`.
 
-## Demo environment (sample data)
-A separate database (`bubbles_teste`, never the development one) filled with pet communities:
+## Rodando a demonstração
+
+A demo usa um banco separado (`bubbles_teste`, nunca o de desenvolvimento) já cheio de gente, posts e comunidades,
+para dar para explorar o sistema sem montar tudo na mão. Com o `.env` criado e o `make up` rodando:
+
 ```bash
-make demo             # creates the DB if needed, migrates, fills it, serves the backend on :8001
-make demo-frontend    # second terminal: Vite pointed at the demo backend (VITE_API_TARGET)
-make demo-reset       # drop and recreate the demo database from scratch, then `make demo`
-make demo-scheduler   # optional: run the periodic jobs against the demo database
+make demo             # cria o banco, migra, popula e sobe o backend em :8001
+make demo-frontend    # em outro terminal: frontend apontando para o backend da demo
 ```
-`make demo` prints the credentials; every account uses the password `DemoPets2026!`:
-`admin_demo` (staff, opens `/admin/`), `moderador_demo` (admin of several communities) and a few regular users.
-Open http://localhost:5173 after `make demo-frontend`.
 
-What it creates (all through the application's services, so rules, counters and the soap ledger are real):
-**16 people** who read as real neighbours: each has a name that winks at a cartoon character (Marcos Esponja Silva,
-Lucas Molusco Ferreira, Marlene Baiacu Lima...), the character as profile picture, a bio, their own pets and a way of
-talking. Everyone writes about their own cats and dogs: about 135 hand-written posts (no caption is repeated, activity
-varies from person to person), question threads with real answers (chocolate, vaccines, hot asphalt...), reactions in
-each person's voice, 11 letter conversations, bubblepops, 8 communities with leaders, admins and banners, friend groups,
-the customization catalog with purchases, reports, and the administration states below.
-Dates are spread over the last 45 days. Dog photos come from the dog's own breed (Dog CEO per breed), cat photos from
-The Cat API (captions about cats never mention colors or breeds). No photo is used twice. Profile pictures are the
-files in `backend/.demo_cache/avatars/` (spongebob, patrick, squidward, krabs, plankton, sandy, pearl, puff, gary, tom);
-the generic fish `tom` is recolored for the extra fish characters, and a missing file falls back to generated art.
-Those character images belong to their owners: they stay in the git-ignored cache and are only used for this demo.
+Depois é só abrir http://localhost:5173. O `make demo` imprime as contas, e todas usam a senha `DemoPets2026!`:
 
-It also shows the administration states and every customization option: a suspended account (`suspenso_demo`), a banned
-one (`banido_demo`, whose login explains the ban), a deleted account (its posts stay as "Conta excluída"), a suspended,
-a banned and a deleted community, three offline-drawn wallpapers, three accent colors, a profile section
-written by each person who bought one, extra badges (up to three per profile, one granted by staff) and a banner for
-the communities. Sign in as `admin_demo` and open `/moderation` to see the states.
-
-Photos come from The Cat API and Dog CEO (free, no key), are downloaded once to
-`backend/.demo_cache/` (git-ignored) and reused; offline it uses the cache or skips images with a warning.
-Photos are stored through the normal upload fields in `backend/media/`.
-
-> Never run `pytest` with `DJANGO_SETTINGS_MODULE` pointing at the demo settings: the tests would use the demo's real
-> `backend/media/`. `make test` uses the test settings (a temporary media folder).
-
-Run it directly with `DJANGO_SETTINGS_MODULE=config.settings.demo uv run python manage.py seed_demo` (from `backend/`):
-`--seed 42`, `--users 16` (first N people of `personas.py`), `--communities 8`, `--posts-per-user 0` (0 = all the
-written posts), `--comments-per-post 4`, `--expired-bubblepops 2`, `--days 45`, `--images 60` (download cap per photo pool),
-`--no-images`, `--no-download`. The people and their posts live in `backend/apps/core/demo/personas.py` and `stories.py`.
-Running it again adds nothing (same seed, same choices). `--reset` deletes only what the seed created (tracked in
-`backend/.demo_cache/seed_manifest.json`), including its media files and the ledger rows of the accounts it made,
-and keeps anything you created by hand. The command refuses to run outside `config.settings.demo`, with `DEBUG` off, or
-on any database other than the demo one.
-
-## Frontend URLs
-| URL | Screen |
+| Usuário | Para quê |
 |---|---|
-| `/` · `/?q=term` | Feed · search |
-| `/login` · `/register` | Authentication (`?next=/path` returns to the page you wanted) |
-| `/u/:username` · `/u/:username/followers` · `/u/:username/following` | Profile (your own too) · follower and following lists |
-| `/account` | Your account: edit profile, change password/e-mail, delete account |
-| `/communities` · `/c/:commname` · `/c/:commname/settings` | Community hub · community · its settings (edit, transfer leadership, delete) |
-| `/store` | Customization store (frames, themes, badges, name color, wallpapers, accent colors, profile section) |
-| `/letters` · `/letters/:id` · `/letters?to=username` | Mailbox · a letter · composer addressed to someone |
-| `/moderation` | Staff only: suspend, ban and restore users and communities; audit history |
-| `/p/:id` | A single post (shareable link) |
-| anything else | 404 page |
+| `admin_demo` | staff: abre o `/admin/` e a tela `/moderation` |
+| `moderador_demo` | administra várias comunidades |
+| `suspenso_demo` / `banido_demo` | ver como ficam uma conta suspensa e uma banida |
+| os demais | usuários comuns, com pets, posts, cartas e compras |
 
-Dev: the Vite server already falls back to `index.html` for these paths. Point it at another backend with
-`VITE_API_TARGET=http://127.0.0.1:8001 make frontend-dev`.
+Se quiser recomeçar do zero: `make demo-reset`.
 
-**Production:** whatever serves `frontend/dist` must answer every non-file path with `index.html`
-(the app is a single-page app), otherwise reloading `/c/some_comm` returns the server's 404. nginx:
+**O que a demo cria.** 16 pessoas que parecem vizinhos de verdade (cada nome tem uma piscadela para um personagem de
+desenho, com o personagem como foto de perfil), todas falando dos próprios cachorros e gatos. São cerca de 135 posts
+escritos à mão, threads de dúvidas com respostas, cartas, bubblepops, 8 comunidades, itens da loja com compras feitas,
+denúncias e alguns estados de moderação (conta suspensa, banida e excluída; comunidade suspensa, banida e excluída).
+Tudo é criado pelos próprios services da aplicação, então saldo, contadores e extrato de soap são reais.
+
+Detalhes que vale saber:
+- As fotos de cachorro e gato vêm da Dog CEO e da The Cat API (grátis, sem chave). Elas são baixadas uma vez para
+  `backend/.demo_cache/` (fora do git) e reaproveitadas. Sem internet, a demo usa o cache ou pula as imagens.
+- As fotos de perfil dos personagens ficam em `backend/.demo_cache/avatars/` e não vão para o git, porque as imagens
+  pertencem aos donos. Se algum arquivo faltar, entra uma arte gerada no lugar.
+- Rodar `make demo` de novo não duplica nada. O `seed_demo --reset` apaga só o que a própria demo criou.
+- **Nunca rode o `pytest` com o `DJANGO_SETTINGS_MODULE` da demo**, porque os testes apagariam o `backend/media/` dela.
+  O `make test` já usa as configurações certas.
+
+As opções do comando (`--users`, `--communities`, `--no-images` etc.) estão em `backend/apps/core/management/commands/seed_demo.py`.
+
+## Ganho passivo de soap
+
+O soap por tempo de uso e a limpeza de bubblepops vencidos rodam por um agendador simples, sem Celery nem Redis:
+
+```bash
+make scheduler        # fica rodando; Ctrl+C para parar
+make scheduler-once   # roda cada tarefa uma vez e sai
+make demo-scheduler   # o mesmo, contra o banco da demo
+```
+
+Sem ele nada quebra, mas ninguém recebe o soap passivo. Dá para rodar duas instâncias ao mesmo tempo sem pagar em dobro,
+porque as tarefas usam lock do PostgreSQL.
+
+## Em produção
+
+O frontend é uma SPA: quem servir o `frontend/dist` precisa devolver o `index.html` para qualquer caminho que não seja
+arquivo, senão recarregar `/c/alguma_comunidade` dá 404. No nginx:
+
 ```nginx
 location / { root /var/www/bubbles; try_files $uri /index.html; }
 location /api/ { proxy_pass http://127.0.0.1:8000; }
 location /media/ { proxy_pass http://127.0.0.1:8000; }
 ```
-`npm run preview` (Vite) already does this fallback.
 
-## Scheduler (passive soap and bubblepop cleanup)
-```bash
-make scheduler        # keeps running; stop with Ctrl+C (SIGINT/SIGTERM stop it cleanly)
-make scheduler-once   # run every job once and exit (non-zero if one failed)
-```
-`manage.py run_scheduler` is a small in-process loop (no Celery/Redis) and works the same inside or
-outside Docker. Intervals:
+## Mais documentação
 
-| Job | Runs | Why |
-|---|---|---|
-| `distribute_passive_soap` | every `passive_interval_minutes` (5 by default, re-read from the economy settings), aligned to the interval | Payment is idempotent per interval window, so one run per window pays exactly once |
-| `cleanup_expired_bubblepops` | every 60 minutes (`--cleanup-interval`) | Expired bubblepops are already hidden when read; the job only frees rows and disk |
-
-Options: `--passive-interval SECONDS`, `--cleanup-interval SECONDS`, `--no-run-on-start`, `--once`.
-Every execution is logged (`started` / `finished in Xs -> result` / `FAILED` with traceback); a failing
-job is logged and retried on its next run without stopping the scheduler or the other job.
-Running two schedulers (or a scheduler plus a manual run) is safe: the jobs take a PostgreSQL advisory
-lock, so overlapping runs never pay or delete twice.
-
-Alternative without the loop (cron): `*/5 * * * * cd /path/backend && uv run python manage.py run_scheduler --once`
-(passive soap is idempotent per window, so extra runs are harmless).
-
-## Docs
-`docs/REVIEW_PLAN.md` (review and integration plan), `docs/PROGRESS.md`, `docs/DECISIONS.md`,
-`docs/REQUIREMENTS_CHANGES.md`, `docs/ER.md`, `docs/frontend/PLAN.md`.
+Em `docs/`: `DECISIONS.md` (por que cada coisa é do jeito que é), `PROGRESS.md`, `ER.md` (modelo de dados),
+`REQUIREMENTS_CHANGES.md` e `frontend/PLAN.md`. O material do relatório (requisitos, casos de uso e diagramas de classes)
+está em `report/`.
