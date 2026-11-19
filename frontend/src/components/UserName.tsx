@@ -9,7 +9,7 @@ interface UserNameProps {
   /**
    * `compact` (feeds, comments, lists): the name on one line and, below it, only the most
    * valuable badge plus a "+N" for the rest, so a long name or many badges never push it out.
-   * `full` (the profile header): every badge, wrapping onto more lines if needed.
+   * `full` (the profile header): every badge, wrapping onto more lines if needed, centered under the photo.
    */
   variant?: "compact" | "full";
 }
@@ -24,13 +24,14 @@ export const UserName: React.FC<UserNameProps> = ({
   const badges = showBadge ? badgesOf(user) : [];
   const shown = variant === "full" ? badges : badges.slice(0, 1);
   const hidden = badges.slice(shown.length);
+  const centered = variant === "full";
   return (
-    <span className="inline-flex flex-col items-start min-w-0 max-w-full align-top">
+    <span className={`inline-flex flex-col min-w-0 max-w-full align-top ${centered ? "items-center text-center" : "items-start"}`}>
       <span className={`${className} max-w-full ${variant === "compact" ? "truncate" : ""}`} style={{ color: nameColor(user) }} title={user.name}>
         {user.name}
       </span>
       {badges.length > 0 && (
-        <span className="mt-0.5 flex flex-wrap items-center gap-1 max-w-full">
+        <span className={`mt-0.5 flex flex-wrap items-center gap-1 max-w-full ${centered ? "justify-center" : ""}`}>
           {shown.map((badge, index) => (
             <span
               key={index}
